@@ -1,0 +1,30 @@
+# Xcode
+## User settings & cache
+xcuserdata/
+*.xcuserdatad
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+## Build generated
+build/
+DerivedData/
+*.moved-aside
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS System Files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# User & Temporary Caches
+*.swp
+*~
+.idea/
+.vscode/
