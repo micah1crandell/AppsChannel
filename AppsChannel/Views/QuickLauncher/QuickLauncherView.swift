@@ -75,6 +75,20 @@ struct QuickLauncherView: View {
         }
 
         let (arranged, _) = AppUsageTracker.shared.arrangeMiddleOut(ranked)
+
+        // Matching hidden apps section at the far right behind a separator
+        var hiddenMatches = discoveryService.matchingHiddenApps(query: trimmedSearch)
+        if selectedCategory != "ALL" {
+            hiddenMatches = hiddenMatches.filter { $0.category == selectedCategory }
+        }
+
+        if !hiddenMatches.isEmpty {
+            var fullList = arranged
+            fullList.append(DiscoveredApp.hiddenAppsSeparator)
+            fullList.append(contentsOf: hiddenMatches)
+            return fullList
+        }
+
         return arranged
     }
 
@@ -493,6 +507,10 @@ struct QuickLauncherView: View {
 
     private func launchSelectedApp() {
         guard let app = currentApp else { return }
+        if app.isSeparator {
+            navigate(by: 1)
+            return
+        }
         if app.url.path == Self.openMainAppCard.url.path {
             SoundEffectsManager.shared.playAction()
             searchText = ""

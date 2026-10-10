@@ -10,7 +10,7 @@ struct AppCardContextMenu: ViewModifier {
 
     func body(content: Content) -> some View {
         content.contextMenu {
-            if !app.isAppsChannelApp {
+            if !app.isAppsChannelApp && !app.isSeparator {
                 Button {
                     onLaunch()
                 } label: {
@@ -100,10 +100,18 @@ struct AppCardContextMenu: ViewModifier {
 
                 Divider()
 
-                Button(role: .destructive) {
-                    discoveryService.hideApp(app)
-                } label: {
-                    Label("Hide from AppsChannel", systemImage: "eye.slash")
+                if discoveryService.isHidden(app: app) || app.isHiddenApp {
+                    Button {
+                        discoveryService.unhideApp(path: app.url.path)
+                    } label: {
+                        Label("Unhide in AppsChannel", systemImage: "eye")
+                    }
+                } else {
+                    Button(role: .destructive) {
+                        discoveryService.hideApp(app)
+                    } label: {
+                        Label("Hide from AppsChannel", systemImage: "eye.slash")
+                    }
                 }
             }
         }

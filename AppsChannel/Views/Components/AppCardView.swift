@@ -49,38 +49,66 @@ struct AppCardView: View {
         let scale = calculateScale(offset: offset)
 
         VStack(spacing: 0) {
-            if isIconOnly {
+            if app.isSeparator {
+                // Sleek Vertical Separator Divider Card
+                HiddenAppsSeparatorCardView(
+                    width: cardWidth,
+                    height: cardHeight,
+                    isCompact: isCompact,
+                    isIconOnly: isIconOnly,
+                    isSelected: isSelected
+                )
+            } else if isIconOnly {
                 // Pure App Icon Display Style (Minimalist Cover Flow)
                 VStack(spacing: isCompact ? 8 : 12) {
-                    Image(nsImage: app.icon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: iconSize, height: iconSize)
-                        .shadow(
-                            color: isSelected ? app.accentColor.opacity(0.65) : Color.black.opacity(0.38),
-                            radius: isSelected ? 22 : 12,
-                            x: 0,
-                            y: isSelected ? 10 : 5
-                        )
-                        .overlay(
-                            Group {
-                                if isSelected {
-                                    RoundedRectangle(cornerRadius: iconSize * 0.225, style: .continuous)
-                                        .strokeBorder(
-                                            LinearGradient(
-                                                colors: [Color.white, Color.white.opacity(0.35)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            ),
-                                            lineWidth: 2.0
-                                        )
-                                        .padding(-3)
+                    ZStack(alignment: .topTrailing) {
+                        Image(nsImage: app.icon)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: iconSize, height: iconSize)
+                            .shadow(
+                                color: isSelected ? app.accentColor.opacity(0.65) : Color.black.opacity(0.38),
+                                radius: isSelected ? 22 : 12,
+                                x: 0,
+                                y: isSelected ? 10 : 5
+                            )
+                            .overlay(
+                                Group {
+                                    if isSelected {
+                                        RoundedRectangle(cornerRadius: iconSize * 0.225, style: .continuous)
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [Color.white, Color.white.opacity(0.35)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 2.0
+                                            )
+                                            .padding(-3)
+                                    }
                                 }
+                            )
+
+                        if app.isHiddenApp {
+                            HStack(spacing: 3) {
+                                Image(systemName: "eye.slash.fill")
+                                    .font(.system(size: isCompact ? 9 : 11, weight: .bold))
                             }
-                        )
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, isCompact ? 5 : 6)
+                            .padding(.vertical, isCompact ? 3 : 4)
+                            .background(Color.orange, in: Capsule())
+                            .shadow(color: .orange.opacity(0.6), radius: 4)
+                            .offset(x: isCompact ? 4 : 6, y: isCompact ? -4 : -6)
+                        }
+                    }
 
                     HStack(spacing: 5) {
-                        if discoveryService.isRunning(app: app) {
+                        if app.isHiddenApp {
+                            Image(systemName: "eye.slash.fill")
+                                .font(.system(size: isCompact ? 9 : 11))
+                                .foregroundStyle(.orange)
+                        } else if discoveryService.isRunning(app: app) {
                             Circle()
                                 .fill(Color(red: 0.25, green: 0.90, blue: 0.55))
                                 .frame(width: isCompact ? 5 : 6, height: isCompact ? 5 : 6)
@@ -127,9 +155,9 @@ struct AppCardView: View {
             perspective: 0.45
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(app.name), \(app.category)\(discoveryService.isRunning(app: app) ? ", Running" : "")")
+        .accessibilityLabel(app.isSeparator ? "Hidden Apps Section" : "\(app.name), \(app.category)\(app.isHiddenApp ? ", Hidden" : "")\(discoveryService.isRunning(app: app) ? ", Running" : "")")
         .accessibilityValue(app.tagBadge.isEmpty ? "" : app.tagBadge)
-        .accessibilityHint(isSelected ? "Press Return to launch application" : "Click to select application")
+        .accessibilityHint(app.isSeparator ? "Press Return to navigate to hidden apps" : (isSelected ? "Press Return to launch application" : "Click to select application"))
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : [.isButton])
         .onTapGesture {
             if isSelected {
@@ -231,139 +259,173 @@ struct ChannelCardDesignView: View {
     }
 
     var body: some View {
-        VStack(spacing: max(2, height * 0.03)) {
-            // Top Header: "macOS • [CATEGORY]"
-            if showHeader {
-                HStack(spacing: max(2, width * 0.025)) {
-                    Text("macOS")
-                        .font(.system(size: headerFontSize, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.9))
+        if app.isSeparator {
+            HiddenAppsSeparatorCardView(
+                width: width,
+                height: height,
+                isCompact: width < 150,
+                isIconOnly: false,
+                isSelected: isSelected
+            )
+        } else {
+            VStack(spacing: max(2, height * 0.03)) {
+                // Top Header: "macOS • [CATEGORY]" or "HIDDEN • [CATEGORY]"
+                if showHeader {
+                    HStack(spacing: max(2, width * 0.025)) {
+                        Text("macOS")
+                            .font(.system(size: headerFontSize, weight: .bold))
+                            .foregroundStyle(Color.white.opacity(0.9))
 
-                    Circle()
-                        .fill(app.accentColor)
-                        .frame(width: max(2.5, width * 0.022), height: max(2.5, width * 0.022))
+                        Circle()
+                            .fill(app.isHiddenApp ? Color.orange : app.accentColor)
+                            .frame(width: max(2.5, width * 0.022), height: max(2.5, width * 0.022))
 
-                    Spacer()
+                        Spacer()
 
-                    HStack(spacing: max(2.5, width * 0.02)) {
-                        if AppDiscoveryService.shared.isRunning(app: app) {
-                            Circle()
-                                .fill(Color(red: 0.25, green: 0.90, blue: 0.55))
-                                .frame(width: max(4.5, width * 0.032), height: max(4.5, width * 0.032))
-                                .shadow(color: Color(red: 0.25, green: 0.90, blue: 0.55).opacity(0.85), radius: 2.5)
+                        HStack(spacing: max(2.5, width * 0.02)) {
+                            if app.isHiddenApp {
+                                HStack(spacing: 2.5) {
+                                    Image(systemName: "eye.slash.fill")
+                                        .font(.system(size: max(4.5, headerFontSize * 0.8), weight: .bold))
+                                    Text("HIDDEN")
+                                        .font(.system(size: max(4.5, headerFontSize * 0.8), weight: .heavy, design: .monospaced))
+                                }
+                                .foregroundStyle(Color.orange)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1.5)
+                                .background(Color.orange.opacity(0.2), in: Capsule())
+                            } else if AppDiscoveryService.shared.isRunning(app: app) {
+                                Circle()
+                                    .fill(Color(red: 0.25, green: 0.90, blue: 0.55))
+                                    .frame(width: max(4.5, width * 0.032), height: max(4.5, width * 0.032))
+                                    .shadow(color: Color(red: 0.25, green: 0.90, blue: 0.55).opacity(0.85), radius: 2.5)
+                            }
+
+                            Text(app.category.uppercased())
+                                .font(.system(size: max(5.5, headerFontSize * 0.92), weight: .heavy, design: .monospaced))
+                                .foregroundStyle(app.isHiddenApp ? Color.orange.opacity(0.9) : Color.white.opacity(0.75))
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.horizontal, max(5, width * 0.055))
+                    .padding(.top, max(4, height * 0.045))
+                }
+
+                // Center Icon Canvas
+                ZStack {
+                    RoundedRectangle(cornerRadius: canvasCornerRadius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.black.opacity(0.65),
+                                    Color.black.opacity(0.85)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: canvasCornerRadius, style: .continuous)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [.white.opacity(0.2), .white.opacity(0.04)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+
+                    VStack(spacing: max(2, canvasHeight * 0.06)) {
+                        Image(nsImage: app.icon)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: iconSize, height: iconSize)
+                            .shadow(
+                                color: (app.isHiddenApp ? Color.orange : app.accentColor).opacity(isSelected ? 0.45 : 0.2),
+                                radius: max(3, iconSize * 0.15),
+                                x: 0,
+                                y: max(1.5, iconSize * 0.06)
+                            )
+
+                        Text(app.name)
+                            .font(.system(size: titleFontSize, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .shadow(color: .black.opacity(0.6), radius: 2.5, x: 0, y: 1.5)
+                    }
+                    .padding(.vertical, max(3, canvasHeight * 0.07))
+                    .padding(.horizontal, max(4, canvasWidth * 0.05))
+                }
+                .frame(width: canvasWidth, height: canvasHeight)
+
+                // Bottom Footer: Tag & Size
+                if showFooter {
+                    HStack {
+                        if app.isHiddenApp {
+                            HStack(spacing: 3) {
+                                Image(systemName: "eye.slash.fill")
+                                    .font(.system(size: footerFontSize * 0.9))
+                                Text("HIDDEN APP")
+                                    .font(.system(size: footerFontSize, weight: .bold, design: .rounded))
+                            }
+                            .foregroundStyle(Color.orange)
+                            .padding(.horizontal, max(3.5, width * 0.03))
+                            .padding(.vertical, max(1.5, height * 0.012))
+                            .background(Color.orange.opacity(0.2), in: Capsule())
+                        } else {
+                            Text(app.tagBadge)
+                                .font(.system(size: footerFontSize, weight: .bold, design: .rounded))
+                                .foregroundStyle(Color.white.opacity(0.9))
+                                .padding(.horizontal, max(3.5, width * 0.03))
+                                .padding(.vertical, max(1.5, height * 0.012))
+                                .background(Color.white.opacity(0.12), in: Capsule())
                         }
 
-                        Text(app.category.uppercased())
-                            .font(.system(size: max(5.5, headerFontSize * 0.92), weight: .heavy, design: .monospaced))
-                            .foregroundStyle(Color.white.opacity(0.75))
+                        Spacer()
+
+                        Text(app.sizeString)
+                            .font(.system(size: footerFontSize, weight: .medium, design: .monospaced))
+                            .foregroundStyle(Color.white.opacity(0.7))
                             .lineLimit(1)
                     }
+                    .padding(.horizontal, max(5, width * 0.055))
+                    .padding(.bottom, max(4, height * 0.045))
                 }
-                .padding(.horizontal, max(5, width * 0.055))
-                .padding(.top, max(4, height * 0.045))
             }
-
-            // Center Icon Canvas
-            ZStack {
-                RoundedRectangle(cornerRadius: canvasCornerRadius, style: .continuous)
+            .frame(width: width, height: height)
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.black.opacity(0.65),
-                                Color.black.opacity(0.85)
+                                Color(white: 0.10).opacity(0.96),
+                                Color(white: 0.04).opacity(0.98)
                             ],
-                            startPoint: .top,
-                            endPoint: .bottom
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
                     )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: canvasCornerRadius, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.2), .white.opacity(0.04)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: isSelected ?
+                                [Color.white, Color.white.opacity(0.65), Color.white.opacity(0.25)] :
+                                [Color.white.opacity(0.28), Color.white.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: isSelected ? max(1.3, width * 0.01) : 1.0
                     )
-
-                VStack(spacing: max(2, canvasHeight * 0.06)) {
-                    Image(nsImage: app.icon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: iconSize, height: iconSize)
-                        .shadow(
-                            color: app.accentColor.opacity(isSelected ? 0.45 : 0.2),
-                            radius: max(3, iconSize * 0.15),
-                            x: 0,
-                            y: max(1.5, iconSize * 0.06)
-                        )
-
-                    Text(app.name)
-                        .font(.system(size: titleFontSize, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .shadow(color: .black.opacity(0.6), radius: 2.5, x: 0, y: 1.5)
-                }
-                .padding(.vertical, max(3, canvasHeight * 0.07))
-                .padding(.horizontal, max(4, canvasWidth * 0.05))
-            }
-            .frame(width: canvasWidth, height: canvasHeight)
-
-            // Bottom Footer: Tag & Size
-            if showFooter {
-                HStack {
-                    Text(app.tagBadge)
-                        .font(.system(size: footerFontSize, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.white.opacity(0.9))
-                        .padding(.horizontal, max(3.5, width * 0.03))
-                        .padding(.vertical, max(1.5, height * 0.012))
-                        .background(Color.white.opacity(0.12), in: Capsule())
-
-                    Spacer()
-
-                    Text(app.sizeString)
-                        .font(.system(size: footerFontSize, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Color.white.opacity(0.7))
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, max(5, width * 0.055))
-                .padding(.bottom, max(4, height * 0.045))
-            }
+            )
+            .shadow(
+                color: isSelected ? Color.white.opacity(0.28) : Color.black.opacity(0.3),
+                radius: isSelected ? max(8, width * 0.09) : 6,
+                x: 0,
+                y: isSelected ? max(4, height * 0.035) : 3
+            )
         }
-        .frame(width: width, height: height)
-        .background(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(white: 0.10).opacity(0.96),
-                            Color(white: 0.04).opacity(0.98)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: isSelected ?
-                            [Color.white, Color.white.opacity(0.65), Color.white.opacity(0.25)] :
-                            [Color.white.opacity(0.28), Color.white.opacity(0.08)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: isSelected ? max(1.3, width * 0.01) : 1.0
-                )
-        )
-        .shadow(
-            color: isSelected ? Color.white.opacity(0.28) : Color.black.opacity(0.3),
-            radius: isSelected ? max(8, width * 0.09) : 6,
-            x: 0,
-            y: isSelected ? max(4, height * 0.035) : 3
-        )
     }
 }

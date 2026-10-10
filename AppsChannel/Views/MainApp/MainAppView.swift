@@ -76,6 +76,20 @@ struct MainAppView: View {
         }
 
         let (arranged, _) = AppUsageTracker.shared.arrangeMiddleOut(ranked)
+
+        // Matching hidden apps section at the far right behind a separator
+        var hiddenMatches = discoveryService.matchingHiddenApps(query: trimmedSearch)
+        if selectedCategory != "ALL" {
+            hiddenMatches = hiddenMatches.filter { $0.category == selectedCategory }
+        }
+
+        if !hiddenMatches.isEmpty {
+            var fullList = arranged
+            fullList.append(DiscoveredApp.hiddenAppsSeparator)
+            fullList.append(contentsOf: hiddenMatches)
+            return fullList
+        }
+
         return arranged
     }
 
@@ -667,6 +681,10 @@ struct MainAppView: View {
 
     private func launchSelectedApp() {
         guard let app = currentApp else { return }
+        if app.isSeparator {
+            navigate(by: 1)
+            return
+        }
         SoundEffectsManager.shared.playLaunch()
         let query = searchText
         searchText = ""

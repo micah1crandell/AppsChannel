@@ -285,18 +285,37 @@ struct ThreeDSGridView: View {
         let cursorInset: CGFloat = 3.5
 
         return ZStack {
-            if isIconOnly {
+            if app.isSeparator {
+                HiddenAppsSeparatorTileView(
+                    width: itemWidth,
+                    height: itemHeight,
+                    isCompact: isCompact,
+                    isSelected: isSelected
+                )
+            } else if isIconOnly {
                 // Pure App Icon Look (no background box, pure pristine macOS app icon squircle!)
-                Image(nsImage: app.icon)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: tileSize, height: tileSize)
-                    .shadow(
-                        color: isSelected ? app.accentColor.opacity(0.65) : Color.black.opacity(0.35),
-                        radius: isSelected ? 14 : 6,
-                        x: 0,
-                        y: isSelected ? 6 : 3
-                    )
+                ZStack(alignment: .topTrailing) {
+                    Image(nsImage: app.icon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: tileSize, height: tileSize)
+                        .shadow(
+                            color: isSelected ? app.accentColor.opacity(0.65) : Color.black.opacity(0.35),
+                            radius: isSelected ? 14 : 6,
+                            x: 0,
+                            y: isSelected ? 6 : 3
+                        )
+
+                    if app.isHiddenApp {
+                        Image(systemName: "eye.slash.fill")
+                            .font(.system(size: max(8, tileSize * 0.18), weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(2.5)
+                            .background(Color.orange, in: Circle())
+                            .shadow(color: .orange.opacity(0.6), radius: 3)
+                            .offset(x: 2, y: -2)
+                    }
+                }
             } else {
                 // Unified Channel Card Look (Matching Cover Flow & Wall Grid!)
                 ChannelCardDesignView(
@@ -321,8 +340,8 @@ struct ThreeDSGridView: View {
         .scaleEffect(isSelected ? (reduceMotion ? 1.03 : 1.08) : 1.0)
         .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.25, dampingFraction: 0.75), value: isSelected)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(app.name), \(app.category)\(AppDiscoveryService.shared.isRunning(app: app) ? ", Running" : "")")
-        .accessibilityHint(isSelected ? "Press Return to launch application" : "Click to select application")
+        .accessibilityLabel(app.isSeparator ? "Hidden Apps Section" : "\(app.name), \(app.category)\(app.isHiddenApp ? ", Hidden" : "")\(AppDiscoveryService.shared.isRunning(app: app) ? ", Running" : "")")
+        .accessibilityHint(app.isSeparator ? "Press Return to navigate to hidden apps" : (isSelected ? "Press Return to launch application" : "Click to select application"))
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : [.isButton])
         .onTapGesture {
             if isSelected {
@@ -337,20 +356,44 @@ struct ThreeDSGridView: View {
     // MARK: - 3DS Speech Bubble Tooltip
     private func speechBubble(for app: DiscoveredApp) -> some View {
         HStack(spacing: 8) {
-            Image(nsImage: app.icon)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: isCompact ? 16 : 20, height: isCompact ? 16 : 20)
+            if app.isSeparator {
+                Image(systemName: "eye.slash.fill")
+                    .font(.system(size: isCompact ? 14 : 18, weight: .bold))
+                    .foregroundStyle(.orange)
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(app.name)
-                    .font(.system(size: isCompact ? 11 : 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Hidden Apps")
+                        .font(.system(size: isCompact ? 11 : 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
 
-                Text(app.category.uppercased())
-                    .font(.system(size: isCompact ? 8 : 9, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.6))
+                    Text("SEARCH SECTION")
+                        .font(.system(size: isCompact ? 8 : 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color.orange.opacity(0.9))
+                }
+            } else {
+                Image(nsImage: app.icon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: isCompact ? 16 : 20, height: isCompact ? 16 : 20)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 4) {
+                        Text(app.name)
+                            .font(.system(size: isCompact ? 11 : 13, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+
+                        if app.isHiddenApp {
+                            Image(systemName: "eye.slash.fill")
+                                .font(.system(size: isCompact ? 8.5 : 10))
+                                .foregroundStyle(.orange)
+                        }
+                    }
+
+                    Text(app.isHiddenApp ? "\(app.category.uppercased()) • HIDDEN" : app.category.uppercased())
+                        .font(.system(size: isCompact ? 8 : 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(app.isHiddenApp ? Color.orange.opacity(0.9) : Color.white.opacity(0.6))
+                }
             }
         }
         .padding(.horizontal, isCompact ? 10 : 14)
@@ -366,14 +409,16 @@ struct ThreeDSGridView: View {
             Capsule()
                 .strokeBorder(
                     LinearGradient(
-                        colors: [Color(red: 0.0, green: 0.95, blue: 0.85).opacity(0.6), Color.white.opacity(0.2)],
+                        colors: app.isSeparator ?
+                            [Color.orange.opacity(0.8), Color.white.opacity(0.3)] :
+                            [Color(red: 0.0, green: 0.95, blue: 0.85).opacity(0.6), Color.white.opacity(0.2)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 1
                 )
         )
-        .shadow(color: Color.black.opacity(0.45), radius: 8, x: 0, y: 4)
+        .shadow(color: (app.isSeparator ? Color.orange : Color(red: 0.0, green: 0.95, blue: 0.85)).opacity(0.35), radius: 8, x: 0, y: 3)
     }
 }
 

@@ -317,31 +317,71 @@ struct RetroHUDView: View {
         HStack(spacing: 20) {
             // Selected App Location & Info
             if let app = selectedApp {
-                HStack(spacing: 12) {
-                    Image(nsImage: app.icon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 24, height: 24)
+                if app.isSeparator {
+                    HStack(spacing: 12) {
+                        Image(systemName: "eye.slash.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.orange)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(app.name)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Hidden Apps Section")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
 
-                        Text(app.url.path)
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.5))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                            Text("Hidden applications matching search query")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.white.opacity(0.5))
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color(white: 0.08).opacity(0.88), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.orange.opacity(0.4), lineWidth: 1)
+                    )
+                } else {
+                    HStack(spacing: 12) {
+                        Image(nsImage: app.icon)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 24, height: 24)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(app.name)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.white)
+
+                                if app.isHiddenApp {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "eye.slash.fill")
+                                            .font(.system(size: 8.5))
+                                        Text("Hidden")
+                                            .font(.system(size: 9, weight: .bold))
+                                    }
+                                    .foregroundStyle(.orange)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 1.5)
+                                    .background(Color.orange.opacity(0.18), in: Capsule())
+                                }
+                            }
+
+                            Text(app.url.path)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.white.opacity(0.5))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color(white: 0.08).opacity(0.88), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                    )
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(Color(white: 0.08).opacity(0.88), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
-                )
             }
 
             Spacer()
@@ -378,23 +418,30 @@ struct RetroHUDView: View {
                     .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
             )
 
-            // Primary Launch Button
+            // Primary Launch / Next Button
             Button(action: onLaunch) {
                 HStack(spacing: 8) {
-                    Image(systemName: "arrow.up.forward.app.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("Launch")
-                        .font(.system(size: 13, weight: .bold))
+                    if selectedApp?.isSeparator == true {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Next App")
+                            .font(.system(size: 13, weight: .bold))
+                    } else {
+                        Image(systemName: "arrow.up.forward.app.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Launch")
+                            .font(.system(size: 13, weight: .bold))
+                    }
                 }
                 .foregroundStyle(.black)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 10)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(selectedApp?.isSeparator == true ? Color.orange : Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.white, lineWidth: 1)
+                        .strokeBorder(selectedApp?.isSeparator == true ? Color.orange : Color.white, lineWidth: 1)
                 )
-                .shadow(color: .white.opacity(0.25), radius: 8, x: 0, y: 2)
+                .shadow(color: (selectedApp?.isSeparator == true ? Color.orange : Color.white).opacity(0.25), radius: 8, x: 0, y: 2)
             }
             .buttonStyle(.plain)
         }

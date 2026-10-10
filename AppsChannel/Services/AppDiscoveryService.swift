@@ -13,7 +13,66 @@ struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     let sizeString: String
     let accentColor: Color
 
+    var isHiddenApp: Bool = false
+    var isSeparator: Bool = false
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        url: URL,
+        bundleIdentifier: String?,
+        icon: NSImage,
+        category: String,
+        tagBadge: String,
+        sizeString: String,
+        accentColor: Color,
+        isHiddenApp: Bool = false,
+        isSeparator: Bool = false
+    ) {
+        self.id = id
+        self.name = name
+        self.url = url
+        self.bundleIdentifier = bundleIdentifier
+        self.icon = icon
+        self.category = category
+        self.tagBadge = tagBadge
+        self.sizeString = sizeString
+        self.accentColor = accentColor
+        self.isHiddenApp = isHiddenApp
+        self.isSeparator = isSeparator
+    }
+
+    static let hiddenAppsSeparator: DiscoveredApp = {
+        let size = NSSize(width: 128, height: 128)
+        let img = NSImage(size: size, flipped: false) { rect in
+            let config = NSImage.SymbolConfiguration(pointSize: 64, weight: .bold)
+            if let symbol = NSImage(systemSymbolName: "eye.slash.fill", accessibilityDescription: nil)?.withSymbolConfiguration(config) {
+                let tinted = symbol.copy() as! NSImage
+                let drawRect = NSRect(x: 16, y: 16, width: 96, height: 96)
+                tinted.draw(in: drawRect)
+                return true
+            }
+            return false
+        }
+        return DiscoveredApp(
+            id: UUID(),
+            name: "Hidden Apps",
+            url: URL(fileURLWithPath: "/AppsChannel/Section/HiddenApps"),
+            bundleIdentifier: "com.micahcrandell.AppsChannel.hiddenAppsSeparator",
+            icon: img,
+            category: "SECTION",
+            tagBadge: "HIDDEN",
+            sizeString: "|",
+            accentColor: .orange,
+            isHiddenApp: false,
+            isSeparator: true
+        )
+    }()
+
     var isAppsChannelApp: Bool {
+        if isSeparator {
+            return true
+        }
         if name.localizedCaseInsensitiveCompare("AppsChannel") == .orderedSame {
             return true
         }
@@ -217,6 +276,38 @@ final class AppDiscoveryService: ObservableObject {
         SoundEffectsManager.shared.playAction()
     }
 
+    /// Returns hidden apps matching a search query, sorted by relevance score, marked with isHiddenApp = true
+    func matchingHiddenApps(query: String) -> [DiscoveredApp] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        let hiddenPaths = loadHiddenApps()
+        guard !hiddenPaths.isEmpty else { return [] }
+
+        let hiddenApps = allDiscoveredApps.filter {
+            hiddenPaths.contains($0.url.path) && !$0.isAppsChannelApp
+        }
+
+        let candidates = hiddenApps.filter { app in
+            app.name.localizedCaseInsensitiveContains(trimmed) ||
+            app.category.localizedCaseInsensitiveContains(trimmed) ||
+            AppUsageTracker.shared.searchScore(for: app, query: trimmed) > 30.0
+        }
+
+        let ranked = candidates.sorted { a1, a2 in
+            let s1 = AppUsageTracker.shared.searchScore(for: a1, query: trimmed)
+            let s2 = AppUsageTracker.shared.searchScore(for: a2, query: trimmed)
+            if s1 != s2 { return s1 > s2 }
+            return a1.name.localizedCaseInsensitiveCompare(a2.name) == .orderedAscending
+        }
+
+        return ranked.map { app in
+            var marked = app
+            marked.isHiddenApp = true
+            return marked
+        }
+    }
+
     func loadSavedOrder() -> [String] {
         UserDefaults.standard.stringArray(forKey: customOrderKey) ?? []
     }
@@ -377,6 +468,8 @@ final class AppDiscoveryService: ObservableObject {
     }
 
     func launch(app: DiscoveredApp, query: String? = nil) {
+        guard !app.isSeparator else { return }
+
         // Record launch count, recency timestamp, and search query association
         AppUsageTracker.shared.recordLaunch(app: app, query: query)
 

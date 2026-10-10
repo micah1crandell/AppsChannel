@@ -146,42 +146,72 @@ struct CoverFlowWallView: View {
     // MARK: - Individual Wall Cover Card (Apple Liquid Glass Style)
     private func wallCard(app: DiscoveredApp, index: Int, isSelected: Bool, row: Int) -> some View {
         VStack(spacing: 0) {
-            if isIconOnly {
+            if app.isSeparator {
+                HiddenAppsSeparatorCardView(
+                    width: cardWidth,
+                    height: cardHeight,
+                    isCompact: isCompact,
+                    isIconOnly: isIconOnly,
+                    isSelected: isSelected
+                )
+                .scaleEffect(isSelected ? 1.06 : 1.0)
+                .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.25, dampingFraction: 0.75)), value: isSelected)
+            } else if isIconOnly {
                 // Pure App Icon Only Look (Properly scaled & tight spacing)
                 VStack(spacing: isCompact ? 6 : 8) {
-                    Image(nsImage: app.icon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: iconSize, height: iconSize)
-                        .shadow(
-                            color: isSelected ? app.accentColor.opacity(0.7) : Color.black.opacity(0.35),
-                            radius: isSelected ? (isCompact ? 14 : 20) : 6,
-                            x: 0,
-                            y: isSelected ? 7 : 3
-                        )
-                        .overlay(
-                            Group {
-                                if isSelected {
-                                    RoundedRectangle(cornerRadius: iconSize * 0.225, style: .continuous)
-                                        .strokeBorder(
-                                            LinearGradient(
-                                                colors: [Color.white, Color.white.opacity(0.4)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            ),
-                                            lineWidth: isCompact ? 1.8 : 2.2
-                                        )
-                                        .padding(isCompact ? -3 : -4)
+                    ZStack(alignment: .topTrailing) {
+                        Image(nsImage: app.icon)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: iconSize, height: iconSize)
+                            .shadow(
+                                color: isSelected ? app.accentColor.opacity(0.7) : Color.black.opacity(0.35),
+                                radius: isSelected ? (isCompact ? 14 : 20) : 6,
+                                x: 0,
+                                y: isSelected ? 7 : 3
+                            )
+                            .overlay(
+                                Group {
+                                    if isSelected {
+                                        RoundedRectangle(cornerRadius: iconSize * 0.225, style: .continuous)
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [Color.white, Color.white.opacity(0.4)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: isCompact ? 1.8 : 2.2
+                                            )
+                                            .padding(isCompact ? -3 : -4)
+                                    }
                                 }
-                            }
-                        )
+                            )
 
-                    Text(app.name)
-                        .font(.system(size: isCompact ? 11 : 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .shadow(color: .black.opacity(0.85), radius: 3, x: 0, y: 1.5)
-                        .opacity(isSelected ? 1.0 : 0.85)
+                        if app.isHiddenApp {
+                            Image(systemName: "eye.slash.fill")
+                                .font(.system(size: isCompact ? 8.5 : 10.5, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(isCompact ? 2.5 : 3.5)
+                                .background(Color.orange, in: Circle())
+                                .shadow(color: .orange.opacity(0.6), radius: 3)
+                                .offset(x: 3, y: -3)
+                        }
+                    }
+
+                    HStack(spacing: 4) {
+                        if app.isHiddenApp {
+                            Image(systemName: "eye.slash.fill")
+                                .font(.system(size: isCompact ? 8 : 10))
+                                .foregroundStyle(.orange)
+                        }
+
+                        Text(app.name)
+                            .font(.system(size: isCompact ? 11 : 13, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .shadow(color: .black.opacity(0.85), radius: 3, x: 0, y: 1.5)
+                            .opacity(isSelected ? 1.0 : 0.85)
+                    }
                 }
                 .frame(width: cardWidth, height: cardHeight)
                 .scaleEffect(isSelected ? 1.08 : 1.0)
@@ -211,8 +241,8 @@ struct CoverFlowWallView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(app.name), \(app.category)\(AppDiscoveryService.shared.isRunning(app: app) ? ", Running" : "")")
-        .accessibilityHint(isSelected ? "Press Return to launch application" : "Click to select application")
+        .accessibilityLabel(app.isSeparator ? "Hidden Apps Section" : "\(app.name), \(app.category)\(app.isHiddenApp ? ", Hidden" : "")\(AppDiscoveryService.shared.isRunning(app: app) ? ", Running" : "")")
+        .accessibilityHint(app.isSeparator ? "Press Return to navigate to hidden apps" : (isSelected ? "Press Return to launch application" : "Click to select application"))
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : [.isButton])
         .onTapGesture {
             if isSelected {
