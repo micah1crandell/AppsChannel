@@ -18,24 +18,24 @@ final class MenuBarManager: NSObject {
                 image.isTemplate = true
                 button.image = image
             }
-            button.target = self
-            button.action = #selector(statusItemClicked(_:))
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-            button.toolTip = "AppsChannel (Click to open, Right-click for options)"
+            button.toolTip = "AppsChannel"
         }
 
-        buildContextMenu()
+        let menu = buildContextMenu()
+        item.menu = menu
+        self.contextMenu = menu
         self.statusItem = item
     }
 
-    private func buildContextMenu() {
+    private func buildContextMenu() -> NSMenu {
         let menu = NSMenu()
 
         let openMainItem = NSMenuItem(
             title: "Open AppsChannel Window",
             action: #selector(openMainApp),
-            keyEquivalent: ""
+            keyEquivalent: "0"
         )
+        openMainItem.keyEquivalentModifierMask = [.command]
         openMainItem.target = self
         openMainItem.image = NSImage(systemSymbolName: "macwindow", accessibilityDescription: nil)
         menu.addItem(openMainItem)
@@ -43,8 +43,9 @@ final class MenuBarManager: NSObject {
         let openQuickItem = NSMenuItem(
             title: "Open Quick Launcher",
             action: #selector(openQuickLauncher),
-            keyEquivalent: ""
+            keyEquivalent: "l"
         )
+        openQuickItem.keyEquivalentModifierMask = [.option]
         openQuickItem.target = self
         openQuickItem.image = NSImage(systemSymbolName: "sparkle.magnifyingglass", accessibilityDescription: nil)
         menu.addItem(openQuickItem)
@@ -56,6 +57,7 @@ final class MenuBarManager: NSObject {
             action: #selector(openPreferences),
             keyEquivalent: ","
         )
+        prefsItem.keyEquivalentModifierMask = [.command]
         prefsItem.target = self
         prefsItem.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
         menu.addItem(prefsItem)
@@ -76,29 +78,11 @@ final class MenuBarManager: NSObject {
             action: #selector(quitApp),
             keyEquivalent: "q"
         )
+        quitItem.keyEquivalentModifierMask = [.command]
         quitItem.target = self
         menu.addItem(quitItem)
 
-        self.contextMenu = menu
-    }
-
-    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
-        guard let event = NSApp.currentEvent else {
-            PanelController.shared.toggleMainApp()
-            return
-        }
-
-        if event.type == .rightMouseUp || event.modifierFlags.contains(.control) {
-            // Right-click or Control-click: Show Context Menu
-            if let menu = contextMenu {
-                statusItem?.menu = menu
-                statusItem?.button?.performClick(nil)
-                statusItem?.menu = nil
-            }
-        } else {
-            // Left-click: Toggle / Open Main App Window
-            PanelController.shared.toggleMainApp()
-        }
+        return menu
     }
 
     @objc private func openMainApp() {
