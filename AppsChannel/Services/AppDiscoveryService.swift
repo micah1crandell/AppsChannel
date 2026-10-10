@@ -814,7 +814,24 @@ final class AppDiscoveryService: ObservableObject {
         guard !url.path.lowercased().contains("/appschannel.app") else { return nil }
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
 
+        let path = url.path
+
+        // Exclude internal system library helpers, input methods, and daemons
+        if path.contains("/System/Library/Input Methods") || path.contains("/Library/Input Methods") { return nil }
+        if path.contains("/System/Library/Image Capture") || path.contains("/Library/Image Capture") { return nil }
+        if path.contains("/System/Library/Services") || path.contains("/Library/Services") { return nil }
+        if path.contains("/System/Library/PrivateFrameworks") || path.contains("/Library/Apple/") { return nil }
+        if path.contains("/System/Library/CoreServices") && !path.hasSuffix("/Finder.app") && !path.contains("/CoreServices/Applications/") { return nil }
+
         let bundle = Bundle(url: url)
+        if let info = bundle?.infoDictionary {
+            // Exclude background agents, daemons, and apps with no GUI
+            if let uiElement = info["LSUIElement"] as? Bool, uiElement { return nil }
+            if let uiElementStr = info["LSUIElement"] as? String, uiElementStr == "1" { return nil }
+            if let bgOnly = info["LSBackgroundOnly"] as? Bool, bgOnly { return nil }
+            if let bgOnlyStr = info["LSBackgroundOnly"] as? String, bgOnlyStr == "1" { return nil }
+        }
+
         let bundleId = bundle?.bundleIdentifier
 
         let categoryRaw = bundle?.object(forInfoDictionaryKey: "LSApplicationCategoryType") as? String
@@ -905,6 +922,15 @@ final class AppDiscoveryService: ObservableObject {
                   !path.contains(".app/Contents/XPCServices/"),
                   !path.contains(".app/Contents/Library/") else { continue }
             guard !path.lowercased().contains("/appschannel.app") else { continue }
+            guard !path.contains("/System/Library/Input Methods"),
+                  !path.contains("/Library/Input Methods"),
+                  !path.contains("/System/Library/Image Capture"),
+                  !path.contains("/Library/Image Capture"),
+                  !path.contains("/System/Library/Services"),
+                  !path.contains("/Library/Services"),
+                  !path.contains("/System/Library/PrivateFrameworks"),
+                  !path.contains("/Library/Apple/"),
+                  (!path.contains("/System/Library/CoreServices") || path.hasSuffix("/Finder.app") || path.contains("/CoreServices/Applications/")) else { continue }
 
             let url = URL(fileURLWithPath: path)
             appURLs.append(url)

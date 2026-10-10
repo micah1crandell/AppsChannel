@@ -56,9 +56,10 @@ final class AppUsageTracker: ObservableObject {
 
     // MARK: - Scoring: General Browsing (Default Mode)
     func usageScore(for app: DiscoveredApp) -> Double {
+        let baseWeight = intrinsicBaseWeight(for: app)
         let pathKey = app.url.path
         guard let record = stats.appRecords[pathKey] else {
-            return 0.0
+            return baseWeight
         }
 
         let baseScore = Double(record.launchCount) * 15.0
@@ -78,7 +79,39 @@ final class AppUsageTracker: ObservableObject {
             recencyBonus = max(0.0, 5.0 - (secondsAgo / (30 * 86400)))
         }
 
-        return baseScore + recencyBonus
+        return baseWeight + baseScore + recencyBonus
+    }
+
+    /// Intrinsic importance weight based on app location, type, and daily utility.
+    /// Ensures primary apps (Arc, Safari, Slack, Code, Xcode, Notes, etc.) appear first
+    /// even before the user has launched them from AppsChannel.
+    func intrinsicBaseWeight(for app: DiscoveredApp) -> Double {
+        let p = app.url.path
+        let name = app.name
+
+        // Top flagship daily driver apps bonus
+        let flagshipApps: Set<String> = [
+            "Finder", "Safari", "Arc", "Google Chrome", "Mail", "Messages",
+            "Slack", "Discord", "Notes", "Music", "Spotify", "Terminal",
+            "iTerm", "Visual Studio Code", "Xcode", "Cursor", "Antigravity",
+            "ChatGPT", "Claude", "Notion", "Calendar", "Reminders", "Photos"
+        ]
+        let flagshipBonus: Double = flagshipApps.contains(name) ? 25.0 : 0.0
+
+        let locWeight: Double
+        if p.hasPrefix("/Applications/") && !p.contains("/Utilities/") {
+            locWeight = 75.0
+        } else if p.hasPrefix("/System/Applications/") && !p.contains("/Utilities/") {
+            locWeight = 70.0
+        } else if p.contains(FileManager.default.homeDirectoryForCurrentUser.path + "/Applications/") {
+            locWeight = 65.0
+        } else if p.contains("/Utilities/") {
+            locWeight = 30.0
+        } else {
+            locWeight = 20.0
+        }
+
+        return locWeight + flagshipBonus
     }
 
     // MARK: - App Aliases Mapping for Quick Match
