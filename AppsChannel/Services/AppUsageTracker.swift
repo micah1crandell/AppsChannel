@@ -35,6 +35,7 @@ final class AppUsageTracker: ObservableObject {
 
     // MARK: - Record App Launch & Query Association
     func recordLaunch(app: DiscoveredApp, query: String? = nil) {
+        guard !app.isAppsChannelApp else { return }
         let pathKey = app.url.path
 
         // 1. Update Launch Count & Recency
@@ -80,6 +81,28 @@ final class AppUsageTracker: ObservableObject {
         return baseScore + recencyBonus
     }
 
+    // MARK: - App Aliases Mapping for Quick Match
+    private static let commonAliases: [String: [String]] = [
+        "term": ["terminal", "iterm", "iterm2", "warp", "ghostty", "alacritty", "kitty", "hyper"],
+        "terminal": ["iterm", "iterm2", "warp", "ghostty", "alacritty", "kitty"],
+        "bash": ["terminal", "iterm", "iterm2", "warp", "ghostty"],
+        "cmd": ["terminal", "iterm", "iterm2", "warp", "ghostty"],
+        "calc": ["calculator", "numi", "soulver", "pcam"],
+        "code": ["visual studio code", "cursor", "xcode", "sublime text", "zed", "nova", "intellij"],
+        "editor": ["visual studio code", "cursor", "textedit", "sublime text", "zed", "bbedit"],
+        "browser": ["safari", "google chrome", "arc", "firefox", "brave browser", "edge", "orion"],
+        "web": ["safari", "google chrome", "arc", "firefox", "brave browser", "edge"],
+        "chrome": ["google chrome"],
+        "music": ["apple music", "spotify", "tidal"],
+        "chat": ["slack", "discord", "messages", "telegram", "whatsapp", "signal", "teams"],
+        "mail": ["mail", "mimestream", "spark", "outlook"],
+        "notes": ["notes", "bear", "craft", "notion", "obsidian", "logseq"],
+        "doc": ["pages", "microsoft word", "word", "notion"],
+        "photo": ["photos", "lightroom", "photoshop", "pixelmator pro", "affinity photo"],
+        "pref": ["system settings", "system preferences"],
+        "settings": ["system settings", "system preferences"]
+    ]
+
     // MARK: - Scoring: Search Query Smart Relevance
     func searchScore(for app: DiscoveredApp, query: String) -> Double {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -107,36 +130,64 @@ final class AppUsageTracker: ObservableObject {
 
         // 3. Textual Relevance Matches
         if name == q {
-            score += 180.0 // Exact match
+            score += 200.0 // Exact match
         } else if name.hasPrefix(q) {
-            score += 90.0 // Starts with query
+            score += 110.0 // Starts with query
         }
 
         // Word boundary match (e.g. query "code" matches "Visual Studio Code")
         let words = name.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
         if words.contains(where: { $0.hasPrefix(q) }) {
-            score += 85.0
+            score += 95.0
         } else if name.contains(q) {
-            score += 40.0
+            score += 50.0
         }
 
-        // Acronym match (e.g. "vsc" matches "Visual Studio Code")
+        // Acronym match (e.g. "vsc" matches "Visual Studio Code", "gc" matches "Google Chrome")
         let acronym = words.compactMap { $0.first }.map { String($0) }.joined()
         if acronym == q || acronym.hasPrefix(q) {
-            score += 70.0
+            score += 85.0
         }
 
-        // 4. Category match
+        // Fuzzy subsequence match (e.g. "spot" matches "Spotify", "gc" matches "Google Chrome")
+        if Self.fuzzyMatch(needle: q, haystack: name) {
+            score += 45.0
+        }
+
+        // 4. Aliases Match (e.g. "calc" -> "Calculator", "term" -> "iTerm")
+        for (aliasKey, targets) in Self.commonAliases {
+            if q == aliasKey || (q.count >= 3 && aliasKey.hasPrefix(q)) {
+                if targets.contains(where: { name.contains($0) }) {
+                    score += 120.0
+                }
+            }
+        }
+
+        // 5. Category match
         if app.category.lowercased().contains(q) {
-            score += 25.0
+            score += 30.0
         }
 
-        // 5. Overall Usage Tie-Breaker
+        // 6. Overall Usage Tie-Breaker
         if let record = stats.appRecords[pathKey] {
             score += min(Double(record.launchCount) * 3.0, 35.0)
         }
 
         return score
+    }
+
+    private static func fuzzyMatch(needle: String, haystack: String) -> Bool {
+        guard !needle.isEmpty else { return true }
+        var nIdx = needle.startIndex
+        var hIdx = haystack.startIndex
+
+        while nIdx < needle.endIndex && hIdx < haystack.endIndex {
+            if needle[nIdx] == haystack[hIdx] {
+                nIdx = needle.index(after: nIdx)
+            }
+            hIdx = haystack.index(after: hIdx)
+        }
+        return nIdx == needle.endIndex
     }
 
     // MARK: - Middle-Origin Fan Arrangement
@@ -256,7 +307,17 @@ final class AppUsageTracker: ObservableObject {
     private func loadStats() {
         if let data = try? Data(contentsOf: fileURL),
            let decoded = try? JSONDecoder().decode(AppUsageStats.self, from: data) {
-            self.stats = decoded
+            var cleanedStats = decoded
+            cleanedStats.appRecords = cleanedStats.appRecords.filter { !$0.key.lowercased().contains("appschannel") }
+            for (query, map) in cleanedStats.searchAssociations {
+                let filteredMap = map.filter { !$0.key.lowercased().contains("appschannel") }
+                if filteredMap.isEmpty {
+                    cleanedStats.searchAssociations.removeValue(forKey: query)
+                } else {
+                    cleanedStats.searchAssociations[query] = filteredMap
+                }
+            }
+            self.stats = cleanedStats
         }
     }
 }

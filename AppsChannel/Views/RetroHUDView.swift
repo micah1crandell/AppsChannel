@@ -12,14 +12,14 @@ struct RetroHUDView: View {
     let onDismiss: () -> Void
     let onPrevious: () -> Void
     let onNext: () -> Void
+    var onNavigateStep: ((Int) -> Void)? = nil
     var onSwitchToQuick: (() -> Void)? = nil
     var onOpenSettings: (() -> Void)? = nil
     var onToggleOrganize: (() -> Void)? = nil
     var isOrganizeMode: Bool = false
 
     @FocusState private var isSearchFocused: Bool
-    @State private var currentTime = Date()
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
 
     private var topPadding: CGFloat { 20 }
 
@@ -32,9 +32,6 @@ struct RetroHUDView: View {
         .padding(.horizontal, 24)
         .padding(.top, topPadding)
         .padding(.bottom, 20)
-        .onReceive(timer) { input in
-            currentTime = input
-        }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 isSearchFocused = true
@@ -68,12 +65,54 @@ struct RetroHUDView: View {
                         .onSubmit {
                             onLaunch()
                         }
+                        .onKeyPress(.return) {
+                            onLaunch()
+                            return .handled
+                        }
+                        .onKeyPress(.leftArrow) {
+                            let step: Int = {
+                                switch layoutMode {
+                                case .coverFlow: return -1
+                                case .gridWall: return -3
+                                case .threeDSGrid: return -threeDSGridRows
+                                }
+                            }()
+                            if let onNavigateStep = onNavigateStep {
+                                onNavigateStep(step)
+                            } else {
+                                onPrevious()
+                            }
+                            return .handled
+                        }
+                        .onKeyPress(.rightArrow) {
+                            let step: Int = {
+                                switch layoutMode {
+                                case .coverFlow: return 1
+                                case .gridWall: return 3
+                                case .threeDSGrid: return threeDSGridRows
+                                }
+                            }()
+                            if let onNavigateStep = onNavigateStep {
+                                onNavigateStep(step)
+                            } else {
+                                onNext()
+                            }
+                            return .handled
+                        }
                         .onKeyPress(.downArrow) {
-                            onNext()
+                            if let onNavigateStep = onNavigateStep {
+                                onNavigateStep(1)
+                            } else {
+                                onNext()
+                            }
                             return .handled
                         }
                         .onKeyPress(.upArrow) {
-                            onPrevious()
+                            if let onNavigateStep = onNavigateStep {
+                                onNavigateStep(-1)
+                            } else {
+                                onPrevious()
+                            }
                             return .handled
                         }
                         .onKeyPress(.escape) {
@@ -121,7 +160,7 @@ struct RetroHUDView: View {
                     .help(isOrganizeMode ? "Done Arranging" : "Rearrange Channels")
                 }
 
-                // Layout View Mode Switcher: Flow vs Wall Icon Toggle
+                // Layout View Mode Switcher: Cover Flow vs Wall Grid vs 3DS Flat Grid
                 HStack(spacing: 2) {
                     Button(action: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -129,13 +168,15 @@ struct RetroHUDView: View {
                         }
                     }) {
                         Image(systemName: "rectangle.portrait.on.rectangle.portrait.fill")
-                            .font(.system(size: 12))
+                            .font(.system(size: 11))
                             .foregroundStyle(layoutMode == .coverFlow ? Color.black : Color.white.opacity(0.75))
                             .frame(width: 28, height: 26)
                             .background(layoutMode == .coverFlow ? Color.white : Color.clear, in: Capsule())
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .help("Flow View")
+                    .contentShape(Capsule())
+                    .help("Cover Flow (⌘V)")
 
                     Button(action: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -143,13 +184,31 @@ struct RetroHUDView: View {
                         }
                     }) {
                         Image(systemName: "square.grid.3x3.fill")
-                            .font(.system(size: 12))
+                            .font(.system(size: 11))
                             .foregroundStyle(layoutMode == .gridWall ? Color.black : Color.white.opacity(0.75))
                             .frame(width: 28, height: 26)
                             .background(layoutMode == .gridWall ? Color.white : Color.clear, in: Capsule())
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .help("Wall View")
+                    .contentShape(Capsule())
+                    .help("Curved Wall Grid (⌘V)")
+
+                    Button(action: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            layoutMode = .threeDSGrid
+                        }
+                    }) {
+                        Image(systemName: "square.grid.3x2.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(layoutMode == .threeDSGrid ? Color.black : Color.white.opacity(0.75))
+                            .frame(width: 28, height: 26)
+                            .background(layoutMode == .threeDSGrid ? Color.white : Color.clear, in: Capsule())
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Capsule())
+                    .help("3DS Flat Grid (⌘V)")
                 }
                 .padding(3)
                 .background(Color(white: 0.08).opacity(0.85), in: Capsule())

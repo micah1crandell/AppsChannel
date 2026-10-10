@@ -6,6 +6,9 @@ struct SettingsModalView: View {
     @State private var selectedTab: SettingsTab = .general
     @StateObject private var launchAtLoginManager = LaunchAtLoginManager.shared
     @AppStorage("defaultMode") private var defaultMode: String = LauncherMode.quickLauncher.rawValue
+    @AppStorage("mainLayoutMode") private var layoutModeRaw: String = MainLayoutViewMode.gridWall.rawValue
+    @AppStorage("appDisplayStyle") private var appDisplayStyleRaw: String = AppDisplayStyle.iconOnly.rawValue
+    @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
     @AppStorage("soundEffects") private var soundEffects: Bool = true
     @AppStorage("dimmingIntensity") private var dimmingIntensity: Double = 0.15
 
@@ -13,11 +16,16 @@ struct SettingsModalView: View {
     @State private var isRecordingShortcut: Bool = false
     @State private var recordKeyMonitor: Any? = nil
 
+    @ObservedObject private var discoveryService = AppDiscoveryService.shared
+    @State private var hiddenAppsSearchText: String = ""
+    @State private var hiddenAppsCategoryFilter: String = "ALL"
+
     enum SettingsTab: String, CaseIterable, Identifiable {
         case general = "General"
         case shortcuts = "Shortcuts"
         case appearance = "Appearance"
-        case account = "Account"
+        case hiddenApps = "Hidden Apps"
+        case about = "About"
 
         var id: String { rawValue }
 
@@ -26,7 +34,8 @@ struct SettingsModalView: View {
             case .general: return "gearshape.fill"
             case .shortcuts: return "keyboard.fill"
             case .appearance: return "paintpalette.fill"
-            case .account: return "person.crop.circle.fill"
+            case .hiddenApps: return "eye.slash.fill"
+            case .about: return "info.circle.fill"
             }
         }
     }
@@ -64,6 +73,7 @@ struct SettingsModalView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .contentShape(Circle())
                 .help("Close (⎋)")
             }
             .padding(.horizontal, 22)
@@ -97,15 +107,8 @@ struct SettingsModalView: View {
                             .padding(.vertical, 8)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
-                                Group {
-                                    if isSelected {
-                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .fill(Color.white)
-                                    } else {
-                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .fill(Color.clear)
-                                    }
-                                }
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(isSelected ? Color.white : Color.white.opacity(0.001))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -117,6 +120,7 @@ struct SettingsModalView: View {
                             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
                         .buttonStyle(.plain)
+                        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     Spacer()
                 }
@@ -138,16 +142,17 @@ struct SettingsModalView: View {
                             shortcutSettings
                         case .appearance:
                             appearanceSettings
-                        case .account:
-                            accountSettings
+                        case .hiddenApps:
+                            hiddenAppsSettings
+                        case .about:
+                            aboutSettings
                         }
                     }
                     .padding(22)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
                 }
+                .id(selectedTab)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
             }
         }
         .frame(width: 710, height: 510)
@@ -320,6 +325,7 @@ struct SettingsModalView: View {
                             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         }
                         .buttonStyle(.plain)
+                        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                         Button(action: {
                             AppDiscoveryService.shared.resetToUsageOrder()
@@ -337,6 +343,7 @@ struct SettingsModalView: View {
                             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         }
                         .buttonStyle(.plain)
+                        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .padding(.top, 2)
                 }
@@ -387,6 +394,7 @@ struct SettingsModalView: View {
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     // MARK: - Shortcut Settings Tab
@@ -419,7 +427,7 @@ struct SettingsModalView: View {
                         Button(action: toggleRecordingShortcut) {
                             HStack(spacing: 6) {
                                 Image(systemName: isRecordingShortcut ? "record.circle.fill" : "record.circle")
-                                    .foregroundStyle(isRecordingShortcut ? .red : (isRecordingShortcut ? .black : .black))
+                                    .foregroundStyle(isRecordingShortcut ? .red : .black)
                                 Text(isRecordingShortcut ? "Cancel" : "Record Shortcut")
                                     .font(.system(size: 11, weight: .semibold))
                                     .foregroundStyle(.black)
@@ -430,6 +438,7 @@ struct SettingsModalView: View {
                             .contentShape(Capsule())
                         }
                         .buttonStyle(.plain)
+                        .contentShape(Capsule())
                     }
                     .padding(12)
                     .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -476,6 +485,7 @@ struct SettingsModalView: View {
                                     .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
+                                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                             }
                         }
                     }
@@ -513,6 +523,7 @@ struct SettingsModalView: View {
                                     .contentShape(RoundedRectangle(cornerRadius: 6))
                             }
                             .buttonStyle(.plain)
+                            .contentShape(RoundedRectangle(cornerRadius: 6))
                         }
 
                         walkthroughStep(number: "1", title: "Open Shortcuts", desc: "Launch the native macOS Shortcuts app.")
@@ -548,6 +559,7 @@ struct SettingsModalView: View {
                                     .contentShape(RoundedRectangle(cornerRadius: 6))
                             }
                             .buttonStyle(.plain)
+                            .contentShape(RoundedRectangle(cornerRadius: 6))
                         }
 
                         walkthroughStep(number: "1", title: "Keyboard Shortcuts", desc: "Open System Settings > Keyboard > Keyboard Shortcuts...")
@@ -624,6 +636,99 @@ struct SettingsModalView: View {
     // MARK: - Appearance Settings Tab
     private var appearanceSettings: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Card 1: App Tile Presentation Style
+            settingsCard(title: "App Presentation Style", icon: "app.badge.fill") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Choose how apps are presented across all launcher layouts.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.65))
+
+                    VStack(spacing: 8) {
+                        appStyleOptionButton(
+                            title: "App Icon Only (Minimalist)",
+                            desc: "Pure macOS app icons floating with clean titles, ambient accent glows, and specular reflections",
+                            icon: "app.fill",
+                            style: .iconOnly
+                        )
+
+                        appStyleOptionButton(
+                            title: "Channel Cards",
+                            desc: "Classic Nintendo Wii / macOS channel cards with category tags, badges, and textured framing",
+                            icon: "rectangle.portrait.on.rectangle.portrait.fill",
+                            style: .channelCard
+                        )
+                    }
+                }
+            }
+
+            // Card 2: Layout Presentation Mode
+            settingsCard(title: "Default Layout Mode", icon: "square.grid.2x2.fill") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Select your primary launcher interface. You can also cycle between them anytime using ⌘V.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.65))
+
+                    VStack(spacing: 8) {
+                        layoutOptionButton(
+                            title: "3DS Flat Grid",
+                            desc: "Nintendo 3DS Home Menu flat horizontal pagination grid with turquoise reticle cursor and speech bubble",
+                            icon: "square.grid.3x2.fill",
+                            mode: .threeDSGrid
+                        )
+
+                        layoutOptionButton(
+                            title: "Cover Flow Carousel",
+                            desc: "Smooth 3D reflective Cover Flow carousel with perspective depth and fluid navigation",
+                            icon: "rectangle.portrait.on.rectangle.portrait.fill",
+                            mode: .coverFlow
+                        )
+
+                        layoutOptionButton(
+                            title: "Curved Cylindrical Wall Grid",
+                            desc: "Interactive 3-row channel wall grid with cylindrical perspective distortion",
+                            icon: "circle.grid.3x3.fill",
+                            mode: .gridWall
+                        )
+                    }
+                }
+            }
+
+            // Card 3: 3DS Grid Rows
+            settingsCard(title: "3DS Grid Rows", icon: "square.split.bottomrightquarter") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Configure how many horizontal rows are displayed when in 3DS Flat Grid mode (1 to 5 rows).")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.65))
+
+                    HStack(spacing: 8) {
+                        ForEach(1...5, id: \.self) { count in
+                            let isSelected = threeDSGridRows == count
+                            Button(action: {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    threeDSGridRows = count
+                                }
+                            }) {
+                                HStack(spacing: 4) {
+                                    Text("\(count) \(count == 1 ? "Row" : "Rows")")
+                                        .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                                }
+                                .padding(.horizontal, 13)
+                                .padding(.vertical, 8)
+                                .background(isSelected ? Color.white : Color(white: 0.08).opacity(0.85), in: Capsule())
+                                .foregroundStyle(isSelected ? Color.black : Color.white)
+                                .overlay(
+                                    Capsule().strokeBorder(isSelected ? Color.white : Color.white.opacity(0.18), lineWidth: 1)
+                                )
+                                .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .contentShape(Capsule())
+                        }
+                    }
+                }
+            }
+
+            // Card 4: Visual & Desktop Glass Shaders
             settingsCard(title: "Visual & Desktop Glass Shaders", icon: "paintpalette.fill") {
                 VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -657,47 +762,557 @@ struct SettingsModalView: View {
         }
     }
 
-    // MARK: - Account Settings Tab
-    private var accountSettings: some View {
+    private func appStyleOptionButton(title: String, desc: String, icon: String, style: AppDisplayStyle) -> some View {
+        let current = AppDisplayStyle(rawValue: appDisplayStyleRaw) ?? .iconOnly
+        let isSelected = current == style
+        return Button(action: {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                appDisplayStyleRaw = style.rawValue
+            }
+        }) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15))
+                    .frame(width: 22)
+                    .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.85))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 12, weight: isSelected ? .bold : .semibold))
+                        .foregroundStyle(isSelected ? Color.black : Color.white)
+                    Text(desc)
+                        .font(.system(size: 10))
+                        .foregroundStyle(isSelected ? Color.black.opacity(0.7) : Color.white.opacity(0.55))
+                }
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.black)
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isSelected ? Color.white : Color.white.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.14), lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func layoutOptionButton(title: String, desc: String, icon: String, mode: MainLayoutViewMode) -> some View {
+        let isSelected = (MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow) == mode
+        return Button(action: {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                layoutModeRaw = mode.rawValue
+            }
+        }) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15))
+                    .frame(width: 22)
+                    .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.85))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 12, weight: isSelected ? .bold : .semibold))
+                        .foregroundStyle(isSelected ? Color.black : Color.white)
+                    Text(desc)
+                        .font(.system(size: 10))
+                        .foregroundStyle(isSelected ? Color.black.opacity(0.7) : Color.white.opacity(0.55))
+                }
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.black)
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isSelected ? Color.white : Color.white.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.14), lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    // MARK: - Hidden Apps Tab (App Visibility Manager)
+    private var allCategories: [String] {
+        var set = Set<String>()
+        for app in discoveryService.allDiscoveredApps {
+            set.insert(app.category)
+        }
+        var list = Array(set).sorted()
+        list.insert("ALL", at: 0)
+        return list
+    }
+
+    private var filteredManagerApps: [DiscoveredApp] {
+        let base = discoveryService.allDiscoveredApps.filter { app in
+            hiddenAppsCategoryFilter == "ALL" || app.category == hiddenAppsCategoryFilter
+        }
+        let query = hiddenAppsSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query.isEmpty {
+            return base
+        }
+        return base.filter { app in
+            app.name.localizedCaseInsensitiveContains(query) ||
+            app.category.localizedCaseInsensitiveContains(query) ||
+            app.url.path.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var categoryHiddenCount: Int {
+        filteredManagerApps.filter { discoveryService.isHidden(app: $0) }.count
+    }
+
+    private var categoryVisibleCount: Int {
+        filteredManagerApps.filter { !discoveryService.isHidden(app: $0) }.count
+    }
+
+    private var hiddenAppsSettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            settingsCard(title: "Application Visibility & Groups", icon: "eye.slash.fill") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Manage which applications appear in your launchers. Toggle visibility individually or quickly hide and unhide entire groups.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.65))
+
+                    hiddenAppsSearchBar
+
+                    categoryFilterBar
+
+                    batchActionBar
+
+                    hiddenAppsListSection
+
+                    if !discoveryService.hiddenAppPaths.isEmpty {
+                        Divider().background(Color.white.opacity(0.08))
+
+                        Button(action: {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                discoveryService.unhideAllApps()
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.counterclockwise")
+                                    .font(.system(size: 10, weight: .bold))
+                                Text("Unhide All Applications (\(discoveryService.hiddenAppPaths.count) hidden)")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .foregroundStyle(.red.opacity(0.9))
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                    }
+                }
+            }
+        }
+    }
+
+    private var hiddenAppsSearchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.6))
+
+            TextField("Filter apps by name or category...", text: $hiddenAppsSearchText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundStyle(.white)
+
+            if !hiddenAppsSearchText.isEmpty {
+                Button(action: { hiddenAppsSearchText = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+                .contentShape(Circle())
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Color.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var categoryFilterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(allCategories, id: \.self) { cat in
+                    let isSelected = hiddenAppsCategoryFilter == cat
+                    let appsInCat = discoveryService.allDiscoveredApps.filter { cat == "ALL" || $0.category == cat }
+                    let hiddenInCat = appsInCat.filter { discoveryService.isHidden(app: $0) }.count
+
+                    Button(action: {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.8)) {
+                            hiddenAppsCategoryFilter = cat
+                        }
+                    }) {
+                        HStack(spacing: 5) {
+                            Text(cat)
+                                .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+
+                            if hiddenInCat > 0 {
+                                Text("\(hiddenInCat) hidden")
+                                    .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(isSelected ? Color.black.opacity(0.2) : Color.red.opacity(0.25), in: Capsule())
+                                    .foregroundStyle(isSelected ? Color.black : Color.red.opacity(0.9))
+                            }
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(
+                            isSelected ?
+                                Color.white : Color.white.opacity(0.06),
+                            in: Capsule()
+                        )
+                        .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.85))
+                        .overlay(
+                            Capsule().strokeBorder(isSelected ? Color.white : Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Capsule())
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private var batchActionBar: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("\(categoryVisibleCount) Visible")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.green.opacity(0.9))
+
+                    Text("•")
+                        .foregroundStyle(.white.opacity(0.4))
+
+                    Text("\(categoryHiddenCount) Hidden")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(categoryHiddenCount > 0 ? .orange : .white.opacity(0.5))
+                }
+                Text("Filtering by: \(hiddenAppsCategoryFilter)")
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+
+            Spacer()
+
+            // Batch Hide All in Group
+            Button(action: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    discoveryService.hideGroup(category: hiddenAppsCategoryFilter)
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "eye.slash")
+                        .font(.system(size: 9.5, weight: .bold))
+                    Text(hiddenAppsCategoryFilter == "ALL" ? "Hide All" : "Hide Group")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4.5)
+                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+                .foregroundStyle(categoryVisibleCount > 0 ? Color.white : Color.white.opacity(0.35))
+                .contentShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .buttonStyle(.plain)
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .disabled(categoryVisibleCount == 0)
+
+            // Batch Unhide All in Group
+            Button(action: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    discoveryService.unhideGroup(category: hiddenAppsCategoryFilter)
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "eye")
+                        .font(.system(size: 9.5, weight: .bold))
+                    Text(hiddenAppsCategoryFilter == "ALL" ? "Unhide All" : "Unhide Group")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4.5)
+                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+                .foregroundStyle(categoryHiddenCount > 0 ? Color.white : Color.white.opacity(0.35))
+                .contentShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .buttonStyle(.plain)
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .disabled(categoryHiddenCount == 0)
+        }
+        .padding(10)
+        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private var hiddenAppsListSection: some View {
+        Group {
+            if filteredManagerApps.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.4))
+                    Text("No applications match your filter.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, alignment: .center)
+            } else {
+                LazyVStack(spacing: 6) {
+                    ForEach(filteredManagerApps) { app in
+                        appManagerRow(app: app)
+                    }
+                }
+            }
+        }
+    }
+
+    private func appManagerRow(app: DiscoveredApp) -> some View {
+        let isHidden = discoveryService.isHidden(app: app)
+        return HStack(spacing: 10) {
+            Image(nsImage: app.icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 24, height: 24)
+                .opacity(isHidden ? 0.45 : 1.0)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(app.name)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(isHidden ? .white.opacity(0.5) : .white)
+
+                    Text(app.category.uppercased())
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundStyle(isHidden ? .white.opacity(0.3) : .white.opacity(0.65))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 3))
+                }
+
+                Text(app.url.path)
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(Color.white.opacity(0.35))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Spacer()
+
+            Button(action: {
+                withAnimation(.spring(response: 0.22, dampingFraction: 0.8)) {
+                    discoveryService.toggleHidden(app: app)
+                }
+            }) {
+                HStack(spacing: 5) {
+                    Image(systemName: isHidden ? "eye.slash.fill" : "eye.fill")
+                        .font(.system(size: 10, weight: .bold))
+
+                    Text(isHidden ? "Hidden" : "Visible")
+                        .font(.system(size: 10.5, weight: .semibold))
+                }
+                .foregroundStyle(isHidden ? Color.orange : Color.white)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4.5)
+                .background(
+                    isHidden ?
+                        Color.orange.opacity(0.18) : Color.white.opacity(0.12),
+                    in: Capsule()
+                )
+                .overlay(
+                    Capsule().strokeBorder(
+                        isHidden ? Color.orange.opacity(0.4) : Color.white.opacity(0.22),
+                        lineWidth: 1
+                    )
+                )
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .contentShape(Capsule())
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isHidden ? Color.white.opacity(0.02) : Color.white.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.white.opacity(isHidden ? 0.04 : 0.08), lineWidth: 1)
+        )
+    }
+
+    // MARK: - About Settings Tab
+    private var aboutSettings: some View {
         VStack(alignment: .leading, spacing: 16) {
-            settingsCard(title: "Local Profile & License", icon: "person.crop.circle.fill") {
+            settingsCard(title: "About AppsChannel", icon: "info.circle.fill") {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(spacing: 14) {
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 44))
-                            .foregroundStyle(.white.opacity(0.9))
+                        Image(nsImage: NSApp.applicationIconImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 54, height: 54)
 
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 8) {
-                                Text(NSFullUserName())
-                                    .font(.headline)
+                                Text("AppsChannel")
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
                                     .foregroundStyle(.white)
 
-                                Text("PRO")
-                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                Text("v1.0.0")
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
                                     .foregroundStyle(.black)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
                                     .background(Color.white, in: Capsule())
                             }
 
-                            Text("macOS Local Profile")
+                            Text("Cover Flow meets the Nintendo Channel Grid for macOS")
                                 .font(.caption)
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(.white.opacity(0.65))
                         }
                     }
 
                     Divider().background(Color.white.opacity(0.08))
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("AppsChannel Pro Edition")
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Open Source & Community")
                             .font(.subheadline)
                             .bold()
                             .foregroundStyle(.white)
 
-                        Text("Licensed to local macOS workspace. Custom Wii & 3DS channel layout active.")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.65))
+                        Text("Crafted natively in Swift & SwiftUI. Hardware-accelerated 3D transforms with zero telemetry, zero analytics tracking, and offline disk caching.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                if let url = URL(string: "https://github.com/micah1crandell/AppsChannel") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "link")
+                                        .font(.system(size: 11))
+                                    Text("GitHub Repository")
+                                        .font(.system(size: 11, weight: .semibold))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color.white.opacity(0.12), in: Capsule())
+                                .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .contentShape(Capsule())
+
+                            Button(action: {
+                                if let url = URL(string: "https://github.com/micah1crandell/AppsChannel/releases") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 11))
+                                    Text("Release Notes")
+                                        .font(.system(size: 11, weight: .semibold))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color.white.opacity(0.12), in: Capsule())
+                                .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .contentShape(Capsule())
+                        }
+                        .padding(.top, 4)
+                    }
+
+                    Divider().background(Color.white.opacity(0.08))
+
+                    // Software Updates Section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Software Updates")
+                            .font(.subheadline)
+                            .bold()
+                            .foregroundStyle(.white)
+
+                        Text("AppsChannel automatically checks for updates via GitHub Releases.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.6))
+
+                        Button(action: {
+                            UpdateManager.shared.checkForUpdates()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text("Check for Updates...")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.white, in: Capsule())
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(Capsule())
+                        .padding(.top, 2)
+                    }
+
+                    Divider().background(Color.white.opacity(0.08))
+
+                    HStack {
+                        Text("Licensed under the MIT License")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.45))
+                        Spacer()
+                        Text("macOS 14.0+")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.45))
                     }
                 }
             }

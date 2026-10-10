@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode_15.4.app || sudo xcode-select -switch /Applications/Xcode.app
+
+      - name: Show Xcode Version
+        run: xcodebuild -version
+
+      - name: Build AppsChannel (Release)
+        run: |
+          xcodebuild -scheme AppsChannel \
+            -destination 'platform=macOS' \
+            -configuration Release \
+            -derivedDataPath ./build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package Release Archive (.zip)
+        run: |
+          cd build/Build/Products/Release
+          ditto -c -k --keepParent AppsChannel.app AppsChannel.zip
+
+      - name: Create DMG
+        run: |
+          APP_PATH="build/Build/Products/Release/AppsChannel.app"
+          DMG_PATH="build/Build/Products/Release/AppsChannel.dmg"
+          hdiutil create -volname "AppsChannel" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/Build/Products/Release/AppsChannel.zip
+            build/Build/Products/Release/AppsChannel.dmg
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

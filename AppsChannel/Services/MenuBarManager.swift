@@ -60,6 +60,15 @@ final class MenuBarManager: NSObject {
         prefsItem.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
         menu.addItem(prefsItem)
 
+        let updateItem = NSMenuItem(
+            title: "Check for Updates...",
+            action: #selector(checkForUpdates),
+            keyEquivalent: ""
+        )
+        updateItem.target = self
+        updateItem.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)
+        menu.addItem(updateItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(
@@ -102,6 +111,11 @@ final class MenuBarManager: NSObject {
 
     @objc private func openPreferences() {
         PanelController.shared.showMainApp()
+        NotificationCenter.default.post(name: Notification.Name("AppsChannelOpenPreferences"), object: nil)
+    }
+
+    @objc private func checkForUpdates() {
+        UpdateManager.shared.checkForUpdates()
     }
 
     @objc private func quitApp() {

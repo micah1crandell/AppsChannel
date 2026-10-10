@@ -8,9 +8,10 @@ AppsChannel is a lightweight, hardware-accelerated macOS application launcher bu
 
 ## Features
 
-### 1. Dual Visual Display Modes (`⌘V`)
-- **3D Cover Flow Carousel**: Hardware-accelerated 3D carousel with perspective tilt, mirror specular floor reflections, and smooth drag or scroll-wheel navigation.
-- **Curved Cylindrical Wall Grid**: 3-row curved interactive wall inspired by classic channel grids, featuring cylindrical perspective math and dynamic slot badges.
+### 1. Three Visual Display Modes (`⌘V`)
+- **Minimalist 3D App Icon Flow**: Pure macOS application icons in a classic 3D Cover Flow carousel with perspective tilt, vibrant dynamic accent lighting, and specular mirror floor reflections.
+- **3D Channel Cards Flow**: Classic Nintendo Wii & macOS Channel cards with category tags, status badges, and specular reflections.
+- **Curved Cylindrical Wall Grid**: 3-row curved interactive wall inspired by classic console channel grids, featuring cylindrical perspective math and dynamic slot badges.
 
 ### 2. Dual Launcher Experiences
 - **Quick Launcher (`⌥L`)**: A floating, spotlight-like liquid glass HUD that blends seamlessly into your desktop with a soft feathered blur. Appears instantly, dismisses on click-out or `Esc`.
@@ -35,7 +36,7 @@ AppsChannel is a lightweight, hardware-accelerated macOS application launcher bu
 | Shortcut | Action |
 | :--- | :--- |
 | `⌥L` | Toggle Quick Launcher from anywhere in macOS (customizable) |
-| `⌘V` | Toggle between 3D Cover Flow and 3-Row Curved Wall Grid |
+| `⌘V` | Cycle between App Icon Flow, Channel Cards Flow, and Wall Grid |
 | `⌥1` – `⌥9` | Direct Launch Channel Slots 1 through 9 |
 | `⌘1` – `⌘8` | Instant Category Group Switching (Dev, Productivity, Design, etc.) |
 | `⌘O` | Switch from Quick Launcher to Main App Window |
@@ -54,9 +55,24 @@ AppsChannel is a lightweight, hardware-accelerated macOS application launcher bu
 
 - **Platform**: macOS 14.0+ (Sonoma, Sequoia)
 - **Frameworks**: SwiftUI, AppKit, Combine
-- **Dependencies**: [HotKey](https://github.com/soffes/HotKey) (SPM package for global keyboard event registration)
+- **Dependencies**: 
+  - [HotKey](https://github.com/soffes/HotKey) (SPM package for global keyboard event registration)
+  - [Sparkle](https://github.com/sparkle-project/Sparkle) (SPM package for secure GitHub Releases auto-updating)
 - **Rendering**: SwiftUI hardware-accelerated 3D transforms (`rotation3DEffect`, `scaleEffect`, `VisualEffectBackground`)
 - **Data & Caching**: Local JSON persistence (`apps_cache.json`, `usage_analytics.json`)
+
+---
+
+## Installation
+
+### Via Homebrew (Recommended)
+```bash
+brew tap micah1crandell/appschannel https://github.com/micah1crandell/AppsChannel
+brew install --cask appschannel
+```
+
+### Direct Download
+Download the latest `.dmg` or `.zip` directly from [GitHub Releases](https://github.com/micah1crandell/AppsChannel/releases). Once installed, AppsChannel updates itself automatically via built-in Sparkle updates.
 
 ---
 

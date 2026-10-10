@@ -5,6 +5,7 @@ struct CoverFlowWallView: View {
     let apps: [DiscoveredApp]
     let activeIndex: Int
     var isCompact: Bool = false
+    var isIconOnly: Bool = false
     var isOrganizeMode: Bool = false
     let onSelect: (Int) -> Void
     let onLaunch: () -> Void
@@ -15,12 +16,49 @@ struct CoverFlowWallView: View {
     @State private var draggedIndex: Int? = nil
 
     private let rowsCount: Int = 3
-    private var cardWidth: CGFloat { isCompact ? 104 : 138 }
-    private var cardHeight: CGFloat { isCompact ? 128 : 176 }
-    private var iconSize: CGFloat { isCompact ? 42 : 58 }
-    private var colSpacing: CGFloat { isCompact ? 120 : 158 }
-    private var rowSpacing: CGFloat { isCompact ? 138 : 192 }
-    private var totalHeight: CGFloat { isCompact ? 440 : 590 }
+
+    // Dynamic dimensions based on isIconOnly
+    private var cardWidth: CGFloat {
+        if isIconOnly {
+            return isCompact ? 124 : 160
+        } else {
+            return isCompact ? 116 : 152
+        }
+    }
+
+    private var cardHeight: CGFloat {
+        if isIconOnly {
+            return isCompact ? 134 : 168
+        } else {
+            return isCompact ? 148 : 192
+        }
+    }
+
+    private var iconSize: CGFloat {
+        if isIconOnly {
+            return isCompact ? 94 : 124
+        } else {
+            return isCompact ? 46 : 60
+        }
+    }
+
+    private var colSpacing: CGFloat {
+        if isIconOnly {
+            return isCompact ? 116 : 148
+        } else {
+            return isCompact ? 114 : 148
+        }
+    }
+
+    private var rowSpacing: CGFloat {
+        if isIconOnly {
+            return isCompact ? 118 : 148
+        } else {
+            return isCompact ? 134 : 172
+        }
+    }
+
+    private var totalHeight: CGFloat { isCompact ? 440 : 570 }
 
     private var totalColumns: Int {
         guard !apps.isEmpty else { return 0 }
@@ -54,16 +92,16 @@ struct CoverFlowWallView: View {
                         let colOffset = CGFloat(col - activeColumn) + (dragOffset / colSpacing)
 
                         // Performance cull: only render visible and nearby columns
-                        if abs(colOffset) < (isCompact ? 4.8 : 5.2) {
+                        if abs(colOffset) < (isCompact ? 4.8 : 5.4) {
                             let angle = calculateColumnRotation(offset: colOffset)
-                            let posX = centerX + colOffset * (colSpacing * 0.94)
+                            let posX = calculateColumnX(offset: colOffset, centerX: centerX)
 
                             ForEach(0..<rowsCount, id: \.self) { row in
                                 let index = col * rowsCount + row
                                 if index < apps.count {
                                     let app = apps[index]
                                     let isSelected = (index == activeIndex)
-                                    let posY = centerY + CGFloat(row - 1) * rowSpacing
+                                    let posY = calculateCardY(row: row, offset: colOffset, centerY: centerY)
 
                                     wallCard(app: app, index: index, isSelected: isSelected, row: row)
                                         .position(x: posX, y: posY)
@@ -106,94 +144,68 @@ struct CoverFlowWallView: View {
     // MARK: - Individual Wall Cover Card (Apple Liquid Glass Style)
     private func wallCard(app: DiscoveredApp, index: Int, isSelected: Bool, row: Int) -> some View {
         VStack(spacing: 0) {
-            VStack(spacing: isCompact ? 4 : 6) {
-                // Top Header Pill: Channel Slot / Quick Shortcut Badge
-                HStack(spacing: 4) {
-                    if index < 9 {
-                        Text("⌥\(index + 1)")
-                            .font(.system(size: isCompact ? 7.5 : 8, weight: .bold, design: .monospaced))
-                            .foregroundStyle(Color.black)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1.5)
-                            .background(Color.cyan, in: Capsule())
-                    } else {
-                        Text("CH \(index + 1)")
-                            .font(.system(size: isCompact ? 7.5 : 8, weight: .bold, design: .monospaced))
-                            .foregroundStyle(Color.white.opacity(0.8))
-                    }
-
-                    Spacer()
-
-                    Circle()
-                        .fill(app.accentColor)
-                        .frame(width: isCompact ? 3.5 : 4, height: isCompact ? 3.5 : 4)
-                }
-                .padding(.horizontal, isCompact ? 6 : 8)
-                .padding(.top, isCompact ? 5 : 7)
-
-                // App Icon with specular shadow
-                Image(nsImage: app.icon)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: iconSize, height: iconSize)
-                    .shadow(color: isSelected ? app.accentColor.opacity(0.65) : Color.black.opacity(0.4), radius: isSelected ? (isCompact ? 8 : 10) : 4, x: 0, y: 3)
-                    .padding(.top, 1)
-
-                // App Title
-                Text(app.name)
-                    .font(.system(size: isCompact ? 9.5 : 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .padding(.horizontal, 4)
-
-                // Category Tag Pill
-                Text(app.category)
-                    .font(.system(size: isCompact ? 6.5 : 7.5, weight: .heavy, design: .monospaced))
-                    .foregroundStyle(Color.white.opacity(0.65))
-                    .lineLimit(1)
-                    .padding(.horizontal, 4)
-                    .padding(.bottom, isCompact ? 4 : 6)
-            }
-            .frame(width: cardWidth, height: cardHeight)
-            .background(
-                RoundedRectangle(cornerRadius: isCompact ? 13 : 16, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: isSelected ?
-                                [Color(white: 0.12).opacity(0.98), Color(white: 0.05).opacity(0.98)] :
-                                [Color(white: 0.09).opacity(0.92), Color(white: 0.04).opacity(0.95)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+            if isIconOnly {
+                // Pure App Icon Only Look (Properly scaled & tight spacing)
+                VStack(spacing: isCompact ? 6 : 8) {
+                    Image(nsImage: app.icon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: iconSize, height: iconSize)
+                        .shadow(
+                            color: isSelected ? app.accentColor.opacity(0.7) : Color.black.opacity(0.35),
+                            radius: isSelected ? (isCompact ? 14 : 20) : 6,
+                            x: 0,
+                            y: isSelected ? 7 : 3
                         )
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: isCompact ? 13 : 16, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: isSelected ?
-                                [Color.white, Color.white.opacity(0.7), Color.white.opacity(0.3)] :
-                                [Color.white.opacity(0.22), Color.white.opacity(0.06)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: isSelected ? (isCompact ? 1.6 : 2.0) : 0.9
-                    )
-            )
-            .shadow(
-                color: isSelected ? Color.white.opacity(0.35) : Color.black.opacity(0.3),
-                radius: isSelected ? (isCompact ? 12 : 16) : 8,
-                x: 0,
-                y: isSelected ? 6 : 3
-            )
+                        .overlay(
+                            Group {
+                                if isSelected {
+                                    RoundedRectangle(cornerRadius: iconSize * 0.225, style: .continuous)
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [Color.white, Color.white.opacity(0.4)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: isCompact ? 1.8 : 2.2
+                                        )
+                                        .padding(isCompact ? -3 : -4)
+                                }
+                            }
+                        )
+
+                    Text(app.name)
+                        .font(.system(size: isCompact ? 11 : 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .shadow(color: .black.opacity(0.85), radius: 3, x: 0, y: 1.5)
+                        .opacity(isSelected ? 1.0 : 0.85)
+                }
+                .frame(width: cardWidth, height: cardHeight)
+                .scaleEffect(isSelected ? 1.08 : 1.0)
+                .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isSelected)
+                .contentShape(Rectangle())
+            } else {
+                // Classic Channel Card Look (Unified with Cover Flow AppCardView!)
+                ChannelCardDesignView(
+                    app: app,
+                    isSelected: isSelected,
+                    width: cardWidth,
+                    height: cardHeight,
+                    showFooter: true,
+                    showHeader: true
+                )
+                .scaleEffect(isSelected ? 1.06 : 1.0)
+                .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isSelected)
+            }
 
             // Floor Reflection for Bottom Row Cards (smooth fade, zero cutoff line)
             if row == 2 && abs(CGFloat(index / rowsCount - activeColumn)) < 2.5 {
                 reflectionView(for: app.icon)
-                    .frame(width: cardWidth, height: isCompact ? 22 : 32)
+                    .frame(width: cardWidth, height: isCompact ? 26 : 38)
                     .opacity(isSelected ? 0.32 : 0.14)
             } else {
-                Spacer().frame(height: isCompact ? 22 : 32)
+                Spacer().frame(height: isCompact ? 26 : 38)
             }
         }
         .onTapGesture {
@@ -203,6 +215,23 @@ struct CoverFlowWallView: View {
                 onSelect(index)
             }
         }
+        .contextMenu {
+            if !app.isAppsChannelApp {
+                Button {
+                    NSWorkspace.shared.activateFileViewerSelecting([app.url])
+                } label: {
+                    Label("Reveal in Finder", systemImage: "folder")
+                }
+
+                Divider()
+
+                Button(role: .destructive) {
+                    AppDiscoveryService.shared.hideApp(app)
+                } label: {
+                    Label("Hide from AppsChannel", systemImage: "eye.slash")
+                }
+            }
+        }
     }
 
     private func reflectionView(for icon: NSImage) -> some View {
@@ -210,7 +239,7 @@ struct CoverFlowWallView: View {
             Image(nsImage: icon)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: isCompact ? 30 : 42, height: isCompact ? 30 : 42)
+                .frame(width: isCompact ? 38 : 54, height: isCompact ? 38 : 54)
                 .scaleEffect(y: -1)
                 .mask(
                     LinearGradient(
@@ -227,21 +256,40 @@ struct CoverFlowWallView: View {
         .padding(.top, 2)
     }
 
-    // MARK: - 3D Geometry Mathematics for Curved Cylindrical Perspective
+    // MARK: - 3D Geometry Mathematics for Concave Amphitheater Wall Perspective (Wii Flow / IMAX Style)
     private func calculateColumnRotation(offset: CGFloat) -> Double {
         if abs(offset) < 0.001 { return 0 }
-        let angleStep: Double = isCompact ? -7.5 : -8.5
-        let rawAngle = Double(offset) * angleStep
-        return max(-38.0, min(38.0, rawAngle))
+        // Inward facing angle: negative for right side (faces left toward center), positive for left side (faces right toward center)
+        let angleStep: Double = isCompact ? 10.5 : 12.8
+        let rawAngle = -Double(offset) * angleStep
+        return max(-50.0, min(50.0, rawAngle))
     }
 
     private func calculateScale(offset: CGFloat, isSelected: Bool) -> CGFloat {
-        let baseScale = max(0.84, 1.0 - (abs(offset) * 0.035))
+        // Concave curvature: sides wrap forward closer to viewer with tight, controlled growth
+        let absOffset = Double(abs(offset))
+        let growth = pow(absOffset, 1.10) * 0.045
+        let baseScale = CGFloat(min(1.22, 1.0 + growth))
         return isSelected ? baseScale * 1.06 : baseScale
     }
 
     private func calculateZIndex(offset: CGFloat, isSelected: Bool) -> Double {
-        if isSelected { return 200.0 }
-        return 100.0 - Double(abs(offset)) * 10.0
+        if isSelected { return 500.0 }
+        // Outer wrapping columns are physically closer to the viewer
+        return 100.0 + Double(abs(offset)) * 20.0
+    }
+
+    private func calculateColumnX(offset: CGFloat, centerX: CGFloat) -> CGFloat {
+        let sign: CGFloat = offset >= 0 ? 1.0 : -1.0
+        let absOffset = abs(offset)
+        let projected = absOffset * (colSpacing * 0.92) - CGFloat(pow(Double(absOffset), 1.35) * 1.5)
+        return centerX + sign * projected
+    }
+
+    private func calculateCardY(row: Int, offset: CGFloat, centerY: CGFloat) -> CGFloat {
+        // Subtle perspective flare: gentle upward/downward curve on outer columns without spreading rows far apart
+        let absOffset = Double(abs(offset))
+        let verticalFlare = 1.0 + (pow(absOffset, 1.12) * 0.030)
+        return centerY + CGFloat(row - 1) * (rowSpacing * CGFloat(verticalFlare))
     }
 }

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		554CCE17EBBBBC91FDA94B29 /* HotKey in Frameworks */ = {isa = PBXBuildFile; productRef = AAFEFE11AD01E515A03ACA52 /* HotKey */; };
+		99010001EBBBBC91FDA94B29 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 99010002AD01E515A03ACA52 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				554CCE17EBBBBC91FDA94B29 /* HotKey in Frameworks */,
+				99010001EBBBBC91FDA94B29 /* Sparkle in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -67,6 +69,7 @@
 			name = AppsChannel;
 			packageProductDependencies = (
 				AAFEFE11AD01E515A03ACA52 /* HotKey */,
+				99010002AD01E515A03ACA52 /* Sparkle */,
 			);
 			productName = AppsChannel;
 			productReference = 000000000000000000000120 /* AppsChannel.app */;
@@ -98,6 +101,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				EE73892B6C26134183927403 /* XCRemoteSwiftPackageReference "HotKey" */,
+				990100036C26134183927403 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -284,7 +288,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.micahcrandell.AppsChannel;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -326,7 +330,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.micahcrandell.AppsChannel;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -364,6 +368,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		990100036C26134183927403 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.4;
+			};
+		};
 		EE73892B6C26134183927403 /* XCRemoteSwiftPackageReference "HotKey" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/soffes/HotKey";
@@ -375,6 +387,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		99010002AD01E515A03ACA52 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 990100036C26134183927403 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
 		AAFEFE11AD01E515A03ACA52 /* HotKey */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EE73892B6C26134183927403 /* XCRemoteSwiftPackageReference "HotKey" */;

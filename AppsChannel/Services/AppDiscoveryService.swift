@@ -51,6 +51,7 @@ final class AppDiscoveryService: ObservableObject {
     static let shared = AppDiscoveryService()
 
     @Published var apps: [DiscoveredApp] = []
+    @Published var allDiscoveredApps: [DiscoveredApp] = []
     @Published var isLoading: Bool = false
     @Published var selectedIndex: Int = 0
 
@@ -68,6 +69,93 @@ final class AppDiscoveryService: ObservableObject {
     }
 
     private let customOrderKey = "AppsChannelUserCustomOrder"
+    private let hiddenAppsKey = "AppsChannelHiddenApps"
+
+    @Published var hiddenAppPaths: Set<String> = []
+
+    func loadHiddenApps() -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: hiddenAppsKey) ?? [])
+    }
+
+    func isHidden(app: DiscoveredApp) -> Bool {
+        hiddenAppPaths.contains(app.url.path)
+    }
+
+    func toggleHidden(app: DiscoveredApp) {
+        if isHidden(app: app) {
+            unhideApp(path: app.url.path)
+        } else {
+            hideApp(app)
+        }
+    }
+
+    func hideApp(_ app: DiscoveredApp) {
+        var hidden = loadHiddenApps()
+        hidden.insert(app.url.path)
+        UserDefaults.standard.set(Array(hidden), forKey: hiddenAppsKey)
+        self.hiddenAppPaths = hidden
+
+        self.apps = applySavedOrder(to: allDiscoveredApps)
+        if !apps.isEmpty {
+            selectedIndex = min(selectedIndex, apps.count - 1)
+        }
+        SoundEffectsManager.shared.playAction()
+    }
+
+    func unhideApp(path: String) {
+        var hidden = loadHiddenApps()
+        hidden.remove(path)
+        UserDefaults.standard.set(Array(hidden), forKey: hiddenAppsKey)
+        self.hiddenAppPaths = hidden
+
+        self.apps = applySavedOrder(to: allDiscoveredApps)
+        if !apps.isEmpty {
+            selectedIndex = min(selectedIndex, apps.count - 1)
+        }
+        SoundEffectsManager.shared.playAction()
+    }
+
+    func hideGroup(category: String) {
+        var hidden = loadHiddenApps()
+        let targets = allDiscoveredApps.filter { category == "ALL" || $0.category == category }
+        for app in targets {
+            hidden.insert(app.url.path)
+        }
+        UserDefaults.standard.set(Array(hidden), forKey: hiddenAppsKey)
+        self.hiddenAppPaths = hidden
+
+        self.apps = applySavedOrder(to: allDiscoveredApps)
+        if !apps.isEmpty {
+            selectedIndex = min(selectedIndex, apps.count - 1)
+        }
+        SoundEffectsManager.shared.playAction()
+    }
+
+    func unhideGroup(category: String) {
+        var hidden = loadHiddenApps()
+        let targets = allDiscoveredApps.filter { category == "ALL" || $0.category == category }
+        for app in targets {
+            hidden.remove(app.url.path)
+        }
+        UserDefaults.standard.set(Array(hidden), forKey: hiddenAppsKey)
+        self.hiddenAppPaths = hidden
+
+        self.apps = applySavedOrder(to: allDiscoveredApps)
+        if !apps.isEmpty {
+            selectedIndex = min(selectedIndex, apps.count - 1)
+        }
+        SoundEffectsManager.shared.playAction()
+    }
+
+    func unhideAllApps() {
+        UserDefaults.standard.removeObject(forKey: hiddenAppsKey)
+        self.hiddenAppPaths = []
+        self.apps = applySavedOrder(to: allDiscoveredApps)
+        if !apps.isEmpty {
+            selectedIndex = min(selectedIndex, apps.count - 1)
+        }
+        SoundEffectsManager.shared.playAction()
+    }
 
     func loadSavedOrder() -> [String] {
         UserDefaults.standard.stringArray(forKey: customOrderKey) ?? []
@@ -79,10 +167,14 @@ final class AppDiscoveryService: ObservableObject {
     }
 
     func applySavedOrder(to discovered: [DiscoveredApp]) -> [DiscoveredApp] {
+        let hidden = loadHiddenApps()
+        self.hiddenAppPaths = hidden
+        let visibleApps = discovered.filter { !hidden.contains($0.url.path) && !$0.isAppsChannelApp }
+
         let saved = loadSavedOrder()
         if !saved.isEmpty {
             var appMap = [String: DiscoveredApp]()
-            for app in discovered {
+            for app in visibleApps {
                 appMap[app.url.path] = app
             }
 
@@ -96,14 +188,14 @@ final class AppDiscoveryService: ObservableObject {
                 }
             }
 
-            for app in discovered where !placedPaths.contains(app.url.path) {
+            for app in visibleApps where !placedPaths.contains(app.url.path) {
                 ordered.append(app)
             }
 
             return ordered
         } else {
             // Default: Sort by usage frequency + recency, then arrange middle-out
-            let ranked = discovered.sorted { app1, app2 in
+            let ranked = visibleApps.sorted { app1, app2 in
                 let score1 = AppUsageTracker.shared.usageScore(for: app1)
                 let score2 = AppUsageTracker.shared.usageScore(for: app2)
                 if score1 != score2 {
@@ -168,7 +260,9 @@ final class AppDiscoveryService: ObservableObject {
     func loadInitialApps() {
         // Step 1: Instant load from persistent disk cache
         if let cached = Self.loadCacheFromDisk(), !cached.isEmpty {
-            self.apps = applySavedOrder(to: cached)
+            let valid = cached.filter { !$0.isAppsChannelApp }
+            self.allDiscoveredApps = valid.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            self.apps = applySavedOrder(to: valid)
             self.selectedIndex = min(self.apps.count / 2, max(0, self.apps.count - 1))
             self.isLoading = false
 
@@ -181,7 +275,9 @@ final class AppDiscoveryService: ObservableObject {
                 let discovered = Self.scanInstalledApps()
                 Self.saveCacheToDisk(apps: discovered)
                 await MainActor.run {
-                    self.apps = self.applySavedOrder(to: discovered)
+                    let valid = discovered.filter { !$0.isAppsChannelApp }
+                    self.allDiscoveredApps = valid.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                    self.apps = self.applySavedOrder(to: valid)
                     self.isLoading = false
                     if !self.apps.isEmpty {
                         self.selectedIndex = min(self.apps.count / 2, self.apps.count - 1)
@@ -212,7 +308,9 @@ final class AppDiscoveryService: ObservableObject {
             Self.saveCacheToDisk(apps: freshApps)
 
             await MainActor.run {
-                self.apps = self.applySavedOrder(to: freshApps)
+                let valid = freshApps.filter { !$0.isAppsChannelApp }
+                self.allDiscoveredApps = valid.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                self.apps = self.applySavedOrder(to: valid)
                 self.isCheckingUpdates = false
             }
         }
@@ -221,6 +319,24 @@ final class AppDiscoveryService: ObservableObject {
     func launch(app: DiscoveredApp, query: String? = nil) {
         // Record launch count, recency timestamp, and search query association
         AppUsageTracker.shared.recordLaunch(app: app, query: query)
+
+        if app.bundleIdentifier == "com.apple.finder" {
+            let scriptSource = """
+            tell application "Finder"
+                activate
+                if (count of Finder windows) is 0 then
+                    make new Finder window to (path to home folder)
+                end if
+            end tell
+            """
+            DispatchQueue.global(qos: .userInitiated).async {
+                if let appleScript = NSAppleScript(source: scriptSource) {
+                    var error: NSDictionary?
+                    appleScript.executeAndReturnError(&error)
+                }
+            }
+            return
+        }
 
         let config = NSWorkspace.OpenConfiguration()
         config.activates = true
@@ -248,6 +364,8 @@ final class AppDiscoveryService: ObservableObject {
 
         for record in records {
             guard fileManager.fileExists(atPath: record.path) else { continue }
+            guard record.name.localizedCaseInsensitiveCompare("AppsChannel") != .orderedSame else { continue }
+            guard !record.path.lowercased().contains("/appschannel.app") else { continue }
             let url = URL(fileURLWithPath: record.path)
             let icon = getCachedIcon(forPath: record.path)
             let accent = deriveAccentColor(category: record.category, name: record.name)
@@ -264,6 +382,25 @@ final class AppDiscoveryService: ObservableObject {
                 accentColor: accent
             )
             results.append(app)
+        }
+
+        // Include macOS Finder
+        let finderPath = "/System/Library/CoreServices/Finder.app"
+        if !results.contains(where: { $0.url.path == finderPath }) && fileManager.fileExists(atPath: finderPath) {
+            let finderURL = URL(fileURLWithPath: finderPath)
+            let bundle = Bundle(url: finderURL)
+            let finderApp = DiscoveredApp(
+                id: UUID(),
+                name: "Finder",
+                url: finderURL,
+                bundleIdentifier: bundle?.bundleIdentifier ?? "com.apple.finder",
+                icon: getCachedIcon(forPath: finderPath),
+                category: "SYSTEM & UTILITY",
+                tagBadge: "File System",
+                sizeString: "Universal",
+                accentColor: deriveAccentColor(category: "SYSTEM & UTILITY", name: "Finder")
+            )
+            results.append(finderApp)
         }
 
         return results
@@ -307,6 +444,12 @@ final class AppDiscoveryService: ObservableObject {
                 }
             }
         }
+
+        let finderPath = "/System/Library/CoreServices/Finder.app"
+        if fileManager.fileExists(atPath: finderPath) {
+            paths.insert(finderPath)
+        }
+
         return paths
     }
 
@@ -323,43 +466,50 @@ final class AppDiscoveryService: ObservableObject {
             fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
         ]
 
+        var candidateURLs: [URL] = []
         for dir in searchDirectories {
             guard let contents = try? fileManager.contentsOfDirectory(
                 at: dir,
                 includingPropertiesForKeys: [.isApplicationKey],
                 options: [.skipsHiddenFiles]
             ) else { continue }
+            candidateURLs.append(contentsOf: contents.filter { $0.pathExtension == "app" })
+        }
 
-            for url in contents {
-                if url.pathExtension == "app" {
-                    let name = url.deletingPathExtension().lastPathComponent
-                    guard !seenNames.contains(name) else { continue }
-                    seenNames.insert(name)
+        let finderURL = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
+        if fileManager.fileExists(atPath: finderURL.path) {
+            candidateURLs.append(finderURL)
+        }
 
-                    let bundle = Bundle(url: url)
-                    let bundleId = bundle?.bundleIdentifier
+        for url in candidateURLs {
+            let name = url.deletingPathExtension().lastPathComponent
+            guard !seenNames.contains(name) else { continue }
+            guard name.localizedCaseInsensitiveCompare("AppsChannel") != .orderedSame else { continue }
+            guard !url.path.lowercased().contains("/appschannel.app") else { continue }
+            seenNames.insert(name)
 
-                    let categoryRaw = bundle?.object(forInfoDictionaryKey: "LSApplicationCategoryType") as? String
-                    let category = formatCategory(raw: categoryRaw, name: name)
-                    let tagBadge = deriveTagBadge(for: url, name: name, bundleId: bundleId)
-                    let sizeStr = fastCalculateSize(of: url)
-                    let accentColor = deriveAccentColor(category: category, name: name)
-                    let icon = getCachedIcon(forPath: url.path)
+            let bundle = Bundle(url: url)
+            let bundleId = bundle?.bundleIdentifier
 
-                    let app = DiscoveredApp(
-                        id: UUID(),
-                        name: name,
-                        url: url,
-                        bundleIdentifier: bundleId,
-                        icon: icon,
-                        category: category,
-                        tagBadge: tagBadge,
-                        sizeString: sizeStr,
-                        accentColor: accentColor
-                    )
-                    results.append(app)
-                }
-            }
+            let categoryRaw = bundle?.object(forInfoDictionaryKey: "LSApplicationCategoryType") as? String
+            let category = formatCategory(raw: categoryRaw, name: name)
+            let tagBadge = deriveTagBadge(for: url, name: name, bundleId: bundleId)
+            let sizeStr = fastCalculateSize(of: url)
+            let accentColor = deriveAccentColor(category: category, name: name)
+            let icon = getCachedIcon(forPath: url.path)
+
+            let app = DiscoveredApp(
+                id: UUID(),
+                name: name,
+                url: url,
+                bundleIdentifier: bundleId,
+                icon: icon,
+                category: category,
+                tagBadge: tagBadge,
+                sizeString: sizeStr,
+                accentColor: accentColor
+            )
+            results.append(app)
         }
 
         results.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -398,6 +548,9 @@ final class AppDiscoveryService: ObservableObject {
 
     nonisolated private static func formatCategory(raw: String?, name: String) -> String {
         let lower = name.lowercased()
+        if lower == "finder" {
+            return "SYSTEM & UTILITY"
+        }
         if lower.contains("terminal") || lower.contains("iterm") || lower.contains("warp") || lower.contains("kitty") || lower.contains("alacritty") {
             return "SHELL & CLI"
         }
@@ -434,6 +587,9 @@ final class AppDiscoveryService: ObservableObject {
 
     nonisolated private static func deriveTagBadge(for url: URL, name: String, bundleId: String?) -> String {
         let lower = name.lowercased()
+        if lower == "finder" {
+            return "File System"
+        }
         if lower.contains("terminal") || lower.contains("iterm") || lower.contains("warp") {
             return "M (17+ Devs)"
         }

@@ -4,23 +4,34 @@ import Combine
 
 @MainActor
 final class MainAppState: ObservableObject {
+    static let shared = MainAppState()
     @Published var isShowingSettings: Bool = false
     var eventMonitor: Any? = nil
 }
 
 struct MainAppView: View {
     @StateObject private var discoveryService = AppDiscoveryService.shared
-    @StateObject private var appState = MainAppState()
+    @ObservedObject private var appState = MainAppState.shared
     @State private var searchText: String = ""
     @State private var selectedCategory: String = "ALL"
     @State private var scrollAccumulator: CGFloat = 0.0
 
     @AppStorage("mainLayoutMode") private var layoutModeRaw: String = MainLayoutViewMode.gridWall.rawValue
+    @AppStorage("appDisplayStyle") private var appDisplayStyleRaw: String = AppDisplayStyle.iconOnly.rawValue
+    @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
     @State private var layoutMode: MainLayoutViewMode = .gridWall
     @State private var isOrganizeMode: Bool = false
 
     let onSwitchToQuickLauncher: () -> Void
     let onDismiss: () -> Void
+
+    private var appDisplayStyle: AppDisplayStyle {
+        AppDisplayStyle(rawValue: appDisplayStyleRaw) ?? .iconOnly
+    }
+
+    private var isIconOnly: Bool {
+        appDisplayStyle == .iconOnly
+    }
 
     private var filteredApps: [DiscoveredApp] {
         let baseList: [DiscoveredApp]
@@ -48,11 +59,11 @@ struct MainAppView: View {
             return baseList
         }
 
-        // Search Active: Smart search scoring with associative memory
+        // Search Active: Smart search scoring with associative memory and aliases
         let candidates = baseList.filter { app in
             app.name.localizedCaseInsensitiveContains(trimmedSearch) ||
             app.category.localizedCaseInsensitiveContains(trimmedSearch) ||
-            AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch) > 50.0
+            AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch) > 30.0
         }
 
         let ranked = candidates.sorted { a1, a2 in
@@ -91,7 +102,7 @@ struct MainAppView: View {
             // Transparent blurred backdrop floating over desktop
             backdropLayer
 
-            // Center Content: Either 1-Row CoverFlow or 3-Row Curved Cylindrical Wall Grid
+            // Center Content: CoverFlow Carousel, Curved Wall Grid, or 3DS Flat Grid
             VStack {
                 Spacer()
                 if layoutMode == .coverFlow {
@@ -99,6 +110,7 @@ struct MainAppView: View {
                         apps: filteredApps,
                         activeIndex: activeIndex,
                         isCompact: false,
+                        isIconOnly: isIconOnly,
                         onSelect: { index in
                             withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
                                 discoveryService.selectedIndex = index
@@ -110,10 +122,36 @@ struct MainAppView: View {
                         }
                     )
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
-                } else {
+                } else if layoutMode == .gridWall {
                     CoverFlowWallView(
                         apps: filteredApps,
                         activeIndex: activeIndex,
+                        isCompact: false,
+                        isIconOnly: isIconOnly,
+                        isOrganizeMode: isOrganizeMode,
+                        onSelect: { index in
+                            withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                                discoveryService.selectedIndex = index
+                            }
+                        },
+                        onLaunch: launchSelectedApp,
+                        onNavigate: { step in
+                            navigate(by: step)
+                        },
+                        onMoveApp: { from, to in
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                discoveryService.moveApp(from: from, to: to)
+                            }
+                        }
+                    )
+                    .transition(.scale(scale: 0.96).combined(with: .opacity))
+                } else if layoutMode == .threeDSGrid {
+                    ThreeDSGridView(
+                        apps: filteredApps,
+                        activeIndex: activeIndex,
+                        rowsCount: threeDSGridRows,
+                        isCompact: false,
+                        isIconOnly: isIconOnly,
                         isOrganizeMode: isOrganizeMode,
                         onSelect: { index in
                             withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
@@ -156,8 +194,21 @@ struct MainAppView: View {
                 selectedApp: currentApp,
                 onLaunch: launchSelectedApp,
                 onDismiss: onDismiss,
-                onPrevious: { navigate(by: layoutMode == .gridWall ? -3 : -1) },
-                onNext: { navigate(by: layoutMode == .gridWall ? 3 : 1) },
+                onPrevious: {
+                    switch layoutMode {
+                    case .coverFlow: navigate(by: -1)
+                    case .gridWall: navigate(by: -3)
+                    case .threeDSGrid: navigate(by: -threeDSGridRows)
+                    }
+                },
+                onNext: {
+                    switch layoutMode {
+                    case .coverFlow: navigate(by: 1)
+                    case .gridWall: navigate(by: 3)
+                    case .threeDSGrid: navigate(by: threeDSGridRows)
+                    }
+                },
+                onNavigateStep: { step in navigate(by: step) },
                 onSwitchToQuick: onSwitchToQuickLauncher,
                 onOpenSettings: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -206,8 +257,10 @@ struct MainAppView: View {
         )
         .shadow(color: .black.opacity(0.65), radius: 30, x: 0, y: 15)
         .ignoresSafeArea()
-        .onChange(of: searchText) { _ in
-            discoveryService.selectedIndex = filteredApps.count / 2
+        .onChange(of: searchText) { newText in
+            if !newText.isEmpty {
+                discoveryService.selectedIndex = filteredApps.count / 2
+            }
         }
         .onChange(of: selectedCategory) { _ in
             discoveryService.selectedIndex = filteredApps.count / 2
@@ -220,6 +273,7 @@ struct MainAppView: View {
             setupEventMonitor()
         }
         .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { notification in
+            searchText = ""
             discoveryService.selectedIndex = filteredApps.count / 2
             if let mode = notification.object as? LauncherMode {
                 if mode == .fullScreen {
@@ -227,6 +281,11 @@ struct MainAppView: View {
                 } else {
                     removeEventMonitor()
                 }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("AppsChannelOpenPreferences"))) { _ in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                appState.isShowingSettings = true
             }
         }
         .onChange(of: appState.isShowingSettings) { isShowing in
@@ -296,9 +355,7 @@ struct MainAppView: View {
     // MARK: - Fast Event Interception
     private func setupEventMonitor() {
         guard appState.eventMonitor == nil else { return }
-        appState.eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown]) { [weak appState] event in
-            guard let appState = appState else { return event }
-
+        appState.eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown]) { event in
             // Only process events when Main App window is visible and key
             guard PanelController.shared.isMainAppVisible,
                   let window = event.window ?? NSApp.keyWindow,
@@ -307,7 +364,7 @@ struct MainAppView: View {
             }
 
             // When Settings modal is active, isolate events:
-            if appState.isShowingSettings {
+            if MainAppState.shared.isShowingSettings {
                 scrollAccumulator = 0.0
                 if event.type == .scrollWheel {
                     // Let SettingsModalView's ScrollView handle scroll events natively without moving background cards
@@ -316,7 +373,7 @@ struct MainAppView: View {
                     // Escape key dismisses settings
                     if event.keyCode == 53 {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            appState.isShowingSettings = false
+                            MainAppState.shared.isShowingSettings = false
                         }
                         return nil
                     }
@@ -348,10 +405,14 @@ struct MainAppView: View {
                     return nil
                 }
 
-                // Command+V to toggle between 1-Row CoverFlow and 3-Row Curved Wall Grid
+                // Command+V to cycle between Cover Flow, Curved Wall Grid, and 3DS Flat Grid
                 if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "v" {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        layoutMode = (layoutMode == .coverFlow ? .gridWall : .coverFlow)
+                        switch layoutMode {
+                        case .coverFlow: layoutMode = .gridWall
+                        case .gridWall: layoutMode = .threeDSGrid
+                        case .threeDSGrid: layoutMode = .coverFlow
+                        }
                     }
                     return nil
                 }
@@ -408,24 +469,18 @@ struct MainAppView: View {
 
                 switch event.keyCode {
                 case 126: // Up Arrow
-                    if layoutMode == .gridWall {
-                        navigate(by: -1) // Move up 1 card in column
-                    } else {
-                        navigate(by: -1)
-                    }
+                    navigate(by: -1)
                     return nil
 
                 case 125: // Down Arrow
-                    if layoutMode == .gridWall {
-                        navigate(by: 1) // Move down 1 card in column
-                    } else {
-                        navigate(by: 1)
-                    }
+                    navigate(by: 1)
                     return nil
 
                 case 123: // Left Arrow
                     if layoutMode == .gridWall {
-                        navigate(by: -3) // Move left 1 column
+                        navigate(by: -3)
+                    } else if layoutMode == .threeDSGrid {
+                        navigate(by: -threeDSGridRows)
                     } else {
                         navigate(by: -1)
                     }
@@ -433,13 +488,15 @@ struct MainAppView: View {
 
                 case 124: // Right Arrow
                     if layoutMode == .gridWall {
-                        navigate(by: 3) // Move right 1 column
+                        navigate(by: 3)
+                    } else if layoutMode == .threeDSGrid {
+                        navigate(by: threeDSGridRows)
                     } else {
                         navigate(by: 1)
                     }
                     return nil
 
-                case 36: // Return
+                case 36, 76: // Return or Keypad Enter
                     launchSelectedApp()
                     return nil
 
@@ -469,6 +526,7 @@ struct MainAppView: View {
     }
 
     private func handleScrollEvent(_ event: NSEvent) {
+        guard !MainAppState.shared.isShowingSettings else { return }
         let dx = event.scrollingDeltaX
         let dy = event.scrollingDeltaY
         guard abs(dx) > 0.001 || abs(dy) > 0.001 else { return }
@@ -487,12 +545,21 @@ struct MainAppView: View {
         if rawSteps != 0 {
             let clampedStep = max(-1, min(1, rawSteps))
             scrollAccumulator -= CGFloat(clampedStep) * stepThreshold
-            navigate(by: clampedStep)
+            let stepMultiplier: Int = {
+                switch layoutMode {
+                case .coverFlow: return 1
+                case .gridWall: return 3
+                case .threeDSGrid: return threeDSGridRows
+                }
+            }()
+            navigate(by: clampedStep * stepMultiplier)
         }
     }
 
     private func navigate(by step: Int) {
+        guard !MainAppState.shared.isShowingSettings else { return }
         guard !filteredApps.isEmpty else { return }
+        SoundEffectsManager.shared.playNavigation()
         withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
             let nextIndex = min(max(0, activeIndex + step), filteredApps.count - 1)
             discoveryService.selectedIndex = nextIndex
@@ -501,7 +568,10 @@ struct MainAppView: View {
 
     private func launchSelectedApp() {
         guard let app = currentApp else { return }
-        discoveryService.launch(app: app, query: searchText)
+        SoundEffectsManager.shared.playLaunch()
+        let query = searchText
+        searchText = ""
+        discoveryService.launch(app: app, query: query)
         onDismiss()
     }
 

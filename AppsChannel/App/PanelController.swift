@@ -178,16 +178,14 @@ final class PanelController {
         quickLauncherPanel?.orderOut(nil)
         guard let window = mainAppWindow else { return }
 
-        // Center on target screen where mouse is located if not currently visible
-        if !window.isVisible {
-            let mouseLocation = NSEvent.mouseLocation
-            if let targetScreen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) {
-                let screen = targetScreen.visibleFrame
-                let curFrame = window.frame
-                let newX = max(screen.minX, min(screen.midX - (curFrame.width / 2), screen.maxX - curFrame.width))
-                let newY = max(screen.minY, min(screen.midY - (curFrame.height / 2), screen.maxY - curFrame.height))
-                window.setFrameOrigin(NSPoint(x: newX, y: newY))
-            }
+        // Position on target screen where mouse is currently located
+        let mouseLocation = NSEvent.mouseLocation
+        if let targetScreen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) {
+            let screen = targetScreen.visibleFrame
+            let curFrame = window.frame
+            let newX = max(screen.minX, min(screen.midX - (curFrame.width / 2), screen.maxX - curFrame.width))
+            let newY = max(screen.minY, min(screen.midY - (curFrame.height / 2), screen.maxY - curFrame.height))
+            window.setFrameOrigin(NSPoint(x: newX, y: newY))
         }
 
         window.makeKeyAndOrderFront(nil)

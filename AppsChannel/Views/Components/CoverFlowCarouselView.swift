@@ -5,6 +5,7 @@ struct CoverFlowCarouselView: View {
     let apps: [DiscoveredApp]
     let activeIndex: Int
     let isCompact: Bool
+    var isIconOnly: Bool = false
     let onSelect: (Int) -> Void
     let onLaunch: () -> Void
     let onNavigate: (Int) -> Void
@@ -29,15 +30,18 @@ struct CoverFlowCarouselView: View {
                     .position(x: centerX, y: centerY)
                 } else {
                     ForEach(Array(apps.enumerated()), id: \.element.id) { index, app in
-                        let offsetFromCenter = CGFloat(index - activeIndex) + (dragOffset / (isCompact ? 200.0 : 260.0))
+                        let divisor: CGFloat = isCompact ? (isIconOnly ? 160.0 : 200.0) : (isIconOnly ? 210.0 : 260.0)
+                        let offsetFromCenter = CGFloat(index - activeIndex) + (dragOffset / divisor)
 
                         // Limit visible cards range for maximum performance
-                        if abs(offsetFromCenter) < (isCompact ? 3.5 : 4.5) {
+                        let cullRange: CGFloat = isCompact ? (isIconOnly ? 4.2 : 3.5) : (isIconOnly ? 5.2 : 4.5)
+                        if abs(offsetFromCenter) < cullRange {
                             AppCardView(
                                 app: app,
                                 isSelected: index == activeIndex,
                                 offset: offsetFromCenter,
                                 isCompact: isCompact,
+                                isIconOnly: isIconOnly,
                                 onSelect: {
                                     onSelect(index)
                                 },
@@ -71,14 +75,14 @@ struct CoverFlowCarouselView: View {
                     }
             )
         }
-        .frame(height: isCompact ? 360 : 540)
+        .frame(height: isCompact ? (isIconOnly ? 310 : 360) : (isIconOnly ? 460 : 540))
     }
 
     private func calculateCardX(offset: CGFloat) -> CGFloat {
         if abs(offset) < 0.001 { return 0 }
         let sign: CGFloat = offset > 0 ? 1 : -1
-        let baseSpacing: CGFloat = isCompact ? 105 : 135
-        let centerGap: CGFloat = isCompact ? 95 : 120
+        let baseSpacing: CGFloat = isIconOnly ? (isCompact ? 85 : 110) : (isCompact ? 105 : 135)
+        let centerGap: CGFloat = isIconOnly ? (isCompact ? 75 : 95) : (isCompact ? 95 : 120)
         return sign * (centerGap + (abs(offset) - 1) * baseSpacing)
     }
 

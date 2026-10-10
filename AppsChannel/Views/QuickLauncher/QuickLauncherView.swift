@@ -11,10 +11,16 @@ struct QuickLauncherView: View {
     let onDismiss: () -> Void
 
     @AppStorage("mainLayoutMode") private var layoutModeRaw: String = MainLayoutViewMode.gridWall.rawValue
+    @AppStorage("appDisplayStyle") private var appDisplayStyleRaw: String = AppDisplayStyle.iconOnly.rawValue
+    @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
     @State private var selectedCategory: String = "ALL"
 
     private var layoutMode: MainLayoutViewMode {
         MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow
+    }
+
+    private var appDisplayStyle: AppDisplayStyle {
+        AppDisplayStyle(rawValue: appDisplayStyleRaw) ?? .iconOnly
     }
 
     private var categories: [String] {
@@ -53,11 +59,11 @@ struct QuickLauncherView: View {
             return baseList
         }
 
-        // Smart search scoring with associative memory
+        // Smart search scoring with associative memory and aliases
         let candidates = baseList.filter { app in
             app.name.localizedCaseInsensitiveContains(trimmedSearch) ||
             app.category.localizedCaseInsensitiveContains(trimmedSearch) ||
-            AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch) > 50.0
+            AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch) > 30.0
         }
 
         let ranked = candidates.sorted { a1, a2 in
@@ -143,13 +149,32 @@ struct QuickLauncherView: View {
             .frame(width: 520, height: 320)
             .allowsHitTesting(false)
 
-            // Middle Content: Fixed, stationary CoverFlow or Wall (never shifts when typing)
+            // Middle Content: Fixed, stationary CoverFlow, Wall, or 3DS Grid (never shifts when typing)
             Group {
                 if layoutMode == .coverFlow {
                     CoverFlowCarouselView(
                         apps: displayApps,
                         activeIndex: activeIndex,
                         isCompact: true,
+                        isIconOnly: appDisplayStyle == .iconOnly,
+                        onSelect: { index in
+                            withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                                discoveryService.selectedIndex = index
+                            }
+                        },
+                        onLaunch: launchSelectedApp,
+                        onNavigate: { step in
+                            navigate(by: step)
+                        }
+                    )
+                    .transition(.scale(scale: 0.96).combined(with: .opacity))
+                } else if layoutMode == .gridWall {
+                    CoverFlowWallView(
+                        apps: displayApps,
+                        activeIndex: activeIndex,
+                        isCompact: true,
+                        isIconOnly: appDisplayStyle == .iconOnly,
+                        isOrganizeMode: false,
                         onSelect: { index in
                             withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
                                 discoveryService.selectedIndex = index
@@ -162,10 +187,12 @@ struct QuickLauncherView: View {
                     )
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
                 } else {
-                    CoverFlowWallView(
+                    ThreeDSGridView(
                         apps: displayApps,
                         activeIndex: activeIndex,
+                        rowsCount: threeDSGridRows,
                         isCompact: true,
+                        isIconOnly: appDisplayStyle == .iconOnly,
                         isOrganizeMode: false,
                         onSelect: { index in
                             withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
@@ -192,8 +219,10 @@ struct QuickLauncherView: View {
             .padding(.top, 16)
         }
         .frame(width: 1100, height: 500)
-        .onChange(of: searchText) { _ in
-            discoveryService.selectedIndex = filteredApps.count / 2
+        .onChange(of: searchText) { newText in
+            if !newText.isEmpty {
+                discoveryService.selectedIndex = filteredApps.count / 2
+            }
         }
         .onChange(of: selectedCategory) { _ in
             discoveryService.selectedIndex = filteredApps.count / 2
@@ -243,10 +272,16 @@ struct QuickLauncherView: View {
                     return nil
                 }
 
-                // Command+V to toggle between Flow and Wall view
+                // Command+V to cycle between Cover Flow, Wall Grid, and 3DS Grid
                 if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "v" {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        layoutModeRaw = (layoutMode == .coverFlow ? MainLayoutViewMode.gridWall.rawValue : MainLayoutViewMode.coverFlow.rawValue)
+                        let nextMode: MainLayoutViewMode
+                        switch layoutMode {
+                        case .coverFlow: nextMode = .gridWall
+                        case .gridWall: nextMode = .threeDSGrid
+                        case .threeDSGrid: nextMode = .coverFlow
+                        }
+                        layoutModeRaw = nextMode.rawValue
                     }
                     return nil
                 }
@@ -284,7 +319,7 @@ struct QuickLauncherView: View {
 
                 switch event.keyCode {
                 case 126: // Up Arrow
-                    if layoutMode == .gridWall {
+                    if layoutMode == .gridWall || layoutMode == .threeDSGrid {
                         navigate(by: -1) // Up 1 card in column
                     } else {
                         navigate(by: -1)
@@ -292,7 +327,7 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 125: // Down Arrow
-                    if layoutMode == .gridWall {
+                    if layoutMode == .gridWall || layoutMode == .threeDSGrid {
                         navigate(by: 1) // Down 1 card in column
                     } else {
                         navigate(by: 1)
@@ -302,6 +337,8 @@ struct QuickLauncherView: View {
                 case 123: // Left Arrow
                     if layoutMode == .gridWall {
                         navigate(by: -3) // Left 1 column
+                    } else if layoutMode == .threeDSGrid {
+                        navigate(by: -threeDSGridRows) // Left 1 column
                     } else {
                         navigate(by: -1)
                     }
@@ -310,12 +347,14 @@ struct QuickLauncherView: View {
                 case 124: // Right Arrow
                     if layoutMode == .gridWall {
                         navigate(by: 3) // Right 1 column
+                    } else if layoutMode == .threeDSGrid {
+                        navigate(by: threeDSGridRows) // Right 1 column
                     } else {
                         navigate(by: 1)
                     }
                     return nil
 
-                case 36: // Return key -> Launch app
+                case 36, 76: // Return key or Keypad Enter -> Launch app
                     launchSelectedApp()
                     return nil
 
@@ -381,12 +420,20 @@ struct QuickLauncherView: View {
         if rawSteps != 0 {
             let clampedStep = max(-1, min(1, rawSteps))
             scrollAccumulator -= CGFloat(clampedStep) * stepThreshold
-            navigate(by: clampedStep)
+            let stepMultiplier: Int = {
+                switch layoutMode {
+                case .coverFlow: return 1
+                case .gridWall: return 3
+                case .threeDSGrid: return threeDSGridRows
+                }
+            }()
+            navigate(by: clampedStep * stepMultiplier)
         }
     }
 
     private func navigate(by step: Int) {
         guard !displayApps.isEmpty else { return }
+        SoundEffectsManager.shared.playNavigation()
         withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
             let nextIndex = min(max(0, activeIndex + step), displayApps.count - 1)
             discoveryService.selectedIndex = nextIndex
@@ -396,12 +443,14 @@ struct QuickLauncherView: View {
     private func launchSelectedApp() {
         guard let app = currentApp else { return }
         if app.url.path == Self.openMainAppCard.url.path {
+            SoundEffectsManager.shared.playAction()
             searchText = ""
             onExpandToFullScreen()
             return
         }
         let query = searchText
         searchText = ""
+        SoundEffectsManager.shared.playLaunch()
         discoveryService.launch(app: app, query: query)
         onDismiss()
     }
