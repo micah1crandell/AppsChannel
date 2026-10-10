@@ -371,11 +371,11 @@ struct WalkthroughView: View {
             .frame(height: 180)
 
             VStack(spacing: 8) {
-                Text("Cover Flow & Wii Channels, Reborn.")
+                Text("A visual app launcher for Mac.")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 
-                Text("AppsChannel blends the tactile nostalgia of mid-2000s 3D Cover Flow and gaming console channels with modern macOS Liquid Glass and spring physics.")
+                Text("Inspired by Cover Flow and classic console menus—fast, clean, and out of your way.")
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(.white.opacity(0.72))
                     .multilineTextAlignment(.center)
@@ -384,9 +384,9 @@ struct WalkthroughView: View {
 
             // Indie Feature Badges
             HStack(spacing: 12) {
-                featureBadge(icon: "bolt.fill", title: "Metal Accelerated")
-                featureBadge(icon: "hand.raised.fill", title: "Zero Telemetry")
-                featureBadge(icon: "chart.line.uptrend.xyaxis", title: "Middle-Out Ranking")
+                featureBadge(icon: "bolt.fill", title: "Hardware accelerated")
+                featureBadge(icon: "hand.raised.fill", title: "Zero telemetry or tracking")
+                featureBadge(icon: "chart.line.uptrend.xyaxis", title: "Smart usage-based sorting")
             }
 
             Spacer()
@@ -400,11 +400,11 @@ struct WalkthroughView: View {
             Spacer()
 
             VStack(spacing: 6) {
-                Text("Summon from Anywhere.")
+                Text("Available anywhere on your screen.")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 
-                Text("AppsChannel runs unobtrusively in your menu bar and can be summoned instantly over any app or full-screen space.")
+                Text("Runs in your menu bar and opens over any full-screen app or desktop space.")
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(.white.opacity(0.72))
                     .multilineTextAlignment(.center)
@@ -439,7 +439,7 @@ struct WalkthroughView: View {
                             .font(.system(size: 15, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
 
-                        Text("A floating spotlight-style HUD with feathered desktop blur. Appears instantly on ⌥L and dismisses the second you click out or launch an app.")
+                        Text("A minimal pop-up to launch an app and get right back to work.")
                             .font(.system(size: 11.5))
                             .foregroundStyle(.white.opacity(0.68))
                             .lineSpacing(2)
@@ -481,16 +481,16 @@ struct WalkthroughView: View {
                         // Keycap
                         HStack(spacing: 4) {
                             KeyCapView(symbol: "⌘")
-                            KeyCapView(symbol: "O")
+                            KeyCapView(symbol: "0")
                         }
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Main App Window")
+                        Text("Main Window")
                             .font(.system(size: 15, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
 
-                        Text("A frameless liquid glass window with native traffic lights, resizability, and full wall grids. Switch to it anytime from Quick Launcher or the Menu Bar.")
+                        Text("A dedicated window to browse, sort, and organize your entire app library.")
                             .font(.system(size: 11.5))
                             .foregroundStyle(.white.opacity(0.68))
                             .lineSpacing(2)
@@ -527,18 +527,11 @@ struct WalkthroughView: View {
             Spacer()
 
             VStack(spacing: 6) {
-                HStack(spacing: 8) {
-                    Text("Three Visual Perspectives")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                Text("Three ways to view your apps.")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
 
-                    HStack(spacing: 4) {
-                        KeyCapView(symbol: "⌘")
-                        KeyCapView(symbol: "V")
-                    }
-                }
-
-                Text("Cycle between three distinct viewing modes anytime by pressing ⌘V.")
+                Text("Press Command + V to switch views anytime.")
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(.white.opacity(0.72))
             }
@@ -549,19 +542,19 @@ struct WalkthroughView: View {
                     index: 0,
                     title: "Icon Flow",
                     icon: "square.grid.2x2.fill",
-                    desc: "Pure macOS application icons with perspective tilt and specular floor reflections."
+                    desc: "Clean Cover Flow layout centered on your app icons."
                 )
                 perspectiveTab(
                     index: 1,
                     title: "Channel Cards",
                     icon: "rectangle.grid.2x2.fill",
-                    desc: "Nintendo Wii & console channel cards with category tags, badges, and glass bevels."
+                    desc: "Console-style cards that display category tags and running status."
                 )
                 perspectiveTab(
                     index: 2,
-                    title: "Curved Wall Grid",
+                    title: "Wall Grid",
                     icon: "circle.grid.3x3.fill",
-                    desc: "3-row curved interactive wall grid for scanning your entire app library at a glance."
+                    desc: "A wide grid to scan your entire app collection at once."
                 )
             }
 
@@ -750,11 +743,11 @@ struct WalkthroughView: View {
             Spacer()
 
             VStack(spacing: 6) {
-                Text("Built for Speed & Muscle Memory.")
+                Text("Built for your keyboard.")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 
-                Text("Navigate instantly with keyboard arrows or trackpad gestures, and launch apps in single keystrokes.")
+                Text("Find and open apps in a single keystroke without reaching for your mouse.")
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(.white.opacity(0.72))
             }
@@ -764,39 +757,39 @@ struct WalkthroughView: View {
                 HStack(spacing: 12) {
                     shortcutTile(
                         keys: ["←", "→"],
-                        label: "Glide Carousel",
-                        desc: "Browse smoothly with spring physics or trackpad swipe"
+                        label: "Left / Right Arrows",
+                        desc: "Scroll through apps"
                     )
                     shortcutTile(
                         keys: ["Return"],
-                        label: "Launch Selected",
-                        desc: "Immediately opens the highlighted channel"
+                        label: "Return",
+                        desc: "Open selected app"
                     )
                 }
 
                 HStack(spacing: 12) {
                     shortcutTile(
                         keys: ["⌥", "1-9"],
-                        label: "Direct Slot Launch",
-                        desc: "Jump straight to your top channel slots without scrolling"
+                        label: "Option + 1–9",
+                        desc: "Launch your top pinned apps directly"
                     )
                     shortcutTile(
                         keys: ["Type..."],
-                        label: "Instant Search",
-                        desc: "Adaptive associative memory learns which app you mean"
+                        label: "Type anywhere",
+                        desc: "Search instantly"
                     )
                 }
 
                 HStack(spacing: 12) {
                     shortcutTile(
                         keys: ["⌘", "1-8"],
-                        label: "Category Filter",
-                        desc: "Instant group filtering (Dev, Productivity, Media, etc.)"
+                        label: "Command + 1–8",
+                        desc: "Filter by category"
                     )
                     shortcutTile(
                         keys: ["⌘", ","],
-                        label: "Preferences",
-                        desc: "Customize shortcuts, hide apps, and tweak display rows"
+                        label: "Command + Comma",
+                        desc: "Open preferences"
                     )
                 }
             }
@@ -814,7 +807,7 @@ struct WalkthroughView: View {
                     KeyCapView(symbol: k)
                 }
             }
-            .frame(width: 82, alignment: .leading)
+            .frame(width: 70, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
@@ -830,6 +823,7 @@ struct WalkthroughView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(white: 0.08).opacity(0.85), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -843,18 +837,18 @@ struct WalkthroughView: View {
             Spacer()
 
             VStack(spacing: 6) {
-                Text("Make it Uniquely Yours.")
+                Text("Keep your most-used apps within reach.")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 
-                Text("Rearrange channels to match your dream home menu, or let smart middle-out ranking keep your favorites in reach.")
+                Text("Pin apps in custom slots, or let smart sorting surface what you open most.")
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(.white.opacity(0.72))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 580)
             }
 
-            // Nintendo Wii / 3DS Style Channel Arranger Preview
+            // Organization Features Comparison
             VStack(spacing: 12) {
                 HStack(spacing: 14) {
                     ZStack {
@@ -867,11 +861,11 @@ struct WalkthroughView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Nintendo Wii / 3DS Channel Arranger")
+                        Text("Manual Organization")
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
 
-                        Text("Click the hand icon in the bottom HUD or press Option+Arrows in Organize Mode to slide cards left, right, or pin them to slot 1.")
+                        Text("Use Option + Arrows or click the hand icon to drag cards into custom positions.")
                             .font(.system(size: 11.5))
                             .foregroundStyle(.white.opacity(0.68))
                     }
@@ -892,11 +886,11 @@ struct WalkthroughView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Smart Middle-Out Center Fan")
+                        Text("Smart Center Sorting")
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
 
-                        Text("Your most frequently used app is always centered (Rank #1), with other ranks radiating outward (#2 right, #3 left, #4 right...) for instant focus.")
+                        Text("Automatically places your most frequently opened app in the center slot and fans the rest outward.")
                             .font(.system(size: 11.5))
                             .foregroundStyle(.white.opacity(0.68))
                     }
