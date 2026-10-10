@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct SettingsModalView: View {
     @Binding var isPresented: Bool
@@ -35,12 +36,13 @@ struct SettingsModalView: View {
         VStack(spacing: 0) {
             // Modal Header
             HStack {
-                HStack(spacing: 8) {
+                HStack(spacing: 9) {
                     Image(systemName: "square.grid.3x3.topleft.filled")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.cyan)
-                    Text("AppsChannel Preferences")
-                        .font(.headline)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(.white)
+
+                    Text("Preferences")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                 }
 
@@ -48,61 +50,86 @@ struct SettingsModalView: View {
 
                 Button(action: {
                     stopRecordingShortcut()
-                    isPresented = false
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isPresented = false
+                    }
                 }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
-                        .foregroundStyle(.white.opacity(0.6))
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .frame(width: 28, height: 28)
+                        .background(Color(white: 0.08).opacity(0.85), in: Circle())
+                        .overlay(
+                            Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                        )
                 }
                 .buttonStyle(.plain)
+                .help("Close (⎋)")
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 20)
-            .padding(.bottom, 16)
+            .padding(.horizontal, 22)
+            .padding(.top, 18)
+            .padding(.bottom, 14)
 
             Divider()
-                .background(Color.white.opacity(0.12))
+                .background(Color.white.opacity(0.08))
 
             // Sidebar Tabs & Content
             HStack(spacing: 0) {
-                // Tab Selection
+                // Sidebar Navigation
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(SettingsTab.allCases) { tab in
+                        let isSelected = selectedTab == tab
                         Button(action: {
                             stopRecordingShortcut()
-                            selectedTab = tab
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                selectedTab = tab
+                            }
                         }) {
                             HStack(spacing: 10) {
                                 Image(systemName: tab.iconName)
-                                    .font(.system(size: 13))
+                                    .font(.system(size: 13, weight: isSelected ? .bold : .medium))
                                     .frame(width: 18)
                                 Text(tab.rawValue)
-                                    .font(.system(size: 13, weight: selectedTab == tab ? .bold : .medium))
+                                    .font(.system(size: 13, weight: isSelected ? .bold : .medium))
                             }
-                            .foregroundStyle(selectedTab == tab ? .white : .white.opacity(0.7))
+                            .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.75))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
-                                selectedTab == tab ?
-                                    Color.cyan.opacity(0.2) : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                Group {
+                                    if isSelected {
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .fill(Color.white)
+                                    } else {
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .fill(Color.clear)
+                                    }
+                                }
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(
+                                        isSelected ? Color.white : Color.clear,
+                                        lineWidth: 1
+                                    )
                             )
                         }
                         .buttonStyle(.plain)
                     }
                     Spacer()
                 }
-                .frame(width: 150)
-                .padding(16)
-                .background(Color.black.opacity(0.2))
+                .frame(width: 160)
+                .padding(14)
+                .background(Color.black.opacity(0.25))
 
-                Divider()
-                    .background(Color.white.opacity(0.12))
+                Rectangle()
+                    .fill(Color.white.opacity(0.08))
+                    .frame(width: 1)
 
-                // Tab Content Pane (Scrollable with isolated scroll events)
+                // Tab Content Pane
                 ScrollView(.vertical, showsIndicators: true) {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 16) {
                         switch selectedTab {
                         case .general:
                             generalSettings
@@ -114,130 +141,279 @@ struct SettingsModalView: View {
                             accountSettings
                         }
                     }
-                    .padding(24)
+                    .padding(22)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(width: 680, height: 490)
+        .frame(width: 710, height: 510)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(white: 0.12).opacity(0.96))
+            ZStack {
+                VisualEffectBackground(material: .popover, blendingMode: .withinWindow)
+                Color(red: 0.05, green: 0.05, blue: 0.07).opacity(0.92)
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.07),
+                        Color.clear,
+                        Color.black.opacity(0.4)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.35),
+                            Color.white.opacity(0.12),
+                            Color.white.opacity(0.04)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
         )
-        .shadow(color: .black.opacity(0.5), radius: 30, x: 0, y: 15)
+        .shadow(color: Color.black.opacity(0.7), radius: 36, x: 0, y: 18)
         .onDisappear {
             stopRecordingShortcut()
         }
     }
 
-    private var generalSettings: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Toggle("Show AppsChannel in macOS Dock", isOn: $showInDock)
-                .toggleStyle(.checkbox)
-                .foregroundStyle(.white)
-                .onChange(of: showInDock) { newValue in
-                    PanelController.shared.setDockVisibility(showInDock: newValue)
-                }
-
-            Toggle("Launch AppsChannel at Login", isOn: $launchAtLogin)
-                .toggleStyle(.checkbox)
-                .foregroundStyle(.white)
-
-            Toggle("Enable Sound Effects on Navigation", isOn: $soundEffects)
-                .toggleStyle(.checkbox)
-                .foregroundStyle(.white)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Default Launcher Mode:")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.85))
-
-                Picker("", selection: $defaultMode) {
-                    Text("Spotlight-style Quick Launcher").tag(LauncherMode.quickLauncher.rawValue)
-                    Text("Full-Screen Main Channel").tag(LauncherMode.fullScreen.rawValue)
-                }
-                .pickerStyle(.radioGroup)
-                .foregroundStyle(.white)
+    // MARK: - Reusable Obsidian Glass Card Container
+    private func settingsCard<Content: View>(
+        title: String,
+        icon: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.9))
+                Text(title)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
             }
 
-            Divider()
-                .background(Color.white.opacity(0.12))
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(white: 0.07).opacity(0.85))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.22),
+                            Color.white.opacity(0.08),
+                            Color.white.opacity(0.03)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+    }
 
-            // Smart Usage & Search Memory
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Smart Usage & Search Ranking")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.white)
-
-                Text("Apps are arranged with your most opened apps in the center (1 in middle, 2 right, 3 left, 4 right...). When searching, previous choices are learned and prioritized.")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(spacing: 12) {
-                    Button(action: {
-                        AppUsageTracker.shared.resetAnalytics()
-                        AppDiscoveryService.shared.resetToUsageOrder()
-                    }) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "trash")
+    // MARK: - General Settings Tab
+    private var generalSettings: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Card 1: App Behavior
+            settingsCard(title: "Application Behavior", icon: "macwindow") {
+                VStack(alignment: .leading, spacing: 14) {
+                    Toggle(isOn: $showInDock) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Show in macOS Dock")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.white)
+                            Text("Keep AppsChannel accessible from the Dock icon.")
                                 .font(.system(size: 11))
-                            Text("Reset Usage & Search History")
-                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.6))
                         }
-                        .foregroundStyle(.red.opacity(0.9))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.red.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
-                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.red.opacity(0.3), lineWidth: 1))
                     }
-                    .buttonStyle(.plain)
+                    .toggleStyle(.switch)
+                    .tint(.white)
+                    .onChange(of: showInDock) { newValue in
+                        PanelController.shared.setDockVisibility(showInDock: newValue)
+                    }
 
-                    Button(action: {
-                        AppDiscoveryService.shared.resetToUsageOrder()
-                    }) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "arrow.counterclockwise")
+                    Divider().background(Color.white.opacity(0.08))
+
+                    Toggle(isOn: $launchAtLogin) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Launch at Login")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.white)
+                            Text("Automatically start AppsChannel in the background when logging into macOS.")
                                 .font(.system(size: 11))
-                            Text("Reapply Usage Order")
-                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.6))
                         }
-                        .foregroundStyle(.white.opacity(0.85))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
                     }
-                    .buttonStyle(.plain)
+                    .toggleStyle(.switch)
+                    .tint(.white)
+
+                    Divider().background(Color.white.opacity(0.08))
+
+                    Toggle(isOn: $soundEffects) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Navigation Sound Effects")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.white)
+                            Text("Play subtle audio feedback when navigating cards and launching channels.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .tint(.white)
                 }
-                .padding(.top, 4)
+            }
+
+            // Card 2: Default Launcher Mode
+            settingsCard(title: "Default Launcher Mode", icon: "slider.horizontal.2.square") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Choose the mode activated by the global shortcut.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.6))
+
+                    HStack(spacing: 10) {
+                        modeButton(
+                            title: "Quick Launcher",
+                            desc: "Floating Spotlight-style bar with rapid search",
+                            mode: .quickLauncher
+                        )
+                        modeButton(
+                            title: "Full Channel",
+                            desc: "Full-screen CoverFlow & Curved Wall Grid",
+                            mode: .fullScreen
+                        )
+                    }
+                }
+            }
+
+            // Card 3: Smart Usage & Ranking
+            settingsCard(title: "Smart Ranking & Search Memory", icon: "chart.line.uptrend.xyaxis") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Apps are arranged with your most opened apps in the center (1 middle, 2 right, 3 left, 4 right...). When searching, previous launch choices are learned and prioritized.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.65))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 10) {
+                        Button(action: {
+                            AppUsageTracker.shared.resetAnalytics()
+                            AppDiscoveryService.shared.resetToUsageOrder()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 11))
+                                Text("Reset Usage & Search History")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .foregroundStyle(.white.opacity(0.85))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: {
+                            AppDiscoveryService.shared.resetToUsageOrder()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.counterclockwise")
+                                    .font(.system(size: 11))
+                                Text("Reapply Usage Order")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.top, 2)
+                }
             }
         }
     }
 
-    private var shortcutSettings: some View {
-        VStack(alignment: .leading, spacing: 18) {
-                // Section 1: In-App Shortcut Customization
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Global Activation Shortcut")
-                        .font(.headline)
-                        .foregroundStyle(.white)
+    private func modeButton(title: String, desc: String, mode: LauncherMode) -> some View {
+        let isSelected = defaultMode == mode.rawValue
+        return Button(action: {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                defaultMode = mode.rawValue
+            }
+        }) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(title)
+                        .font(.system(size: 12, weight: isSelected ? .bold : .semibold))
+                        .foregroundStyle(isSelected ? Color.black : Color.white)
+                    Spacer()
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.black)
+                    }
+                }
+                Text(desc)
+                    .font(.system(size: 10))
+                    .foregroundStyle(isSelected ? Color.black.opacity(0.7) : Color.white.opacity(0.55))
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                Group {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white)
+                    } else {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                    }
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.14), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
 
-                    Text("Press this keyboard combination from any macOS app to open AppsChannel.")
+    // MARK: - Shortcut Settings Tab
+    private var shortcutSettings: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Card 1: Global Shortcut
+            settingsCard(title: "Global Activation Shortcut", icon: "keyboard.fill") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Press this keyboard combination anywhere in macOS to trigger AppsChannel.")
                         .font(.caption)
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(.white.opacity(0.65))
 
                     // Current Shortcut Glass Banner
                     HStack(spacing: 14) {
-                        Image(systemName: "keyboard.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.cyan)
+                        Image(systemName: "keyboard")
+                            .font(.system(size: 18))
+                            .foregroundStyle(.white)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Current Shortcut")
@@ -245,7 +421,7 @@ struct SettingsModalView: View {
                                 .foregroundStyle(.white.opacity(0.6))
                             Text(isRecordingShortcut ? "Press key combo now..." : hotKeyManager.currentShortcutLabel)
                                 .font(.system(size: 15, weight: .bold, design: .monospaced))
-                                .foregroundStyle(isRecordingShortcut ? .yellow : .cyan)
+                                .foregroundStyle(isRecordingShortcut ? .yellow : .white)
                         }
 
                         Spacer()
@@ -253,33 +429,31 @@ struct SettingsModalView: View {
                         Button(action: toggleRecordingShortcut) {
                             HStack(spacing: 6) {
                                 Image(systemName: isRecordingShortcut ? "record.circle.fill" : "record.circle")
-                                    .foregroundStyle(isRecordingShortcut ? .red : .white)
+                                    .foregroundStyle(isRecordingShortcut ? .red : (isRecordingShortcut ? .black : .black))
                                 Text(isRecordingShortcut ? "Cancel" : "Record Shortcut")
                                     .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.black)
                             }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(isRecordingShortcut ? Color.red.opacity(0.2) : Color.white.opacity(0.12), in: Capsule())
-                            .overlay(
-                                Capsule().strokeBorder(isRecordingShortcut ? Color.red.opacity(0.5) : Color.white.opacity(0.25), lineWidth: 1)
-                            )
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(isRecordingShortcut ? Color.white.opacity(0.9) : Color.white, in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }
                     .padding(12)
-                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
                     )
 
                     // Presets
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("Presets:")
                             .font(.caption)
-                            .foregroundStyle(.white.opacity(0.75))
+                            .foregroundStyle(.white.opacity(0.7))
 
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                             ForEach(hotKeyManager.presets) { preset in
                                 let isSelected = hotKeyManager.currentShortcutLabel == preset.label
                                 Button(action: {
@@ -297,12 +471,16 @@ struct SettingsModalView: View {
                                                 .foregroundStyle(.black)
                                         }
                                     }
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 7)
                                     .background(
                                         isSelected ?
-                                            Color.cyan : Color.white.opacity(0.08),
-                                        in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                            Color.white : Color(white: 0.08).opacity(0.85),
+                                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.18), lineWidth: 1)
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -310,64 +488,63 @@ struct SettingsModalView: View {
                         }
                     }
                 }
+            }
 
-                Divider().background(Color.white.opacity(0.12))
-
-                // Section 2: macOS System Settings Walkthrough
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Image(systemName: "applelogo")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.white)
-                        Text("macOS System Settings Walkthrough")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                    }
-
-                    Text("To bind system-wide shortcuts directly through macOS native settings:")
+            // Card 2: macOS System Integration
+            settingsCard(title: "System Integration", icon: "applelogo") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("To bind system-wide shortcuts directly through macOS native preferences:")
                         .font(.caption)
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(.white.opacity(0.65))
 
-                    // Method A: Shortcuts App (Apple's modern standard)
+                    // Method A
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text("Method A: macOS Shortcuts App (Recommended)")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.cyan)
+                                .foregroundStyle(.white)
                             Spacer()
-                            Button("Open Shortcuts App") {
+                            Button("Open Shortcuts") {
                                 NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Shortcuts.app"))
                             }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
-                            .tint(.cyan)
+                            .foregroundStyle(.black)
+                            .font(.system(size: 11, weight: .semibold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: 6))
+                            .buttonStyle(.plain)
                         }
 
                         walkthroughStep(number: "1", title: "Open Shortcuts", desc: "Launch the native macOS Shortcuts app.")
-                        walkthroughStep(number: "2", title: "Add Action", desc: "Click '+' and search for the 'Open App' action.")
-                        walkthroughStep(number: "3", title: "Choose AppsChannel", desc: "Select 'AppsChannel' as the application to open.")
-                        walkthroughStep(number: "4", title: "Assign Hotkey", desc: "In the right Details panel, check 'Use as Quick Action' > 'Add Keyboard Shortcut'.")
+                        walkthroughStep(number: "2", title: "Add Action", desc: "Click '+' and search for 'Open App'.")
+                        walkthroughStep(number: "3", title: "Choose AppsChannel", desc: "Select 'AppsChannel' as the target application.")
+                        walkthroughStep(number: "4", title: "Assign Hotkey", desc: "In Details panel, check 'Use as Quick Action' > 'Add Keyboard Shortcut'.")
                     }
                     .padding(12)
-                    .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
                     )
 
-                    // Method B: System Settings > Keyboard
+                    // Method B
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text("Method B: System Settings > Keyboard Shortcuts")
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(.white.opacity(0.9))
                             Spacer()
-                            Button("Open Keyboard Settings") {
+                            Button("Open Settings") {
                                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.keyboard") {
                                     NSWorkspace.shared.open(url)
                                 }
                             }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
+                            .foregroundStyle(.white.opacity(0.85))
+                            .font(.system(size: 11, weight: .medium))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+                            .buttonStyle(.plain)
                         }
 
                         walkthroughStep(number: "1", title: "Keyboard Shortcuts", desc: "Open System Settings > Keyboard > Keyboard Shortcuts...")
@@ -375,14 +552,14 @@ struct SettingsModalView: View {
                         walkthroughStep(number: "3", title: "Add Shortcut", desc: "Click '+' > choose AppsChannel > assign shortcut.")
                     }
                     .padding(12)
-                    .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
                     )
                 }
             }
-            .padding(.trailing, 6)
         }
+    }
 
     private func walkthroughStep(number: String, title: String, desc: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
@@ -390,7 +567,7 @@ struct SettingsModalView: View {
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(.black)
                 .frame(width: 18, height: 18)
-                .background(Circle().fill(Color.cyan))
+                .background(Circle().fill(Color.white))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
@@ -398,7 +575,7 @@ struct SettingsModalView: View {
                     .foregroundStyle(.white)
                 Text(desc)
                     .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(.white.opacity(0.65))
             }
         }
     }
@@ -441,52 +618,86 @@ struct SettingsModalView: View {
         }
     }
 
+    // MARK: - Appearance Settings Tab
     private var appearanceSettings: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Desktop Dimming Level")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.85))
-                Slider(value: $dimmingIntensity, in: 0.05...0.45)
-                    .tint(.cyan)
-            }
+        VStack(alignment: .leading, spacing: 16) {
+            settingsCard(title: "Visual & Desktop Glass Shaders", icon: "paintpalette.fill") {
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Desktop Dimming Level")
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.85))
+                            Spacer()
+                            Text("\(Int(dimmingIntensity * 100))%")
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.white.opacity(0.12), in: Capsule())
+                        }
 
-            HStack(spacing: 8) {
-                Circle().fill(Color.cyan).frame(width: 8, height: 8)
-                Text("Apple Liquid Glass shaders & behind-window blur active")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
+                        Slider(value: $dimmingIntensity, in: 0.05...0.45)
+                            .tint(.white)
+                    }
+
+                    Divider().background(Color.white.opacity(0.08))
+
+                    HStack(spacing: 8) {
+                        Circle().fill(Color.white).frame(width: 6, height: 6)
+                        Text("Apple Liquid Glass shaders & behind-window desktop blur active")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.65))
+                    }
+                }
             }
         }
     }
 
+    // MARK: - Account Settings Tab
     private var accountSettings: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.cyan)
+        VStack(alignment: .leading, spacing: 16) {
+            settingsCard(title: "Local Profile & License", icon: "person.crop.circle.fill") {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.system(size: 44))
+                            .foregroundStyle(.white.opacity(0.9))
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(NSFullUserName())
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                    Text("macOS Local Profile")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.6))
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 8) {
+                                Text(NSFullUserName())
+                                    .font(.headline)
+                                    .foregroundStyle(.white)
+
+                                Text("PRO")
+                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(.black)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.white, in: Capsule())
+                            }
+
+                            Text("macOS Local Profile")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+                    }
+
+                    Divider().background(Color.white.opacity(0.08))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("AppsChannel Pro Edition")
+                            .font(.subheadline)
+                            .bold()
+                            .foregroundStyle(.white)
+
+                        Text("Licensed to local macOS workspace. Custom Wii & 3DS channel layout active.")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.65))
+                    }
                 }
             }
-
-            Divider().background(Color.white.opacity(0.12))
-
-            Text("AppsChannel Pro Edition")
-                .font(.subheadline)
-                .bold()
-                .foregroundStyle(.white)
-
-            Text("Licensed to local macOS workspace. Custom Wii/3DS channel layout active.")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
         }
     }
 }
