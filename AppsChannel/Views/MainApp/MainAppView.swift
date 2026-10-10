@@ -208,6 +208,13 @@ struct MainAppView: View {
         .onChange(of: layoutMode) { newMode in
             layoutModeRaw = newMode.rawValue
         }
+        .onChange(of: isShowingSettings) { showing in
+            if showing {
+                removeEventMonitor()
+            } else {
+                setupEventMonitor()
+            }
+        }
         .onDisappear {
             removeEventMonitor()
         }

@@ -100,25 +100,28 @@ struct SettingsModalView: View {
                 Divider()
                     .background(Color.white.opacity(0.12))
 
-                // Tab Content Pane
-                VStack(alignment: .leading, spacing: 20) {
-                    switch selectedTab {
-                    case .general:
-                        generalSettings
-                    case .shortcuts:
-                        shortcutSettings
-                    case .appearance:
-                        appearanceSettings
-                    case .account:
-                        accountSettings
+                // Tab Content Pane (Scrollable with isolated scroll events)
+                ScrollView(.vertical, showsIndicators: true) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        switch selectedTab {
+                        case .general:
+                            generalSettings
+                        case .shortcuts:
+                            shortcutSettings
+                        case .appearance:
+                            appearanceSettings
+                        case .account:
+                            accountSettings
+                        }
                     }
-                    Spacer()
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(width: 680, height: 490)
+        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(white: 0.12).opacity(0.96))
@@ -219,8 +222,7 @@ struct SettingsModalView: View {
     }
 
     private var shortcutSettings: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 18) {
                 // Section 1: In-App Shortcut Customization
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Global Activation Shortcut")
@@ -381,7 +383,6 @@ struct SettingsModalView: View {
             }
             .padding(.trailing, 6)
         }
-    }
 
     private func walkthroughStep(number: String, title: String, desc: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
