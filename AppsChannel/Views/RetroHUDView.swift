@@ -203,65 +203,53 @@ struct RetroHUDView: View {
             }
 
             // Category Filter Pills with Direct Command Shortcuts (⌘1, ⌘2, etc.)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 7) {
-                    ForEach(Array(categories.enumerated()), id: \.element) { index, category in
-                        let isSelected = selectedCategory == category
-                        Button(action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                selectedCategory = category
-                            }
-                        }) {
-                            HStack(spacing: 5) {
-                                if index < 8 {
-                                    Text("⌘\(index + 1)")
-                                        .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.85))
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(isSelected ? Color.white.opacity(0.4) : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
-                                }
-
-                                Text(category)
-                                    .font(.system(size: 11.5, weight: isSelected ? .bold : .medium))
-                                    .foregroundStyle(isSelected ? (Color.black) : Color.white.opacity(0.75))
-                            }
-                            .padding(.horizontal, 11)
-                            .padding(.vertical, 5)
-                            .background(
-                                Group {
-                                    if isSelected {
-                                        Capsule().fill(Color.white)
-                                    } else {
-                                        Capsule().fill(Color(white: 0.08).opacity(0.85))
-                                    }
-                                }
-                            )
-                            .overlay(
-                                Capsule()
-                                    .strokeBorder(
-                                        isSelected ? Color.white : Color.white.opacity(0.18),
-                                        lineWidth: 1
-                                    )
-                            )
+            HStack(spacing: 5) {
+                ForEach(Array(categories.enumerated()), id: \.element) { index, category in
+                    let isSelected = selectedCategory == category
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            selectedCategory = category
                         }
-                        .buttonStyle(.plain)
+                    }) {
+                        HStack(spacing: 3.5) {
+                            if index < 8 {
+                                Text("⌘\(index + 1)")
+                                    .font(.system(size: 7.5, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.85))
+                                    .padding(.horizontal, 3)
+                                    .padding(.vertical, 1)
+                                    .background(isSelected ? Color.white.opacity(0.4) : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 2.5))
+                            }
+
+                            Text(category)
+                                .font(.system(size: 9.5, weight: isSelected ? .bold : .semibold))
+                                .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.75))
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3.5)
+                        .background(
+                            Group {
+                                if isSelected {
+                                    Capsule().fill(Color.white)
+                                } else {
+                                    Capsule().fill(Color(white: 0.08).opacity(0.85))
+                                }
+                            }
+                        )
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(
+                                    isSelected ? Color.white : Color.white.opacity(0.18),
+                                    lineWidth: 1
+                                )
+                        )
                     }
+                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 4)
-                .padding(.trailing, 32)
             }
-            .mask(
-                HStack(spacing: 0) {
-                    Rectangle()
-                    LinearGradient(
-                        colors: [.black, .black.opacity(0.85), .clear],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .frame(width: 36)
-                }
-            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 2)
         }
     }
 
