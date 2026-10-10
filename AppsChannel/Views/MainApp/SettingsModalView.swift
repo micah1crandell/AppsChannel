@@ -331,6 +331,9 @@ struct SettingsModalView: View {
                             .pickerStyle(.menu)
                             .tint(.white)
                             .frame(width: 150)
+                            .onChange(of: soundThemeRaw) { _ in
+                                SoundEffectsManager.shared.playNavigation()
+                            }
                         }
                     }
 

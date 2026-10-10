@@ -33,8 +33,11 @@ enum SoundTheme: String, CaseIterable, Identifiable {
     }
 }
 
+@MainActor
 final class SoundEffectsManager {
     static let shared = SoundEffectsManager()
+
+    private var soundCache: [String: NSSound] = [:]
 
     var isEnabled: Bool {
         UserDefaults.standard.object(forKey: "soundEffects") as? Bool ?? true
@@ -55,7 +58,14 @@ final class SoundEffectsManager {
     private init() {}
 
     private func sound(named name: String) -> NSSound? {
-        NSSound(named: NSSound.Name(name))
+        if let cached = soundCache[name] {
+            return cached
+        }
+        if let snd = NSSound(named: NSSound.Name(name)) {
+            soundCache[name] = snd
+            return snd
+        }
+        return nil
     }
 
     func playNavigation() {
