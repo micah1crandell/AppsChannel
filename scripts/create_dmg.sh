@@ -6,10 +6,13 @@ set -euo pipefail
 # Creates a polished, drag-and-drop macOS disk image (.dmg)
 # ==============================================================================
 
-APP_PATH="${1:-build/Build/Products/Release/AppsChannel.app}"
-OUTPUT_DMG="${2:-build/Build/Products/Release/AppsChannel.dmg}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_PATH="${1:-$REPO_ROOT/build/Build/Products/Release/AppsChannel.app}"
+OUTPUT_DMG="${2:-$REPO_ROOT/build/Build/Products/Release/AppsChannel.dmg}"
 VOLNAME="${3:-AppsChannel}"
-ICON_PATH="AppsChannel/AppIcon.icns"
+SIGNING_IDENTITY="${4:-}"
+ICON_PATH="$REPO_ROOT/AppsChannel/AppIcon.icns"
+APP_NAME="$(basename "$APP_PATH")"
 
 if [ ! -d "$APP_PATH" ]; then
     echo "❌ Error: App bundle not found at: $APP_PATH"
@@ -20,9 +23,9 @@ echo "📦 Creating disk image for: $APP_PATH"
 echo "🎯 Output target: $OUTPUT_DMG"
 echo "🏷️  Volume name: $VOLNAME"
 
-# Ensure output directory exists
+# Ensure output directory exists and target is removed
 mkdir -p "$(dirname "$OUTPUT_DMG")"
-rm -f "$OUTPUT_DMG"
+rm -rf "$OUTPUT_DMG"
 
 # Check if `create-dmg` CLI tool is available
 if command -v create-dmg &>/dev/null; then
@@ -34,9 +37,9 @@ if command -v create-dmg &>/dev/null; then
         --window-size 600 380
         --icon-size 110
         --text-size 12
-        --icon "AppsChannel.app" 160 185
+        --icon "$APP_NAME" 160 185
         --app-drop-link 440 185
-        --hide-extension "AppsChannel.app"
+        --hide-extension "$APP_NAME"
         --no-internet-enable
     )
 
@@ -52,43 +55,55 @@ if command -v create-dmg &>/dev/null; then
 
     if [ $CREATE_DMG_STATUS -eq 0 ] || [ $CREATE_DMG_STATUS -eq 2 ]; then
         echo "✅ Created styled DMG successfully."
-        ls -lh "$OUTPUT_DMG"
-        exit 0
     else
         echo "⚠️  create-dmg failed (code $CREATE_DMG_STATUS). Falling back to native hdiutil..."
     fi
 fi
 
 # ==============================================================================
-# Native macOS hdiutil Fallback Builder
+# Native macOS hdiutil Fallback Builder (if create-dmg was skipped or failed)
 # ==============================================================================
-echo "🔨 Building disk image with native hdiutil..."
+if [ ! -f "$OUTPUT_DMG" ]; then
+    echo "🔨 Building disk image with native hdiutil..."
 
-STAGING_DIR="$(mktemp -d -t appschannel_dmg_staging_XXXXXX)"
-cleanup() {
-    rm -rf "$STAGING_DIR"
-}
-trap cleanup EXIT
+    STAGING_DIR="$(mktemp -d -t appschannel_dmg_staging_XXXXXX)"
+    cleanup() {
+        rm -rf "$STAGING_DIR"
+    }
+    trap cleanup EXIT
 
-echo "📁 Staging app bundle in: $STAGING_DIR"
-cp -R "$APP_PATH" "$STAGING_DIR/AppsChannel.app"
-ln -s /Applications "$STAGING_DIR/Applications"
+    echo "📁 Staging app bundle in: $STAGING_DIR"
+    cp -R "$APP_PATH" "$STAGING_DIR/$APP_NAME"
+    ln -s /Applications "$STAGING_DIR/Applications"
 
-# Set volume icon if available
-if [ -f "$ICON_PATH" ]; then
-    cp "$ICON_PATH" "$STAGING_DIR/.VolumeIcon.icns"
-    if command -v SetFile &>/dev/null; then
-        SetFile -a C "$STAGING_DIR" || true
+    # Set volume icon if available
+    if [ -f "$ICON_PATH" ]; then
+        cp "$ICON_PATH" "$STAGING_DIR/.VolumeIcon.icns"
+        if command -v SetFile &>/dev/null; then
+            SetFile -a C "$STAGING_DIR" || true
+        fi
     fi
+
+    # Create UDZO compressed DMG
+    hdiutil create \
+        -volname "$VOLNAME" \
+        -srcfolder "$STAGING_DIR" \
+        -ov \
+        -format UDZO \
+        "$OUTPUT_DMG"
+
+    echo "✅ Native DMG created successfully at: $OUTPUT_DMG"
 fi
 
-# Create UDZO compressed DMG
-hdiutil create \
-    -volname "$VOLNAME" \
-    -srcfolder "$STAGING_DIR" \
-    -ov \
-    -format UDZO \
-    "$OUTPUT_DMG"
+# ==============================================================================
+# Code Sign DMG (Required for Apple Notarization & Gatekeeper Trust)
+# ==============================================================================
+if [ -n "$SIGNING_IDENTITY" ] && [ "$SIGNING_IDENTITY" != "-" ]; then
+    echo "🔏 Signing DMG disk image with identity: $SIGNING_IDENTITY"
+    codesign --force --sign "$SIGNING_IDENTITY" --timestamp "$OUTPUT_DMG"
+    echo "🔍 Verifying DMG signature..."
+    codesign --verify --verbose=2 "$OUTPUT_DMG"
+    echo "✅ DMG code signature verified."
+fi
 
-echo "✅ DMG created successfully at: $OUTPUT_DMG"
 ls -lh "$OUTPUT_DMG"

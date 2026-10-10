@@ -6,15 +6,16 @@ set -euo pipefail
 # Usage: ./scripts/generate_appcast.sh <version> <zip-path> [ed25519-signature]
 # ==============================================================================
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${1:-}"
-ZIP_PATH="${2:-build/Build/Products/Release/AppsChannel.zip}"
+ZIP_PATH="${2:-$REPO_ROOT/build/Build/Products/Release/AppsChannel.zip}"
 SIGNATURE="${3:-}"
-APPCAST_FILE="appcast.xml"
+APPCAST_FILE="${4:-$REPO_ROOT/appcast.xml}"
 REPO_URL="https://github.com/micah1crandell/AppsChannel"
 
 if [ -z "$VERSION" ]; then
     echo "❌ Error: Version argument missing."
-    echo "Usage: $0 <version> <zip-path> [ed25519-signature]"
+    echo "Usage: $0 <version> <zip-path> [ed25519-signature] [appcast-path]"
     exit 1
 fi
 

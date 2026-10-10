@@ -94,26 +94,7 @@ jobs:
           SIGNING_IDENTITY: ${{ steps.keychain.outputs.SIGNING_IDENTITY }}
         run: |
           APP_PATH="./build/Build/Products/Release/AppsChannel.app"
-
-          if [ "$SIGNING_IDENTITY" != "-" ] && [ -n "$SIGNING_IDENTITY" ]; then
-            echo "✍️  Signing embedded frameworks..."
-            find "$APP_PATH/Contents/Frameworks" -type d -name "*.framework" 2>/dev/null | while read -r framework; do
-              codesign --force --verify --verbose --sign "$SIGNING_IDENTITY" --options runtime --timestamp "$framework"
-            done
-
-            echo "✍️  Signing main application bundle with Hardened Runtime..."
-            codesign --force --deep --verify --verbose \
-              --sign "$SIGNING_IDENTITY" \
-              --options runtime \
-              --entitlements AppsChannel/AppsChannel.entitlements \
-              --timestamp \
-              "$APP_PATH"
-
-            codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-          else
-            echo "ℹ️  Using ad-hoc signing signature for app bundle."
-            codesign --force --deep --sign - "$APP_PATH"
-          fi
+          ./scripts/sign_app.sh "$APP_PATH" "$SIGNING_IDENTITY" "AppsChannel/AppsChannel.entitlements"
 
       # ========================================================================
       # Apple Notarization (if Apple ID & App-Specific Password provided)
@@ -158,10 +139,12 @@ jobs:
           ls -lh AppsChannel.zip
 
       - name: Build Polished Drag-and-Drop DMG
+        env:
+          SIGNING_IDENTITY: ${{ steps.keychain.outputs.SIGNING_IDENTITY }}
         run: |
           APP_PATH="./build/Build/Products/Release/AppsChannel.app"
           DMG_PATH="./build/Build/Products/Release/AppsChannel.dmg"
-          ./scripts/create_dmg.sh "$APP_PATH" "$DMG_PATH" "AppsChannel"
+          ./scripts/create_dmg.sh "$APP_PATH" "$DMG_PATH" "AppsChannel" "$SIGNING_IDENTITY"
 
       - name: Staple DMG (if Notarized)
         if: steps.notarize.outputs.NOTARIZED == 'true'
@@ -202,13 +185,18 @@ jobs:
             curl -sL https://github.com/sparkle-project/Sparkle/releases/download/2.6.4/Sparkle-2.6.4.tar.xz | tar -xJ -C $RUNNER_TEMP/sparkle-bin
 
             echo "✍️  Generating Ed25519 signature..."
-            SPARKLE_SIG=$($RUNNER_TEMP/sparkle-bin/bin/sign_update -s "$SPARKLE_PRIVATE_KEY" "$ZIP_PATH" 2>/dev/null | grep -o 'sparkle:edSignature="[^"]*"' | cut -d'"' -f2 || true)
+            SPARKLE_SIG=$(echo "$SPARKLE_PRIVATE_KEY" | $RUNNER_TEMP/sparkle-bin/bin/sign_update -p --ed-key-file - "$ZIP_PATH" 2>/dev/null || true)
             echo "Generated signature: $SPARKLE_SIG"
           else
             echo "ℹ️  SPARKLE_PRIVATE_KEY not set. Generating feed entry without Ed25519 signature."
           fi
 
           ./scripts/generate_appcast.sh "$VERSION" "$ZIP_PATH" "$SPARKLE_SIG"
+
+          if [ -n "$SPARKLE_PRIVATE_KEY" ] && [ -f "$RUNNER_TEMP/sparkle-bin/bin/sign_update" ]; then
+            echo "✍️  Signing appcast.xml feed with Ed25519..."
+            echo "$SPARKLE_PRIVATE_KEY" | $RUNNER_TEMP/sparkle-bin/bin/sign_update --ed-key-file - appcast.xml 2>/dev/null || true
+          fi
 
       # ========================================================================
       # Update Homebrew Cask Definition
@@ -233,6 +221,7 @@ jobs:
 
           if ! git diff --cached --quiet; then
             git commit -m "chore(release): update appcast.xml and Casks/appschannel.rb [skip ci]"
+            git pull origin main --rebase || true
             git push origin HEAD:main || echo "⚠️ Push back to main failed (check permissions)"
           else
             echo "No repository metadata changes to commit."
