@@ -1,4 +1,4 @@
-# AppsChannel 🪞
+# AppsChannel
 
 > **The classic magic of 3D Cover Flow meets the Nintendo Wii Channel Grid — reimagined as a modern, ultra-responsive macOS launcher with Apple Liquid Glass aesthetics.**
 
@@ -6,7 +6,7 @@ AppsChannel is a lightweight, hardware-accelerated macOS application launcher bu
 
 ---
 
-## ✨ Features
+## Features
 
 ### 1. Dual Visual Display Modes (`⌘V`)
 - **3D Cover Flow Carousel**: Hardware-accelerated 3D carousel with perspective tilt, mirror specular floor reflections, and smooth drag or scroll-wheel navigation.
@@ -50,7 +50,7 @@ AppsChannel is a lightweight, hardware-accelerated macOS application launcher bu
 
 ---
 
-## 🛠️ Architecture & Tech Stack
+## Architecture & Tech Stack
 
 - **Platform**: macOS 14.0+ (Sonoma, Sequoia)
 - **Frameworks**: SwiftUI, AppKit, Combine
@@ -60,7 +60,7 @@ AppsChannel is a lightweight, hardware-accelerated macOS application launcher bu
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - macOS 14.0 or newer
@@ -92,14 +92,14 @@ AppsChannel is a lightweight, hardware-accelerated macOS application launcher bu
 
 ---
 
-## ⚙️ Configuration & Permissions
+## Configuration & Permissions
 
 - **Accessibility**: When configuring custom global hotkeys, macOS may request Accessibility permissions under *System Settings > Privacy & Security > Accessibility*.
 - **Menu Bar**: The app runs as an accessory status item. Click the menu bar icon or press `⌥L` to activate the launcher.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, bug reports, and feature suggestions are welcome!
 1. Fork the Project
@@ -110,12 +110,6 @@ Contributions, bug reports, and feature suggestions are welcome!
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.
-
----
-
-<p align="center">
-  Crafted with ❤️ for macOS power users and retro UI lovers.
-</p>
