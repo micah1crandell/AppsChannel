@@ -1,13 +1,19 @@
 import SwiftUI
 import AppKit
+import Combine
+
+@MainActor
+final class MainAppState: ObservableObject {
+    @Published var isShowingSettings: Bool = false
+    var eventMonitor: Any? = nil
+}
 
 struct MainAppView: View {
     @StateObject private var discoveryService = AppDiscoveryService.shared
+    @StateObject private var appState = MainAppState()
     @State private var searchText: String = ""
     @State private var selectedCategory: String = "ALL"
-    @State private var isShowingSettings: Bool = false
     @State private var scrollAccumulator: CGFloat = 0.0
-    @State private var eventMonitor: Any? = nil
 
     @AppStorage("mainLayoutMode") private var layoutModeRaw: String = MainLayoutViewMode.gridWall.rawValue
     @State private var layoutMode: MainLayoutViewMode = .gridWall
@@ -128,6 +134,7 @@ struct MainAppView: View {
                 }
                 Spacer()
             }
+            .allowsHitTesting(!appState.isShowingSettings)
 
             // Nintendo Wii / 3DS Style Channel Arranger Deck (Apple Liquid Glass)
             if isOrganizeMode {
@@ -136,6 +143,7 @@ struct MainAppView: View {
                     channelArrangerDeck
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
+                .allowsHitTesting(!appState.isShowingSettings)
             }
 
             // Full Screen Liquid Glass HUD
@@ -151,7 +159,11 @@ struct MainAppView: View {
                 onPrevious: { navigate(by: layoutMode == .gridWall ? -3 : -1) },
                 onNext: { navigate(by: layoutMode == .gridWall ? 3 : 1) },
                 onSwitchToQuick: onSwitchToQuickLauncher,
-                onOpenSettings: { isShowingSettings = true },
+                onOpenSettings: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        appState.isShowingSettings = true
+                    }
+                },
                 onToggleOrganize: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         isOrganizeMode.toggle()
@@ -159,14 +171,19 @@ struct MainAppView: View {
                 },
                 isOrganizeMode: isOrganizeMode
             )
+            .allowsHitTesting(!appState.isShowingSettings)
 
             // Settings & Account Modal Sheet
-            if isShowingSettings {
+            if appState.isShowingSettings {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
-                    .onTapGesture { isShowingSettings = false }
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            appState.isShowingSettings = false
+                        }
+                    }
 
-                SettingsModalView(isPresented: $isShowingSettings)
+                SettingsModalView(isPresented: $appState.isShowingSettings)
                     .transition(.scale(scale: 0.95).combined(with: .opacity))
             }
         }
@@ -208,17 +225,10 @@ struct MainAppView: View {
         .onChange(of: layoutMode) { newMode in
             layoutModeRaw = newMode.rawValue
         }
-        .onChange(of: isShowingSettings) { showing in
-            if showing {
-                removeEventMonitor()
-            } else {
-                setupEventMonitor()
-            }
-        }
         .onDisappear {
             removeEventMonitor()
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isShowingSettings)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: appState.isShowingSettings)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isOrganizeMode)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: layoutMode)
     }
@@ -262,8 +272,10 @@ struct MainAppView: View {
                 .contentShape(Rectangle())
                 .ignoresSafeArea()
                 .onTapGesture {
-                    if isShowingSettings {
-                        isShowingSettings = false
+                    if appState.isShowingSettings {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            appState.isShowingSettings = false
+                        }
                     }
                 }
         }
@@ -271,9 +283,27 @@ struct MainAppView: View {
 
     // MARK: - Fast Event Interception
     private func setupEventMonitor() {
-        guard eventMonitor == nil else { return }
-        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown]) { [self] event in
-            guard !isShowingSettings else { return event }
+        guard appState.eventMonitor == nil else { return }
+        appState.eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown]) { [weak appState] event in
+            guard let appState = appState else { return event }
+
+            // When Settings modal is active, isolate events:
+            if appState.isShowingSettings {
+                if event.type == .scrollWheel {
+                    // Let SettingsModalView's ScrollView handle scroll events natively without moving background cards
+                    return event
+                } else if event.type == .keyDown {
+                    // Escape key dismisses settings
+                    if event.keyCode == 53 {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            appState.isShowingSettings = false
+                        }
+                        return nil
+                    }
+                    return event
+                }
+                return event
+            }
 
             if event.type == .scrollWheel {
                 let loc = event.locationInWindow
@@ -412,9 +442,9 @@ struct MainAppView: View {
     }
 
     private func removeEventMonitor() {
-        if let monitor = eventMonitor {
+        if let monitor = appState.eventMonitor {
             NSEvent.removeMonitor(monitor)
-            eventMonitor = nil
+            appState.eventMonitor = nil
         }
     }
 

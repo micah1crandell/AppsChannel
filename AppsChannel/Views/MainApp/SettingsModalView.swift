@@ -116,12 +116,12 @@ struct SettingsModalView: View {
                     }
                     .padding(24)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(width: 680, height: 490)
-        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(white: 0.12).opacity(0.96))
