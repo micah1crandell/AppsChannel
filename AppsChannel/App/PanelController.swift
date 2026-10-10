@@ -24,6 +24,8 @@ final class PanelController {
         (mainAppWindow?.isVisible == true) || (quickLauncherPanel?.isVisible == true)
     }
 
+    private var lastQuickShowTime: Date = .distantPast
+
     func setup() {
         setupQuickLauncherPanel()
         setupMainAppWindow()
@@ -34,7 +36,7 @@ final class PanelController {
 
         let panel = AppsChannelPanel(
             contentRect: screenRect,
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
@@ -76,7 +78,12 @@ final class PanelController {
             object: panel,
             queue: .main
         ) { [weak self] _ in
-            self?.quickLauncherPanel?.orderOut(nil)
+            guard let self = self else { return }
+            // Ignore resignKey if panel was shown within 0.5s to prevent shortcut runner / launch race
+            if Date().timeIntervalSince(self.lastQuickShowTime) < 0.5 {
+                return
+            }
+            self.quickLauncherPanel?.orderOut(nil)
         }
     }
 
@@ -158,7 +165,7 @@ final class PanelController {
     }
 
     func show(mode: LauncherMode? = nil) {
-        let targetMode = mode ?? (UserDefaults.standard.string(forKey: "defaultMode").flatMap(LauncherMode.init) ?? .fullScreen)
+        let targetMode = mode ?? (UserDefaults.standard.string(forKey: "defaultMode").flatMap(LauncherMode.init) ?? .quickLauncher)
         switch targetMode {
         case .quickLauncher:
             showQuickLauncher()
@@ -198,8 +205,15 @@ final class PanelController {
             panel.setFrame(targetScreen.frame, display: true)
         }
 
+        lastQuickShowTime = Date()
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+
+        DispatchQueue.main.async {
+            panel.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+
         NotificationCenter.default.post(name: .panelDidShow, object: LauncherMode.quickLauncher)
         AppDiscoveryService.shared.performBackgroundDeltaCheck()
     }
