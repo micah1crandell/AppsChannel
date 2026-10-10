@@ -65,7 +65,7 @@ struct MainAppView: View {
         let candidates = baseList.filter { app in
             app.name.localizedCaseInsensitiveContains(trimmedSearch) ||
             app.category.localizedCaseInsensitiveContains(trimmedSearch) ||
-            AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch) > 30.0
+            AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch) >= 40.0
         }
 
         let ranked = candidates.sorted { a1, a2 in
@@ -75,8 +75,6 @@ struct MainAppView: View {
             return a1.name.localizedCaseInsensitiveCompare(a2.name) == .orderedAscending
         }
 
-        let (arranged, _) = AppUsageTracker.shared.arrangeMiddleOut(ranked)
-
         // Matching hidden apps section at the far right behind a separator
         var hiddenMatches = discoveryService.matchingHiddenApps(query: trimmedSearch)
         if selectedCategory != "ALL" {
@@ -84,13 +82,13 @@ struct MainAppView: View {
         }
 
         if !hiddenMatches.isEmpty {
-            var fullList = arranged
+            var fullList = ranked
             fullList.append(DiscoveredApp.hiddenAppsSeparator)
             fullList.append(contentsOf: hiddenMatches)
             return fullList
         }
 
-        return arranged
+        return ranked
     }
 
     private var categories: [String] {
@@ -293,12 +291,26 @@ struct MainAppView: View {
         .shadow(color: .black.opacity(0.65), radius: 30, x: 0, y: 15)
         .ignoresSafeArea()
         .onChange(of: searchText) { newText in
-            if !newText.isEmpty {
+            let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                // When searching, select the best matching app
+                if !filteredApps.isEmpty {
+                    if filteredApps.first?.isSeparator == true && filteredApps.count > 1 {
+                        discoveryService.selectedIndex = 1
+                    } else {
+                        discoveryService.selectedIndex = 0
+                    }
+                }
+            } else {
                 discoveryService.selectedIndex = filteredApps.count / 2
             }
         }
         .onChange(of: selectedCategory) { _ in
-            discoveryService.selectedIndex = filteredApps.count / 2
+            if !searchText.isEmpty {
+                discoveryService.selectedIndex = 0
+            } else {
+                discoveryService.selectedIndex = filteredApps.count / 2
+            }
         }
         .onAppear {
             if let mode = MainLayoutViewMode(rawValue: layoutModeRaw) {

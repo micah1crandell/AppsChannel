@@ -116,14 +116,24 @@ final class AppUsageTracker: ObservableObject {
 
         // 1. Direct Association Learning (e.g. user previously searched "code" -> chose "vscode")
         if let directMatches = stats.searchAssociations[q], let count = directMatches[pathKey] {
-            score += 250.0 * Double(min(count, 10))
+            if name.contains(q) || app.category.lowercased().contains(q) || count >= 2 {
+                score += 200.0 * Double(min(count, 10))
+            }
         }
 
         // 2. Prefix Association Learning (e.g. user typed "cod" and previously chose app for "code")
         for (pastQuery, appMap) in stats.searchAssociations {
-            if pastQuery != q && (pastQuery.hasPrefix(q) || q.hasPrefix(pastQuery)) {
+            guard pastQuery != q, pastQuery.count >= 2 else { continue }
+            if q.hasPrefix(pastQuery) {
+                // If current query extends past query, only boost if the app actually matches q
+                guard name.contains(q) || app.category.lowercased().contains(q) else { continue }
                 if let count = appMap[pathKey] {
-                    score += 80.0 * Double(min(count, 5))
+                    score += 60.0 * Double(min(count, 5))
+                }
+            } else if pastQuery.hasPrefix(q) {
+                guard name.contains(pastQuery) || app.category.lowercased().contains(pastQuery) else { continue }
+                if let count = appMap[pathKey] {
+                    score += 60.0 * Double(min(count, 5))
                 }
             }
         }
@@ -168,8 +178,8 @@ final class AppUsageTracker: ObservableObject {
             score += 30.0
         }
 
-        // 6. Overall Usage Tie-Breaker
-        if let record = stats.appRecords[pathKey] {
+        // 6. Overall Usage Tie-Breaker (Only applied to break ties when an actual match exists)
+        if score > 0, let record = stats.appRecords[pathKey] {
             score += min(Double(record.launchCount) * 3.0, 35.0)
         }
 
@@ -310,7 +320,13 @@ final class AppUsageTracker: ObservableObject {
             var cleanedStats = decoded
             cleanedStats.appRecords = cleanedStats.appRecords.filter { !$0.key.lowercased().contains("appschannel") }
             for (query, map) in cleanedStats.searchAssociations {
-                let filteredMap = map.filter { !$0.key.lowercased().contains("appschannel") }
+                let filteredMap = map.filter { path, count in
+                    if path.lowercased().contains("appschannel") { return false }
+                    let appName = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent.lowercased()
+                    let q = query.lowercased()
+                    let isAlias = Self.commonAliases[q]?.contains(where: { appName.contains($0) }) ?? false
+                    return appName.contains(q) || q.contains(appName) || isAlias || count >= 3
+                }
                 if filteredMap.isEmpty {
                     cleanedStats.searchAssociations.removeValue(forKey: query)
                 } else {
