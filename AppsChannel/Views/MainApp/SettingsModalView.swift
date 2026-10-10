@@ -12,7 +12,6 @@ struct SettingsModalView: View {
     @StateObject private var hotKeyManager = HotKeyManager.shared
     @State private var isRecordingShortcut: Bool = false
     @State private var recordKeyMonitor: Any? = nil
-    @AppStorage("showInDock") private var showInDock: Bool = true
 
     enum SettingsTab: String, CaseIterable, Identifiable {
         case general = "General"
@@ -233,24 +232,6 @@ struct SettingsModalView: View {
             // Card 1: App Behavior
             settingsCard(title: "Application Behavior", icon: "macwindow") {
                 VStack(alignment: .leading, spacing: 14) {
-                    Toggle(isOn: $showInDock) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Show in macOS Dock")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.white)
-                            Text("Keep AppsChannel accessible from the Dock icon.")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.6))
-                        }
-                    }
-                    .toggleStyle(.switch)
-                    .tint(.white)
-                    .onChange(of: showInDock) { newValue in
-                        PanelController.shared.setDockVisibility(showInDock: newValue)
-                    }
-
-                    Divider().background(Color.white.opacity(0.08))
-
                     Toggle(isOn: $launchAtLogin) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Launch at Login")
