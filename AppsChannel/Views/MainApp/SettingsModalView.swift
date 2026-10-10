@@ -331,8 +331,12 @@ struct SettingsModalView: View {
                             .pickerStyle(.menu)
                             .tint(.white)
                             .frame(width: 150)
-                            .onChange(of: soundThemeRaw) { _ in
-                                SoundEffectsManager.shared.playNavigation()
+                            .onChange(of: soundThemeRaw) { _, newTheme in
+                                if let theme = SoundTheme(rawValue: newTheme) {
+                                    SoundEffectsManager.shared.playPreview(for: theme)
+                                } else {
+                                    SoundEffectsManager.shared.playNavigation()
+                                }
                             }
                         }
                     }

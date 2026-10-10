@@ -78,6 +78,16 @@ final class SoundEffectsManager {
         snd?.play()
     }
 
+    func playPreview(for theme: SoundTheme) {
+        if isHapticEnabled {
+            performHaptic()
+        }
+        guard isEnabled else { return }
+        let snd = sound(named: theme.navigationSoundName)
+        snd?.stop()
+        snd?.play()
+    }
+
     func playLaunch() {
         if isHapticEnabled {
             performHaptic(pattern: .generic)

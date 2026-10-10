@@ -38,6 +38,9 @@ final class SoundEffectsManagerTests: XCTestCase {
         manager.playNavigation()
         manager.playAction()
         manager.playLaunch()
+        for theme in SoundTheme.allCases {
+            manager.playPreview(for: theme)
+        }
         manager.performHaptic()
     }
 }
