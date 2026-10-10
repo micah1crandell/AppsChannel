@@ -57,31 +57,18 @@ struct RetroHUDView: View {
                 // AppsChannel Brand Pill
                 HStack(spacing: 8) {
                     Image(systemName: "square.grid.3x3.topleft.filled")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.cyan, .blue],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color.white)
                     Text("AppsChannel")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.white)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(.ultraThinMaterial, in: Capsule())
+                .background(Color(white: 0.08).opacity(0.85), in: Capsule())
                 .overlay(
                     Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [.white.opacity(0.35), .white.opacity(0.08)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
+                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                 )
 
                 // Liquid Glass Search Field (Automatically Focused)
@@ -127,17 +114,10 @@ struct RetroHUDView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .frame(minWidth: 160, maxWidth: 260)
-                .background(.ultraThinMaterial, in: Capsule())
+                .background(Color(white: 0.08).opacity(0.85), in: Capsule())
                 .overlay(
                     Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [.white.opacity(0.4), .white.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
+                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                 )
 
                 Spacer()
@@ -163,17 +143,10 @@ struct RetroHUDView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(.ultraThinMaterial, in: Capsule())
+                .background(Color(white: 0.08).opacity(0.85), in: Capsule())
                 .overlay(
                     Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [.white.opacity(0.3), .white.opacity(0.05)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
+                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                 )
 
                 // Rearrange Channels Button (Wii / 3DS Style)
@@ -182,7 +155,7 @@ struct RetroHUDView: View {
                         HStack(spacing: 5) {
                             Image(systemName: isOrganizeMode ? "checkmark.circle.fill" : "arrow.left.arrow.right.circle")
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(isOrganizeMode ? .green : .cyan)
+                                .foregroundStyle(isOrganizeMode ? .green : .white)
                             Text(isOrganizeMode ? "Done Arranging" : "Rearrange Channels")
                                 .font(.system(size: 11, weight: .semibold))
                         }
@@ -190,10 +163,10 @@ struct RetroHUDView: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
-                            Capsule().fill(isOrganizeMode ? Color.green.opacity(0.25) : Color.white.opacity(0.12))
+                            Capsule().fill(isOrganizeMode ? Color.green.opacity(0.25) : Color(white: 0.08).opacity(0.85))
                         )
                         .overlay(
-                            Capsule().strokeBorder(isOrganizeMode ? Color.green.opacity(0.6) : Color.white.opacity(0.2), lineWidth: 1)
+                            Capsule().strokeBorder(isOrganizeMode ? Color.green.opacity(0.6) : Color.white.opacity(0.22), lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -215,7 +188,7 @@ struct RetroHUDView: View {
                         .foregroundStyle(layoutMode == .coverFlow ? .black : .white.opacity(0.75))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
-                        .background(layoutMode == .coverFlow ? Color.cyan : Color.clear, in: Capsule())
+                        .background(layoutMode == .coverFlow ? Color.white : Color.clear, in: Capsule())
                     }
                     .buttonStyle(.plain)
 
@@ -233,13 +206,13 @@ struct RetroHUDView: View {
                         .foregroundStyle(layoutMode == .gridWall ? .black : .white.opacity(0.75))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
-                        .background(layoutMode == .gridWall ? Color.cyan : Color.clear, in: Capsule())
+                        .background(layoutMode == .gridWall ? Color.white : Color.clear, in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }
                 .padding(3)
-                .background(.ultraThinMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
+                .background(Color(white: 0.08).opacity(0.85), in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
 
                 // Switch to Quick Launcher Button
                 if let onSwitch = onSwitchToQuick {
@@ -258,9 +231,9 @@ struct RetroHUDView: View {
                         .foregroundStyle(.white.opacity(0.85))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .background(Color(white: 0.08).opacity(0.85), in: Capsule())
                         .overlay(
-                            Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                            Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -273,9 +246,9 @@ struct RetroHUDView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.85))
                             .frame(width: 32, height: 32)
-                            .background(.ultraThinMaterial, in: Circle())
+                            .background(Color(white: 0.08).opacity(0.85), in: Circle())
                             .overlay(
-                                Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
+                                Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -287,10 +260,9 @@ struct RetroHUDView: View {
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.white.opacity(0.8))
                         .frame(width: 32, height: 32)
-                        .background(.ultraThinMaterial, in: Circle())
+                        .background(Color(white: 0.08).opacity(0.85), in: Circle())
                         .overlay(
-                            Circle()
-                                .strokeBorder(.white.opacity(0.25), lineWidth: 1)
+                            Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -310,37 +282,31 @@ struct RetroHUDView: View {
                                 if index < 8 {
                                     Text("⌘\(index + 1)")
                                         .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(isSelected ? Color.black : Color.cyan)
+                                        .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.85))
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 1)
-                                        .background(isSelected ? Color.white.opacity(0.3) : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                                        .background(isSelected ? Color.white.opacity(0.4) : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
                                 }
 
                                 Text(category)
                                     .font(.system(size: 11.5, weight: isSelected ? .bold : .medium))
-                                    .foregroundStyle(isSelected ? .white : .white.opacity(0.7))
+                                    .foregroundStyle(isSelected ? (Color.black) : Color.white.opacity(0.75))
                             }
                             .padding(.horizontal, 11)
                             .padding(.vertical, 5)
                             .background(
                                 Group {
                                     if isSelected {
-                                        Capsule().fill(
-                                            LinearGradient(
-                                                colors: [.cyan.opacity(0.85), .blue.opacity(0.75)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
+                                        Capsule().fill(Color.white)
                                     } else {
-                                        Capsule().fill(Color.white.opacity(0.08))
+                                        Capsule().fill(Color(white: 0.08).opacity(0.85))
                                     }
                                 }
                             )
                             .overlay(
                                 Capsule()
                                     .strokeBorder(
-                                        isSelected ? .white.opacity(0.6) : .white.opacity(0.12),
+                                        isSelected ? Color.white : Color.white.opacity(0.18),
                                         lineWidth: 1
                                     )
                             )
@@ -390,10 +356,10 @@ struct RetroHUDView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(Color(white: 0.08).opacity(0.88), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                 )
             }
 
@@ -404,7 +370,7 @@ struct RetroHUDView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "internaldrive")
                         .font(.system(size: 11))
-                        .foregroundStyle(.cyan)
+                        .foregroundStyle(Color.white.opacity(0.9))
                     Text(diskFreeDescription())
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.8))
@@ -425,10 +391,10 @@ struct RetroHUDView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(Color(white: 0.08).opacity(0.88), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                    .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
             )
 
             // Primary Launch Button
@@ -440,21 +406,14 @@ struct RetroHUDView: View {
                         .font(.system(size: 13, weight: .bold))
                 }
                 .foregroundStyle(.black)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 22)
                 .padding(.vertical, 10)
-                .background(
-                    LinearGradient(
-                        colors: [.white, Color(white: 0.9)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-                )
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.9), lineWidth: 1)
+                        .strokeBorder(Color.white, lineWidth: 1)
                 )
-                .shadow(color: .white.opacity(0.3), radius: 8, x: 0, y: 2)
+                .shadow(color: .white.opacity(0.25), radius: 8, x: 0, y: 2)
             }
             .buttonStyle(.plain)
         }

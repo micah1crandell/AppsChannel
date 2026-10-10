@@ -171,18 +171,23 @@ struct MainAppView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
-                        colors: [.white.opacity(0.35), .white.opacity(0.08)],
+                        colors: [
+                            Color.white.opacity(0.35),
+                            Color.white.opacity(0.12),
+                            Color.white.opacity(0.04)
+                        ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 1
                 )
         )
+        .shadow(color: .black.opacity(0.65), radius: 30, x: 0, y: 15)
         .ignoresSafeArea()
         .onChange(of: searchText) { _ in
             discoveryService.selectedIndex = filteredApps.count / 2
@@ -217,20 +222,33 @@ struct MainAppView: View {
             VisualEffectBackground(material: .fullScreenUI, blendingMode: .behindWindow)
                 .ignoresSafeArea()
 
-            Color.black.opacity(0.14)
+            // Deep obsidian tinted liquid glass layer
+            Color(red: 0.04, green: 0.04, blue: 0.05).opacity(0.82)
                 .ignoresSafeArea()
+
+            // Subtle dark specular top sheen
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.06),
+                    Color.clear,
+                    Color.black.opacity(0.35)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
             RadialGradient(
                 colors: [
-                    Color.white.opacity(0.10),
-                    Color.white.opacity(0.02),
+                    Color.white.opacity(0.06),
+                    Color.white.opacity(0.01),
                     Color.clear
                 ],
                 center: .center,
                 startRadius: 40,
-                endRadius: 460
+                endRadius: 500
             )
-            .blur(radius: 50)
+            .blur(radius: 60)
             .ignoresSafeArea()
 
             Color.clear

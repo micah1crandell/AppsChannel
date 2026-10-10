@@ -160,8 +160,8 @@ struct CoverFlowWallView: View {
                     .fill(
                         LinearGradient(
                             colors: isSelected ?
-                                [Color(white: 0.22).opacity(0.96), Color(white: 0.10).opacity(0.98)] :
-                                [Color(white: 0.16).opacity(0.88), Color(white: 0.08).opacity(0.92)],
+                                [Color(white: 0.12).opacity(0.98), Color(white: 0.05).opacity(0.98)] :
+                                [Color(white: 0.09).opacity(0.92), Color(white: 0.04).opacity(0.95)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -173,11 +173,11 @@ struct CoverFlowWallView: View {
                         LinearGradient(
                             colors: isSelected ?
                                 [Color.white, Color.white.opacity(0.7), Color.white.opacity(0.3)] :
-                                [Color.white.opacity(0.2), Color.white.opacity(0.04)],
+                                [Color.white.opacity(0.22), Color.white.opacity(0.06)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: isSelected ? (isCompact ? 1.6 : 2.0) : 0.8
+                        lineWidth: isSelected ? (isCompact ? 1.6 : 2.0) : 0.9
                     )
             )
             .shadow(

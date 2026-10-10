@@ -110,8 +110,8 @@ struct AppCardView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(white: 0.18).opacity(0.88),
-                                Color(white: 0.08).opacity(0.94)
+                                Color(white: 0.10).opacity(0.96),
+                                Color(white: 0.04).opacity(0.98)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -123,8 +123,8 @@ struct AppCardView: View {
                     .strokeBorder(
                         LinearGradient(
                             colors: isSelected ?
-                                [Color.white.opacity(0.95), Color.white.opacity(0.55), Color.white.opacity(0.20)] :
-                                [Color.white.opacity(0.25), Color.white.opacity(0.05)],
+                                [Color.white, Color.white.opacity(0.65), Color.white.opacity(0.25)] :
+                                [Color.white.opacity(0.28), Color.white.opacity(0.08)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
