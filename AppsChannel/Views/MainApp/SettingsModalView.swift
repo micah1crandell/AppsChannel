@@ -303,23 +303,13 @@ struct SettingsModalView: View {
                         badge: "Floating HUD",
                         isSelected: defaultMode == LauncherMode.quickLauncher.rawValue
                     ) { isSel in
-                        // Mini Floating HUD Mockup
-                        HStack(spacing: 6) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(isSel ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.3))
-                                .frame(width: 32, height: 4)
-                            Spacer()
-                            Circle()
-                                .fill(Color.green)
-                                .frame(width: 4, height: 4)
+                        // Mini Channel Cards Mockup (Floating tiles)
+                        HStack(spacing: 5) {
+                            ForEach(0..<3) { idx in
+                                miniChannelCardPreview(index: idx, isSelected: isSel)
+                            }
                         }
-                        .padding(.horizontal, 8)
-                        .frame(height: 24)
-                        .background(isSel ? Color.black.opacity(0.08) : Color.black.opacity(0.55), in: Capsule())
-                        .overlay(Capsule().strokeBorder(isSel ? Color.black.opacity(0.18) : Color.white.opacity(0.2), lineWidth: 1))
+                        .frame(height: 26)
                     }
 
                     visualModeCard(
@@ -328,13 +318,9 @@ struct SettingsModalView: View {
                         badge: "Full Menu",
                         isSelected: defaultMode == LauncherMode.fullScreen.rawValue
                     ) { isSel in
-                        // Mini Channel Cards Mockup
-                        HStack(spacing: 5) {
-                            ForEach(0..<3) { idx in
-                                miniChannelCardPreview(index: idx, isSelected: isSel)
-                            }
-                        }
-                        .frame(height: 24)
+                        // Full window look with monochrome stop light dots
+                        miniFullWindowPreview(isSelected: isSel)
+                            .frame(height: 26)
                     }
                 }
             }
@@ -931,6 +917,54 @@ struct SettingsModalView: View {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .strokeBorder(stroke, lineWidth: 1)
             )
+    }
+
+    private func miniFullWindowPreview(isSelected: Bool) -> some View {
+        VStack(spacing: 0) {
+            // macOS Window Title Bar with monochrome stoplight dots (white/black, no red/green/yellow)
+            HStack(spacing: 3) {
+                ForEach(0..<3) { _ in
+                    Circle()
+                        .fill(isSelected ? Color.black.opacity(0.65) : Color.white.opacity(0.75))
+                        .frame(width: 3.5, height: 3.5)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 5)
+            .frame(height: 9)
+
+            // Titlebar hairline divider
+            Rectangle()
+                .fill(isSelected ? Color.black.opacity(0.12) : Color.white.opacity(0.12))
+                .frame(height: 0.75)
+
+            // Window content body: miniature channel preview inside window
+            HStack(spacing: 3) {
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(isSelected ? Color.black.opacity(0.1) : Color.white.opacity(0.1))
+                    .frame(width: 9, height: 9)
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(isSelected ? Color.black.opacity(0.25) : Color.white.opacity(0.25))
+                    .frame(width: 12, height: 11)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                            .strokeBorder(isSelected ? Color.black.opacity(0.45) : Color.white.opacity(0.45), lineWidth: 0.75)
+                    )
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(isSelected ? Color.black.opacity(0.1) : Color.white.opacity(0.1))
+                    .frame(width: 9, height: 9)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(width: 48, height: 26)
+        .background(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(isSelected ? Color.black.opacity(0.04) : Color.white.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(isSelected ? Color.black.opacity(0.3) : Color.white.opacity(0.25), lineWidth: 1)
+        )
     }
 
     private func miniWallBarPreview(index: Int, isSelected: Bool) -> some View {
