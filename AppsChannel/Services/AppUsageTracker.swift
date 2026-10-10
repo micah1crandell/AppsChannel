@@ -82,6 +82,63 @@ final class AppUsageTracker: ObservableObject {
         return baseWeight + baseScore + recencyBonus
     }
 
+    // MARK: - Expanded Popular & Trending Flagship Catalog
+    private static let flagshipKeywords: [String] = [
+        // AI & Modern Productivity
+        "chatgpt", "claude", "claude code", "cursor", "antigravity", "gemini",
+        "ollama", "perplexity", "raycast", "warp", "ghostty", "zed", "windsurf",
+        "superwhisper", "copilot", "github copilot", "codex",
+
+        // Developer & Engineering Tools
+        "visual studio code", "vs code", "xcode", "sublime text", "intellij",
+        "pycharm", "webstorm", "docker", "orbstack", "postman", "tableplus",
+        "github desktop", "gitkraken", "iterm", "iterm2", "terminal", "insomnia",
+        "tower", "sourcetree", "alacritty", "kitty",
+
+        // Web Browsers
+        "arc", "safari", "google chrome", "chrome", "brave", "brave browser",
+        "firefox", "microsoft edge", "edge", "orion", "duckduckgo", "zen browser", "vivaldi",
+
+        // Communication & Social
+        "slack", "discord", "messages", "facetime", "zoom", "microsoft teams",
+        "teams", "telegram", "whatsapp", "signal",
+
+        // Creative, Design, 3D & Video Editing
+        "figma", "photoshop", "illustrator", "indesign", "lightroom", "premiere",
+        "premiere pro", "after effects", "davinci resolve", "final cut pro",
+        "blender", "cinema 4d", "canva", "pixelmator", "pixelmator pro",
+        "affinity photo", "affinity designer", "affinity publisher", "sketch", "linear",
+
+        // Audio & Music Production
+        "music", "spotify", "apple music", "ableton live", "ableton", "logic pro",
+        "fl studio", "pro tools", "audacity", "garageband", "reaper", "tidal",
+
+        // Writing, Knowledge & Office
+        "notes", "notion", "obsidian", "craft", "bear", "logseq", "reminders",
+        "calendar", "fantastical", "todoist", "things", "microsoft word", "word",
+        "microsoft excel", "excel", "microsoft powerpoint", "powerpoint",
+        "microsoft outlook", "outlook", "pages", "numbers", "keynote", "goodnotes", "scrivener",
+
+        // macOS Core Essentials
+        "finder", "photos", "mail", "weather", "maps", "calculator", "clock", "freeform", "system settings"
+    ]
+
+    static func isFlagshipApp(name: String) -> Bool {
+        let lower = name.lowercased()
+        let words = Set(lower.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty })
+
+        for pat in flagshipKeywords {
+            if pat.contains(" ") {
+                if lower.contains(pat) { return true }
+            } else {
+                if words.contains(pat) || lower == pat || lower.hasPrefix(pat + " ") {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
     /// Intrinsic importance weight based on app location, type, and daily utility.
     /// Ensures primary apps (Arc, Safari, Slack, Code, Xcode, Notes, etc.) appear first
     /// even before the user has launched them from AppsChannel.
@@ -89,14 +146,7 @@ final class AppUsageTracker: ObservableObject {
         let p = app.url.path
         let name = app.name
 
-        // Top flagship daily driver apps bonus
-        let flagshipApps: Set<String> = [
-            "Finder", "Safari", "Arc", "Google Chrome", "Mail", "Messages",
-            "Slack", "Discord", "Notes", "Music", "Spotify", "Terminal",
-            "iTerm", "Visual Studio Code", "Xcode", "Cursor", "Antigravity",
-            "ChatGPT", "Claude", "Notion", "Calendar", "Reminders", "Photos"
-        ]
-        let flagshipBonus: Double = flagshipApps.contains(name) ? 25.0 : 0.0
+        let flagshipBonus: Double = Self.isFlagshipApp(name: name) ? 25.0 : 0.0
 
         let locWeight: Double
         if p.hasPrefix("/Applications/") && !p.contains("/Utilities/") {
@@ -121,9 +171,13 @@ final class AppUsageTracker: ObservableObject {
         "bash": ["terminal", "iterm", "iterm2", "warp", "ghostty"],
         "cmd": ["terminal", "iterm", "iterm2", "warp", "ghostty"],
         "calc": ["calculator", "numi", "soulver", "pcam"],
-        "code": ["visual studio code", "cursor", "xcode", "sublime text", "zed", "nova", "intellij"],
-        "editor": ["visual studio code", "cursor", "textedit", "sublime text", "zed", "bbedit"],
-        "browser": ["safari", "google chrome", "arc", "firefox", "brave browser", "edge", "orion"],
+        "code": ["visual studio code", "cursor", "xcode", "sublime text", "zed", "windsurf", "claude code", "nova", "intellij"],
+        "editor": ["visual studio code", "cursor", "textedit", "sublime text", "zed", "windsurf", "bbedit"],
+        "ai": ["chatgpt", "claude", "cursor", "antigravity", "gemini", "ollama", "perplexity", "copilot"],
+        "llm": ["chatgpt", "claude", "ollama", "gemini", "antigravity", "cursor"],
+        "claude": ["claude", "claude code"],
+        "cursor": ["cursor"],
+        "browser": ["safari", "google chrome", "arc", "firefox", "brave browser", "edge", "orion", "zen browser"],
         "web": ["safari", "google chrome", "arc", "firefox", "brave browser", "edge"],
         "chrome": ["google chrome"],
         "music": ["apple music", "spotify", "tidal"],
@@ -131,7 +185,20 @@ final class AppUsageTracker: ObservableObject {
         "mail": ["mail", "mimestream", "spark", "outlook"],
         "notes": ["notes", "bear", "craft", "notion", "obsidian", "logseq"],
         "doc": ["pages", "microsoft word", "word", "notion"],
+        "office": ["microsoft word", "microsoft excel", "microsoft powerpoint", "pages", "numbers", "keynote"],
+        "sheet": ["microsoft excel", "numbers", "excel"],
+        "sheets": ["microsoft excel", "numbers", "excel"],
+        "presentation": ["keynote", "microsoft powerpoint", "powerpoint", "canva"],
+        "slides": ["keynote", "microsoft powerpoint", "powerpoint", "canva"],
         "photo": ["photos", "lightroom", "photoshop", "pixelmator pro", "affinity photo"],
+        "design": ["figma", "sketch", "canva", "photoshop", "illustrator", "pixelmator pro", "affinity designer"],
+        "video": ["final cut pro", "davinci resolve", "premiere pro", "imovie", "screenflow", "capcut", "blender"],
+        "audio": ["logic pro", "ableton live", "fl studio", "pro tools", "audacity", "garageband", "reaper"],
+        "daw": ["logic pro", "ableton live", "fl studio", "pro tools", "garageband", "reaper"],
+        "git": ["github desktop", "gitkraken", "tower", "sourcetree", "terminal"],
+        "docker": ["docker", "orbstack"],
+        "meet": ["zoom", "teams", "microsoft teams", "facetime", "slack", "discord"],
+        "call": ["zoom", "teams", "microsoft teams", "facetime", "slack", "discord"],
         "pref": ["system settings", "system preferences"],
         "settings": ["system settings", "system preferences"]
     ]
