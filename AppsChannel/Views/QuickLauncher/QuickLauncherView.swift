@@ -199,13 +199,16 @@ struct QuickLauncherView: View {
             discoveryService.selectedIndex = filteredApps.count / 2
         }
         .onAppear {
+            searchText = ""
             discoveryService.selectedIndex = filteredApps.count / 2
             setupEventMonitor()
         }
         .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { _ in
+            searchText = ""
             discoveryService.selectedIndex = filteredApps.count / 2
         }
         .onDisappear {
+            searchText = ""
             removeEventMonitor()
         }
         .animation(.spring(response: 0.28, dampingFraction: 0.8), value: searchText.isEmpty)
@@ -253,10 +256,13 @@ struct QuickLauncherView: View {
                     if targetIdx < displayApps.count {
                         let app = displayApps[targetIdx]
                         if app.url.path == Self.openMainAppCard.url.path {
+                            searchText = ""
                             onExpandToFullScreen()
                             return nil
                         }
-                        discoveryService.launch(app: app, query: searchText)
+                        let query = searchText
+                        searchText = ""
+                        discoveryService.launch(app: app, query: query)
                         onDismiss()
                         return nil
                     }
@@ -376,10 +382,13 @@ struct QuickLauncherView: View {
     private func launchSelectedApp() {
         guard let app = currentApp else { return }
         if app.url.path == Self.openMainAppCard.url.path {
+            searchText = ""
             onExpandToFullScreen()
             return
         }
-        discoveryService.launch(app: app, query: searchText)
+        let query = searchText
+        searchText = ""
+        discoveryService.launch(app: app, query: query)
         onDismiss()
     }
 
