@@ -134,7 +134,7 @@ struct CoverFlowWallView: View {
                         } else if value.translation.width > threshold {
                             onNavigate(-rowsCount) // Prev column
                         }
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                        withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.32, dampingFraction: 0.85))) {
                             dragOffset = 0
                         }
                     }
@@ -185,7 +185,7 @@ struct CoverFlowWallView: View {
                 }
                 .frame(width: cardWidth, height: cardHeight)
                 .scaleEffect(isSelected ? 1.08 : 1.0)
-                .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isSelected)
+                .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.25, dampingFraction: 0.75)), value: isSelected)
                 .contentShape(Rectangle())
             } else {
                 // Classic Channel Card Look (Unified with Cover Flow AppCardView!)
@@ -198,7 +198,7 @@ struct CoverFlowWallView: View {
                     showHeader: true
                 )
                 .scaleEffect(isSelected ? 1.06 : 1.0)
-                .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isSelected)
+                .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.25, dampingFraction: 0.75)), value: isSelected)
             }
 
             // Floor Reflection for Bottom Row Cards (smooth fade, zero cutoff line)
@@ -211,7 +211,7 @@ struct CoverFlowWallView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(app.name), \(app.category)")
+        .accessibilityLabel("\(app.name), \(app.category)\(AppDiscoveryService.shared.isRunning(app: app) ? ", Running" : "")")
         .accessibilityHint(isSelected ? "Press Return to launch application" : "Click to select application")
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : [.isButton])
         .onTapGesture {

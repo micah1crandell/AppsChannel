@@ -62,7 +62,16 @@ final class PanelController {
 
     private func repositionWindowInsideVisibleScreen(_ window: NSWindow, on targetScreen: NSScreen? = nil) {
         let screen = (targetScreen ?? Self.targetScreenForPointer()).visibleFrame
-        let curFrame = window.frame
+        var curFrame = window.frame
+
+        // Clamp window dimensions if they exceed visible screen bounds (e.g. moving from large external monitor to laptop screen)
+        if curFrame.width > screen.width || curFrame.height > screen.height {
+            let clampedWidth = min(curFrame.width, max(window.minSize.width, screen.width * 0.92))
+            let clampedHeight = min(curFrame.height, max(window.minSize.height, screen.height * 0.90))
+            curFrame.size = NSSize(width: clampedWidth, height: clampedHeight)
+            window.setFrame(curFrame, display: true)
+        }
+
         let newX = max(screen.minX, min(screen.midX - (curFrame.width / 2), screen.maxX - curFrame.width))
         let newY = max(screen.minY, min(screen.midY - (curFrame.height / 2), screen.maxY - curFrame.height))
         window.setFrameOrigin(NSPoint(x: newX, y: newY))

@@ -271,7 +271,7 @@ struct ThreeDSGridView: View {
                         } else if value.translation.width > threshold {
                             onNavigate(-effectiveRows)
                         }
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                        withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
                             dragOffset = 0
                         }
                     }
@@ -321,7 +321,7 @@ struct ThreeDSGridView: View {
         .scaleEffect(isSelected ? (reduceMotion ? 1.03 : 1.08) : 1.0)
         .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.25, dampingFraction: 0.75), value: isSelected)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(app.name), \(app.category)")
+        .accessibilityLabel("\(app.name), \(app.category)\(AppDiscoveryService.shared.isRunning(app: app) ? ", Running" : "")")
         .accessibilityHint(isSelected ? "Press Return to launch application" : "Click to select application")
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : [.isButton])
         .onTapGesture {

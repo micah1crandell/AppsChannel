@@ -10,6 +10,7 @@ struct CoverFlowCarouselView: View {
     let onLaunch: () -> Void
     let onNavigate: (Int) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dragOffset: CGFloat = 0.0
 
     var body: some View {
@@ -69,7 +70,7 @@ struct CoverFlowCarouselView: View {
                         } else if value.translation.width > threshold {
                             onNavigate(-1)
                         }
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                        withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
                             dragOffset = 0
                         }
                     }

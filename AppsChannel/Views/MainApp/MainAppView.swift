@@ -114,7 +114,7 @@ struct MainAppView: View {
                         isCompact: false,
                         isIconOnly: isIconOnly,
                         onSelect: { index in
-                            withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
                                 discoveryService.selectedIndex = index
                             }
                         },
@@ -132,7 +132,7 @@ struct MainAppView: View {
                         isIconOnly: isIconOnly,
                         isOrganizeMode: isOrganizeMode,
                         onSelect: { index in
-                            withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
                                 discoveryService.selectedIndex = index
                             }
                         },
@@ -141,7 +141,7 @@ struct MainAppView: View {
                             navigate(by: step)
                         },
                         onMoveApp: { from, to in
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8))) {
                                 discoveryService.moveApp(from: from, to: to)
                             }
                         }
@@ -156,7 +156,7 @@ struct MainAppView: View {
                         isIconOnly: isIconOnly,
                         isOrganizeMode: isOrganizeMode,
                         onSelect: { index in
-                            withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
                                 discoveryService.selectedIndex = index
                             }
                         },
@@ -642,7 +642,7 @@ struct MainAppView: View {
         guard !MainAppState.shared.isShowingSettings else { return }
         guard !filteredApps.isEmpty else { return }
         SoundEffectsManager.shared.playNavigation()
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+        withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
             let nextIndex = min(max(0, activeIndex + step), filteredApps.count - 1)
             discoveryService.selectedIndex = nextIndex
         }

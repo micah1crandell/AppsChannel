@@ -159,7 +159,7 @@ struct QuickLauncherView: View {
                         isCompact: true,
                         isIconOnly: appDisplayStyle == .iconOnly,
                         onSelect: { index in
-                            withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
                                 discoveryService.selectedIndex = index
                             }
                         },
@@ -177,7 +177,7 @@ struct QuickLauncherView: View {
                         isIconOnly: appDisplayStyle == .iconOnly,
                         isOrganizeMode: false,
                         onSelect: { index in
-                            withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
                                 discoveryService.selectedIndex = index
                             }
                         },
@@ -196,7 +196,7 @@ struct QuickLauncherView: View {
                         isIconOnly: appDisplayStyle == .iconOnly,
                         isOrganizeMode: false,
                         onSelect: { index in
-                            withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
                                 discoveryService.selectedIndex = index
                             }
                         },
@@ -466,7 +466,7 @@ struct QuickLauncherView: View {
     private func navigate(by step: Int) {
         guard !displayApps.isEmpty else { return }
         SoundEffectsManager.shared.playNavigation()
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+        withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
             let nextIndex = min(max(0, activeIndex + step), displayApps.count - 1)
             discoveryService.selectedIndex = nextIndex
         }

@@ -127,7 +127,7 @@ struct AppCardView: View {
             perspective: 0.45
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(app.name), \(app.category)")
+        .accessibilityLabel("\(app.name), \(app.category)\(discoveryService.isRunning(app: app) ? ", Running" : "")")
         .accessibilityValue(app.tagBadge.isEmpty ? "" : app.tagBadge)
         .accessibilityHint(isSelected ? "Press Return to launch application" : "Click to select application")
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : [.isButton])
