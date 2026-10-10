@@ -58,7 +58,7 @@ AppsChannel is a lightweight, hardware-accelerated macOS application launcher bu
 - **Custom Shell Script Channels**: Pin terminal commands, build tasks, or bash/zsh scripts (e.g., `git status`, `docker compose up`, or cleanup utilities) as dedicated interactive tiles.
 - **Dedicated Channel Management**: Add, organize, color-code, and delete custom channels via Preferences or in Organize Mode.
 
-### 7. CLI Companion & Custom URL Scheme (v2.0)
+### 7. CLI Companion & Custom URL Scheme
 - **Command-Line Interface (`appschannel`)**: Fast, zero-dependency CLI companion tool for Terminal, Raycast, Alfred, and developer scripts:
   - `appschannel toggle`: Toggle launcher window
   - `appschannel launch <query>`: Instantly fuzzy-search and launch any app, web channel, or script

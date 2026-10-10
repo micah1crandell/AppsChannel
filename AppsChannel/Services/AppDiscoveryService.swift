@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import Combine
 
-struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
+nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     let id: UUID
     let name: String
     let url: URL
@@ -18,7 +18,7 @@ struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     var channelType: CustomChannelKind? = nil
     var customChannelId: UUID? = nil
 
-    init(
+    nonisolated init(
         id: UUID = UUID(),
         name: String,
         url: URL,
@@ -171,14 +171,18 @@ final class AppDiscoveryService: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.updateRunningApplications()
+            MainActor.assumeIsolated {
+                self?.updateRunningApplications()
+            }
         }
         center.addObserver(
             forName: NSWorkspace.didTerminateApplicationNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.updateRunningApplications()
+            MainActor.assumeIsolated {
+                self?.updateRunningApplications()
+            }
         }
     }
 
@@ -888,7 +892,9 @@ final class AppDiscoveryService: ObservableObject {
             object: query,
             queue: .main
         ) { [weak self] _ in
-            self?.handleMetadataQueryResults()
+            MainActor.assumeIsolated {
+                self?.handleMetadataQueryResults()
+            }
         }
 
         NotificationCenter.default.addObserver(
@@ -896,7 +902,9 @@ final class AppDiscoveryService: ObservableObject {
             object: query,
             queue: .main
         ) { [weak self] _ in
-            self?.handleMetadataQueryResults()
+            MainActor.assumeIsolated {
+                self?.handleMetadataQueryResults()
+            }
         }
 
         query.start()

@@ -326,7 +326,7 @@ struct MainAppView: View {
         )
         .shadow(color: .black.opacity(0.65), radius: 30, x: 0, y: 15)
         .ignoresSafeArea()
-        .onChange(of: searchText) { newText in
+        .onChange(of: searchText) { _, newText in
             let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
                 // When searching, select the best matching app
@@ -341,7 +341,7 @@ struct MainAppView: View {
                 discoveryService.selectedIndex = filteredApps.count / 2
             }
         }
-        .onChange(of: selectedCategory) { _ in
+        .onChange(of: selectedCategory) {
             if !searchText.isEmpty {
                 discoveryService.selectedIndex = 0
             } else {
@@ -376,12 +376,12 @@ struct MainAppView: View {
                 appState.isShowingWalkthrough = true
             }
         }
-        .onChange(of: appState.isShowingSettings) { isShowing in
+        .onChange(of: appState.isShowingSettings) { _, isShowing in
             if isShowing {
                 scrollAccumulator = 0.0
             }
         }
-        .onChange(of: appState.isShowingWalkthrough) { isShowing in
+        .onChange(of: appState.isShowingWalkthrough) { _, isShowing in
             if isShowing {
                 scrollAccumulator = 0.0
             }

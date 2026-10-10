@@ -243,7 +243,7 @@ struct QuickLauncherView: View {
             .padding(.top, 16)
         }
         .frame(width: 1100, height: 500)
-        .onChange(of: searchText) { newText in
+        .onChange(of: searchText) { _, newText in
             let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
                 let target = (displayApps.first?.isSeparator == true && displayApps.count > 1) ? 1 : 0
@@ -255,7 +255,7 @@ struct QuickLauncherView: View {
                 discoveryService.selectedIndex = center
             }
         }
-        .onChange(of: selectedCategory) { _ in
+        .onChange(of: selectedCategory) {
             if !searchText.isEmpty {
                 selectedIndex = 0
                 discoveryService.selectedIndex = 0
@@ -265,7 +265,7 @@ struct QuickLauncherView: View {
                 discoveryService.selectedIndex = center
             }
         }
-        .onChange(of: discoveryService.apps.count) { _ in
+        .onChange(of: discoveryService.apps.count) {
             if selectedIndex >= displayApps.count {
                 let center = displayApps.count / 2
                 selectedIndex = center

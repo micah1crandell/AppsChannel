@@ -18,8 +18,10 @@ cask "appschannel" do
   app "AppsChannel.app"
 
   zap trash: [
+    "~/.local/bin/appschannel",
     "~/Library/Application Support/AppsChannel",
     "~/Library/Caches/AppsChannel",
+    "~/Library/HTTPStorages/com.micahcrandell.AppsChannel",
     "~/Library/Preferences/com.micahcrandell.AppsChannel.plist",
   ]
 end

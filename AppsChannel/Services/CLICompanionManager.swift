@@ -96,7 +96,7 @@ final class CLICompanionManager: ObservableObject {
 
     set -e
 
-    VERSION="1.2.0"
+    VERSION="1.0.0"
     APP_NAME="AppsChannel"
     BUNDLE_ID="com.micahcrandell.AppsChannel"
 
@@ -197,7 +197,10 @@ final class CLICompanionManager: ObservableObject {
     }
 
     cmd_list() {
-        local cache_file="$HOME/Library/Caches/AppsChannel/apps_cache.json"
+        local cache_file="$HOME/Library/Application Support/AppsChannel/apps_cache.json"
+        if [ ! -f "$cache_file" ]; then
+            cache_file="$HOME/Library/Caches/AppsChannel/apps_cache.json"
+        fi
         echo -e "${CYAN}${BOLD}Indexed Channels in AppsChannel:${RESET}\\n"
 
         if [ -f "$cache_file" ]; then

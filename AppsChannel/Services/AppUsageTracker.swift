@@ -4,13 +4,13 @@ import SwiftUI
 import Combine
 
 // MARK: - App Launch Analytics Record
-struct AppLaunchRecord: Codable, Sendable {
+nonisolated struct AppLaunchRecord: Codable, Sendable {
     var launchCount: Int
     var lastLaunchedAt: Date
 }
 
 // MARK: - App Usage Stats Persistence Structure
-struct AppUsageStats: Codable, Sendable {
+nonisolated struct AppUsageStats: Codable, Sendable {
     var appRecords: [String: AppLaunchRecord] = [:]
     var searchAssociations: [String: [String: Int]] = [:]
 }

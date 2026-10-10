@@ -188,7 +188,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let target = targetQuery, !target.isEmpty {
                 DispatchQueue.main.async {
                     if let app = AppDiscoveryService.shared.findApp(matching: target) {
-                        AppDiscoveryService.shared.launch(app: app, query: target)
+                        if app.channelType == .script {
+                            let alert = NSAlert()
+                            alert.messageText = "Run Shell Script Channel?"
+                            alert.informativeText = "AppsChannel received an external URL request to execute the shell script channel '\(app.name)'. Do you want to run this script?"
+                            alert.addButton(withTitle: "Run")
+                            alert.addButton(withTitle: "Cancel")
+                            alert.alertStyle = .warning
+                            NSApp.activate(ignoringOtherApps: true)
+                            let response = alert.runModal()
+                            if response == .alertFirstButtonReturn {
+                                AppDiscoveryService.shared.launch(app: app, query: target)
+                            }
+                        } else {
+                            AppDiscoveryService.shared.launch(app: app, query: target)
+                        }
                     }
                 }
             }

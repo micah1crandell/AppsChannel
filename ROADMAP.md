@@ -55,22 +55,7 @@ Welcome to the **AppsChannel** product roadmap. This document outlines our past 
 - [x] Recent Documents Sub-Deck (`↓`) indexing recent files per application via Spotlight without requiring Full Disk Access.
 - [x] Comprehensive unit tests in `CustomChannelTests.swift`, `ThemeManagerTests.swift`, and `RecentDocumentsServiceTests.swift`.
 
----
-
-## 🚀 Future Vision & Upcoming Features
-
-### Near-Term (v1.1 – v1.2)
-* **Custom Channels (Web & Shortcuts)**:
-  * Create custom channel tiles for web URLs (auto-fetching high-resolution favicons) or macOS Shortcuts (`shortcuts run ...`).
-  * Custom icon uploads and custom channel accent colors.
-* **Themes & Visual Presets**:
-  * *Matte White* (glossy minimalist matte white with channel borders)
-  * *Indigo Purple* (deep purple matte geometry)
-  * *Cyberpunk Dark* (neon cyan / magenta illumination)
-* **Recent Documents Sub-Deck**:
-  * Press Down Arrow (`↓`) on focused apps to expand their recent files and workspaces.
-
-### Phase 8: Developer Ecosystem, CLI Companion & Script Channels (v2.0)
+### Phase 8: Developer Ecosystem, CLI Companion & Script Channels
 - [x] Lightweight CLI Companion executable (`bin/appschannel`) supporting `toggle`, `open`, `close`, `launch <query>`, `theme <theme>`, `list`, `status`, and `install`.
 - [x] Custom Shell Script Channels: pin shell commands, terminal tools, and scripts as first-class interactive channel cards.
 - [x] Expanded Custom URL Scheme handler (`appschannel://launch?query=`, `appschannel://theme?name=`, `appschannel://close`, `appschannel://preferences`).
@@ -79,12 +64,16 @@ Welcome to the **AppsChannel** product roadmap. This document outlines our past 
 
 ---
 
-## 🚀 Future Vision & Upcoming Features
+## 🚀 Future Vision & Upcoming Milestones
 
-### Near-Term (v2.1)
+### Near-Term (v1.1 – v1.2)
 * **Raycast & Alfred Extensions**:
   * Official extension packages for Raycast and Alfred to toggle AppsChannel and pipe external search queries into the channel grid.
-* **Custom Channel Sound Effects**:
-  * Optional retro audio jingles per custom channel tile.
+* **Custom Channel Sound Effects & Jingles**:
+  * Optional retro audio jingles and custom sound clips per custom channel tile.
 * **Spotlight / Raycast Calculator Fallback**:
   * Instant math evaluation and currency conversions directly in the search bar.
+* **Smart App Stacks & Custom Category Folders**:
+  * Group related applications into collapsible stacks within the Channel Grid.
+* **Stream Deck & Touch Bar Integration**:
+  * Direct tactile macro triggers for cycling views and selecting channel slots.
