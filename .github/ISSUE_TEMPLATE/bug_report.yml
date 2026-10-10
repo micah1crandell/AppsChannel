@@ -38,7 +38,7 @@ body:
         - "Quick Launcher (⌥L HUD)"
         - "Cover Flow Carousel"
         - "Curved Amphitheater Wall Grid"
-        - "3DS Channel Grid"
+        - "Flat Channel Grid"
         - "Settings / Preferences Modal"
     validations:
       required: false

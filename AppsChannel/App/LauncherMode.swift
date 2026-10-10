@@ -10,7 +10,10 @@ enum LauncherMode: String, CaseIterable, Identifiable {
 enum MainLayoutViewMode: String, CaseIterable, Identifiable {
     case coverFlow = "CoverFlow"
     case gridWall = "Wall Grid"
-    case threeDSGrid = "3DS Grid"
+    case flatGrid = "Flat Grid"
+
+    // Backward compatibility alias
+    static let threeDSGrid = MainLayoutViewMode.flatGrid
 
     var id: String { rawValue }
 
@@ -18,7 +21,7 @@ enum MainLayoutViewMode: String, CaseIterable, Identifiable {
         switch self {
         case .coverFlow: return "Cover Flow"
         case .gridWall: return "Curved Wall Grid"
-        case .threeDSGrid: return "3DS Flat Grid"
+        case .flatGrid: return "Flat Grid"
         }
     }
 
@@ -26,7 +29,7 @@ enum MainLayoutViewMode: String, CaseIterable, Identifiable {
         switch self {
         case .coverFlow: return "rectangle.portrait.on.rectangle.portrait.fill"
         case .gridWall: return "square.grid.3x3.fill"
-        case .threeDSGrid: return "square.grid.3x2.fill"
+        case .flatGrid: return "square.grid.3x2.fill"
         }
     }
 
@@ -36,8 +39,8 @@ enum MainLayoutViewMode: String, CaseIterable, Identifiable {
             self = .coverFlow
         case "Wall Grid", "gridWall", "wallGrid":
             self = .gridWall
-        case "3DS Grid", "threeDSGrid", "3ds", "threeDS", "3DS Flat Grid":
-            self = .threeDSGrid
+        case "Flat Grid", "flatGrid", "3DS Grid", "threeDSGrid", "3ds", "threeDS", "3DS Flat Grid":
+            self = .flatGrid
         default:
             return nil
         }
@@ -60,7 +63,7 @@ enum AppDisplayStyle: String, CaseIterable, Identifiable {
     var desc: String {
         switch self {
         case .iconOnly: return "Minimalist native app icons with ambient lighting & reflections"
-        case .channelCard: return "Classic Nintendo Wii & macOS Channel cards with categories and tags"
+        case .channelCard: return "Classic macOS Channel cards with categories and tags"
         }
     }
 

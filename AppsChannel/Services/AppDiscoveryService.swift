@@ -15,6 +15,8 @@ struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
 
     var isHiddenApp: Bool = false
     var isSeparator: Bool = false
+    var channelType: CustomChannelKind? = nil
+    var customChannelId: UUID? = nil
 
     init(
         id: UUID = UUID(),
@@ -27,7 +29,9 @@ struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
         sizeString: String,
         accentColor: Color,
         isHiddenApp: Bool = false,
-        isSeparator: Bool = false
+        isSeparator: Bool = false,
+        channelType: CustomChannelKind? = nil,
+        customChannelId: UUID? = nil
     ) {
         self.id = id
         self.name = name
@@ -40,6 +44,8 @@ struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
         self.accentColor = accentColor
         self.isHiddenApp = isHiddenApp
         self.isSeparator = isSeparator
+        self.channelType = channelType
+        self.customChannelId = customChannelId
     }
 
     static let hiddenAppsSeparator: DiscoveredApp = {
@@ -87,11 +93,18 @@ struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     }
 
     func hash(into hasher: inout Hasher) {
-        hasher.combine(url)
+        if let customId = customChannelId {
+            hasher.combine(customId)
+        } else {
+            hasher.combine(url)
+        }
     }
 
     static func == (lhs: DiscoveredApp, rhs: DiscoveredApp) -> Bool {
-        lhs.url == rhs.url
+        if let lId = lhs.customChannelId, let rId = rhs.customChannelId {
+            return lId == rId
+        }
+        return lhs.url == rhs.url
     }
 }
 
@@ -126,9 +139,12 @@ final class AppDiscoveryService: ObservableObject {
     @Published var runningBundleIds: Set<String> = []
     @Published var runningUrls: Set<URL> = []
 
+    private var metadataQuery: NSMetadataQuery?
+
     init() {
         loadInitialApps()
         setupRunningAppObservers()
+        setupSpotlightQuery()
     }
 
     // MARK: - Running Applications State
@@ -215,8 +231,8 @@ final class AppDiscoveryService: ObservableObject {
         self.hiddenAppPaths = hidden
 
         self.apps = applySavedOrder(to: allDiscoveredApps)
-        if !apps.isEmpty {
-            selectedIndex = min(selectedIndex, apps.count - 1)
+        if !apps.isEmpty && selectedIndex >= apps.count {
+            selectedIndex = max(0, apps.count / 2)
         }
         SoundEffectsManager.shared.playAction()
     }
@@ -228,8 +244,8 @@ final class AppDiscoveryService: ObservableObject {
         self.hiddenAppPaths = hidden
 
         self.apps = applySavedOrder(to: allDiscoveredApps)
-        if !apps.isEmpty {
-            selectedIndex = min(selectedIndex, apps.count - 1)
+        if !apps.isEmpty && selectedIndex >= apps.count {
+            selectedIndex = max(0, apps.count / 2)
         }
         SoundEffectsManager.shared.playAction()
     }
@@ -244,8 +260,8 @@ final class AppDiscoveryService: ObservableObject {
         self.hiddenAppPaths = hidden
 
         self.apps = applySavedOrder(to: allDiscoveredApps)
-        if !apps.isEmpty {
-            selectedIndex = min(selectedIndex, apps.count - 1)
+        if !apps.isEmpty && selectedIndex >= apps.count {
+            selectedIndex = max(0, apps.count / 2)
         }
         SoundEffectsManager.shared.playAction()
     }
@@ -260,8 +276,8 @@ final class AppDiscoveryService: ObservableObject {
         self.hiddenAppPaths = hidden
 
         self.apps = applySavedOrder(to: allDiscoveredApps)
-        if !apps.isEmpty {
-            selectedIndex = min(selectedIndex, apps.count - 1)
+        if !apps.isEmpty && selectedIndex >= apps.count {
+            selectedIndex = max(0, apps.count / 2)
         }
         SoundEffectsManager.shared.playAction()
     }
@@ -270,8 +286,8 @@ final class AppDiscoveryService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: hiddenAppsKey)
         self.hiddenAppPaths = []
         self.apps = applySavedOrder(to: allDiscoveredApps)
-        if !apps.isEmpty {
-            selectedIndex = min(selectedIndex, apps.count - 1)
+        if !apps.isEmpty && selectedIndex >= apps.count {
+            selectedIndex = max(0, apps.count / 2)
         }
         SoundEffectsManager.shared.playAction()
     }
@@ -313,40 +329,64 @@ final class AppDiscoveryService: ObservableObject {
     }
 
     func saveOrder() {
-        let order = apps.map { $0.url.path }
+        let order = apps.map { app -> String in
+            if let customId = app.customChannelId {
+                return "custom://\(customId.uuidString)"
+            }
+            return app.url.path
+        }
         UserDefaults.standard.set(order, forKey: customOrderKey)
+    }
+
+    func reloadAfterCustomChannelChange() {
+        self.apps = applySavedOrder(to: allDiscoveredApps)
+        if selectedIndex >= apps.count {
+            selectedIndex = max(0, apps.count / 2)
+        }
     }
 
     func applySavedOrder(to discovered: [DiscoveredApp]) -> [DiscoveredApp] {
         let hidden = loadHiddenApps()
         self.hiddenAppPaths = hidden
-        let visibleApps = discovered.filter { !hidden.contains($0.url.path) && !$0.isAppsChannelApp }
+        var combined = discovered.filter { !hidden.contains($0.url.path) && !$0.isAppsChannelApp }
+
+        let customChannels = CustomChannelManager.shared.toDiscoveredApps()
+        for custom in customChannels {
+            let key = "custom://\(custom.id.uuidString)"
+            if !hidden.contains(key) && !combined.contains(where: { $0.id == custom.id }) {
+                combined.append(custom)
+            }
+        }
 
         let saved = loadSavedOrder()
         if !saved.isEmpty {
             var appMap = [String: DiscoveredApp]()
-            for app in visibleApps {
-                appMap[app.url.path] = app
+            for app in combined {
+                let key = app.customChannelId != nil ? "custom://\(app.id.uuidString)" : app.url.path
+                appMap[key] = app
             }
 
             var ordered: [DiscoveredApp] = []
-            var placedPaths = Set<String>()
+            var placedKeys = Set<String>()
 
-            for path in saved {
-                if let app = appMap[path] {
+            for key in saved {
+                if let app = appMap[key] {
                     ordered.append(app)
-                    placedPaths.insert(path)
+                    placedKeys.insert(key)
                 }
             }
 
-            for app in visibleApps where !placedPaths.contains(app.url.path) {
-                ordered.append(app)
+            for app in combined {
+                let key = app.customChannelId != nil ? "custom://\(app.id.uuidString)" : app.url.path
+                if !placedKeys.contains(key) {
+                    ordered.append(app)
+                }
             }
 
             return ordered
         } else {
             // Default: Sort by usage frequency + recency, then arrange middle-out
-            let ranked = visibleApps.sorted { app1, app2 in
+            let ranked = combined.sorted { app1, app2 in
                 let score1 = AppUsageTracker.shared.usageScore(for: app1)
                 let score2 = AppUsageTracker.shared.usageScore(for: app2)
                 if score1 != score2 {
@@ -444,24 +484,40 @@ final class AppDiscoveryService: ObservableObject {
 
         Task.detached(priority: .background) {
             let currentAppPaths = Self.quickAppPathsScan()
-            let cachedPaths = Set(Self.loadCacheRecords()?.map { $0.path } ?? [])
+            let knownPaths = await MainActor.run {
+                Set(self.allDiscoveredApps.map { $0.url.path })
+            }
 
-            // If the list of app paths hasn't changed, skip rescanning entirely
-            if currentAppPaths == cachedPaths {
+            // Check if there are any new apps in Applications folder not in allDiscoveredApps,
+            // or if any apps in allDiscoveredApps no longer exist on disk
+            let newPaths = currentAppPaths.subtracting(knownPaths)
+            let hasDeletedApps = knownPaths.contains(where: { !FileManager.default.fileExists(atPath: $0) })
+
+            if newPaths.isEmpty && !hasDeletedApps {
                 await MainActor.run {
                     self.isCheckingUpdates = false
                 }
                 return
             }
 
-            // Only rescan if apps were added or deleted
-            let freshApps = Self.scanInstalledApps()
-            Self.saveCacheToDisk(apps: freshApps)
+            let newApps = Self.buildDiscoveredApps(from: newPaths.compactMap { URL(fileURLWithPath: $0) })
 
             await MainActor.run {
-                let valid = freshApps.filter { !$0.isAppsChannelApp }
-                self.allDiscoveredApps = valid.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-                self.apps = self.applySavedOrder(to: valid)
+                var merged = self.allDiscoveredApps.filter { FileManager.default.fileExists(atPath: $0.url.path) }
+                let mergedPaths = Set(merged.map { $0.url.path })
+
+                for app in newApps where !mergedPaths.contains(app.url.path) && !app.isAppsChannelApp {
+                    merged.append(app)
+                }
+
+                merged.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                Self.saveCacheToDisk(apps: merged)
+
+                self.allDiscoveredApps = merged
+                self.apps = self.applySavedOrder(to: merged)
+                if self.selectedIndex >= self.apps.count {
+                    self.selectedIndex = max(0, self.apps.count / 2)
+                }
                 self.isCheckingUpdates = false
             }
         }
@@ -472,6 +528,49 @@ final class AppDiscoveryService: ObservableObject {
 
         // Record launch count, recency timestamp, and search query association
         AppUsageTracker.shared.recordLaunch(app: app, query: query)
+
+        if let kind = app.channelType {
+            switch kind {
+            case .web:
+                NSWorkspace.shared.open(app.url)
+                return
+            case .shortcut:
+                let shortcutName = app.name
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let task = Process()
+                    task.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
+                    task.arguments = ["run", shortcutName]
+                    do {
+                        try task.run()
+                    } catch {
+                        DispatchQueue.main.async {
+                            NSWorkspace.shared.open(app.url)
+                        }
+                    }
+                }
+                return
+            case .script:
+                if let channelId = app.customChannelId,
+                   let record = CustomChannelManager.shared.channels.first(where: { $0.id == channelId }) {
+                    let command = record.target
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        let task = Process()
+                        task.executableURL = URL(fileURLWithPath: "/bin/zsh")
+                        task.arguments = ["-c", command]
+                        var env = ProcessInfo.processInfo.environment
+                        let standardPath = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
+                        env["PATH"] = standardPath + ":" + (env["PATH"] ?? "")
+                        task.environment = env
+                        do {
+                            try task.run()
+                        } catch {
+                            print("Failed to run script channel: \(error.localizedDescription)")
+                        }
+                    }
+                }
+                return
+            }
+        }
 
         if app.bundleIdentifier == "com.apple.finder" {
             let scriptSource = """
@@ -498,6 +597,49 @@ final class AppDiscoveryService: ObservableObject {
                 print("Failed to launch \(app.name): \(error.localizedDescription)")
             }
         }
+    }
+
+    func findApp(matching query: String) -> DiscoveredApp? {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        // 1. Exact name match
+        if let exact = allDiscoveredApps.first(where: {
+            $0.name.localizedCaseInsensitiveCompare(trimmed) == .orderedSame
+        }) {
+            return exact
+        }
+
+        // 2. Exact bundle ID match
+        if let exactBundle = allDiscoveredApps.first(where: {
+            $0.bundleIdentifier?.localizedCaseInsensitiveCompare(trimmed) == .orderedSame
+        }) {
+            return exactBundle
+        }
+
+        // 3. Name prefix match
+        if let prefix = allDiscoveredApps.first(where: {
+            $0.name.lowercased().hasPrefix(trimmed.lowercased())
+        }) {
+            return prefix
+        }
+
+        // 4. Smart score-ranked candidate match
+        let candidates = allDiscoveredApps.filter { app in
+            app.name.localizedCaseInsensitiveContains(trimmed) ||
+            app.category.localizedCaseInsensitiveContains(trimmed) ||
+            (app.bundleIdentifier?.localizedCaseInsensitiveContains(trimmed) ?? false) ||
+            AppUsageTracker.shared.searchScore(for: app, query: trimmed) >= 30.0
+        }
+
+        let ranked = candidates.sorted { a1, a2 in
+            let s1 = AppUsageTracker.shared.searchScore(for: a1, query: trimmed)
+            let s2 = AppUsageTracker.shared.searchScore(for: a2, query: trimmed)
+            if s1 != s2 { return s1 > s2 }
+            return a1.name.localizedCaseInsensitiveCompare(a2.name) == .orderedAscending
+        }
+
+        return ranked.first
     }
 
     // MARK: - Fast Disk Caching
@@ -579,12 +721,13 @@ final class AppDiscoveryService: ObservableObject {
         }
     }
 
-    // MARK: - Fast Shallow App Path Scan (< 10ms)
-    nonisolated private static func quickAppPathsScan() -> Set<String> {
+    // MARK: - Fast App Path Scan (with Subdirectory & Utility Detection)
+    nonisolated static func quickAppPathsScan() -> Set<String> {
         var paths = Set<String>()
         let fileManager = FileManager.default
         let dirs: [URL] = [
             URL(fileURLWithPath: "/Applications"),
+            URL(fileURLWithPath: "/Applications/Utilities"),
             URL(fileURLWithPath: "/System/Applications"),
             URL(fileURLWithPath: "/System/Applications/Utilities"),
             fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
@@ -592,8 +735,21 @@ final class AppDiscoveryService: ObservableObject {
 
         for dir in dirs {
             if let items = try? fileManager.contentsOfDirectory(atPath: dir.path) {
-                for item in items where item.hasSuffix(".app") {
-                    paths.insert(dir.appendingPathComponent(item).path)
+                for item in items {
+                    let fullPath = dir.appendingPathComponent(item).path
+                    if item.hasSuffix(".app") {
+                        paths.insert(fullPath)
+                    } else if !item.hasPrefix(".") && !item.hasSuffix(".app") {
+                        // Scan 1 level deeper into subfolders (e.g. Setapp, Adobe, Chrome Apps, custom categories)
+                        var isDir: ObjCBool = false
+                        if fileManager.fileExists(atPath: fullPath, isDirectory: &isDir), isDir.boolValue {
+                            if let subItems = try? fileManager.contentsOfDirectory(atPath: fullPath) {
+                                for sub in subItems where sub.hasSuffix(".app") {
+                                    paths.insert(URL(fileURLWithPath: fullPath).appendingPathComponent(sub).path)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -606,14 +762,12 @@ final class AppDiscoveryService: ObservableObject {
         return paths
     }
 
-    // MARK: - Fast App Scanner with Instant Size Lookups
+    // MARK: - Fast App Scanner with Deep Directory Fallback
     nonisolated private static func scanInstalledApps() -> [DiscoveredApp] {
-        var results: [DiscoveredApp] = []
-        var seenNames = Set<String>()
-
         let fileManager = FileManager.default
         let searchDirectories: [URL] = [
             URL(fileURLWithPath: "/Applications"),
+            URL(fileURLWithPath: "/Applications/Utilities"),
             URL(fileURLWithPath: "/System/Applications"),
             URL(fileURLWithPath: "/System/Applications/Utilities"),
             fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
@@ -623,10 +777,24 @@ final class AppDiscoveryService: ObservableObject {
         for dir in searchDirectories {
             guard let contents = try? fileManager.contentsOfDirectory(
                 at: dir,
-                includingPropertiesForKeys: [.isApplicationKey],
+                includingPropertiesForKeys: [.isDirectoryKey, .isApplicationKey],
                 options: [.skipsHiddenFiles]
             ) else { continue }
-            candidateURLs.append(contentsOf: contents.filter { $0.pathExtension == "app" })
+
+            for item in contents {
+                if item.pathExtension == "app" {
+                    candidateURLs.append(item)
+                } else if item.hasDirectoryPath {
+                    // Check subfolders up to 1 level deeper (e.g. /Applications/Setapp, /Applications/Utilities, /Applications/Adobe ...)
+                    if let sub = try? fileManager.contentsOfDirectory(
+                        at: item,
+                        includingPropertiesForKeys: [.isApplicationKey],
+                        options: [.skipsHiddenFiles]
+                    ) {
+                        candidateURLs.append(contentsOf: sub.filter { $0.pathExtension == "app" })
+                    }
+                }
+            }
         }
 
         let finderURL = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
@@ -634,39 +802,146 @@ final class AppDiscoveryService: ObservableObject {
             candidateURLs.append(finderURL)
         }
 
-        for url in candidateURLs {
-            let name = url.deletingPathExtension().lastPathComponent
-            guard !seenNames.contains(name) else { continue }
-            guard name.localizedCaseInsensitiveCompare("AppsChannel") != .orderedSame else { continue }
-            guard !url.path.lowercased().contains("/appschannel.app") else { continue }
-            seenNames.insert(name)
-
-            let bundle = Bundle(url: url)
-            let bundleId = bundle?.bundleIdentifier
-
-            let categoryRaw = bundle?.object(forInfoDictionaryKey: "LSApplicationCategoryType") as? String
-            let category = formatCategory(raw: categoryRaw, name: name)
-            let tagBadge = deriveTagBadge(for: url, name: name, bundleId: bundleId)
-            let sizeStr = fastCalculateSize(of: url)
-            let accentColor = deriveAccentColor(category: category, name: name)
-            let icon = getCachedIcon(forPath: url.path)
-
-            let app = DiscoveredApp(
-                id: UUID(),
-                name: name,
-                url: url,
-                bundleIdentifier: bundleId,
-                icon: icon,
-                category: category,
-                tagBadge: tagBadge,
-                sizeString: sizeStr,
-                accentColor: accentColor
-            )
-            results.append(app)
-        }
-
+        var results = buildDiscoveredApps(from: candidateURLs)
         results.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         return results
+    }
+
+    // MARK: - Universal Single App Builder
+    nonisolated static func buildApp(at url: URL) -> DiscoveredApp? {
+        let name = url.deletingPathExtension().lastPathComponent
+        guard name.localizedCaseInsensitiveCompare("AppsChannel") != .orderedSame else { return nil }
+        guard !url.path.lowercased().contains("/appschannel.app") else { return nil }
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+
+        let bundle = Bundle(url: url)
+        let bundleId = bundle?.bundleIdentifier
+
+        let categoryRaw = bundle?.object(forInfoDictionaryKey: "LSApplicationCategoryType") as? String
+        let category = formatCategory(raw: categoryRaw, name: name)
+        let tagBadge = deriveTagBadge(for: url, name: name, bundleId: bundleId)
+        let sizeStr = fastCalculateSize(of: url)
+        let accentColor = deriveAccentColor(category: category, name: name)
+        let icon = getCachedIcon(forPath: url.path)
+
+        return DiscoveredApp(
+            id: UUID(),
+            name: name,
+            url: url,
+            bundleIdentifier: bundleId,
+            icon: icon,
+            category: category,
+            tagBadge: tagBadge,
+            sizeString: sizeStr,
+            accentColor: accentColor
+        )
+    }
+
+    // MARK: - Batch App Builder
+    nonisolated private static func buildDiscoveredApps(from urls: [URL]) -> [DiscoveredApp] {
+        var results: [DiscoveredApp] = []
+        var seenNames = Set<String>()
+        var seenPaths = Set<String>()
+
+        for url in urls {
+            let path = url.standardizedFileURL.path
+            guard !seenPaths.contains(path) else { continue }
+            seenPaths.insert(path)
+
+            let name = url.deletingPathExtension().lastPathComponent
+            guard !seenNames.contains(name) else { continue }
+            seenNames.insert(name)
+
+            if let app = buildApp(at: url) {
+                results.append(app)
+            }
+        }
+        return results
+    }
+
+    // MARK: - Spotlight NSMetadataQuery Integration
+    private func setupSpotlightQuery() {
+        let query = NSMetadataQuery()
+        query.predicate = NSPredicate(format: "kMDItemContentTypeTree == 'com.apple.application-bundle' || kMDItemContentType == 'com.apple.application-bundle'")
+        query.searchScopes = [NSMetadataQueryLocalComputerScope]
+        query.operationQueue = .main
+
+        NotificationCenter.default.addObserver(
+            forName: .NSMetadataQueryDidFinishGathering,
+            object: query,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleMetadataQueryResults()
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: .NSMetadataQueryDidUpdate,
+            object: query,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleMetadataQueryResults()
+        }
+
+        query.start()
+        self.metadataQuery = query
+    }
+
+    private func handleMetadataQueryResults() {
+        guard let query = metadataQuery else { return }
+        query.disableUpdates()
+        defer { query.enableUpdates() }
+
+        var appURLs: [URL] = []
+        for item in query.results {
+            guard let mdItem = item as? NSMetadataItem,
+                  let path = mdItem.value(forAttribute: NSMetadataItemPathKey) as? String else { continue }
+
+            guard path.hasSuffix(".app") else { continue }
+            guard !path.contains("/DerivedData/"),
+                  !path.contains("/build/"),
+                  !path.contains("/.Trash/"),
+                  !path.contains(".framework/"),
+                  !path.contains(".app/Contents/Frameworks/"),
+                  !path.contains(".app/Contents/XPCServices/"),
+                  !path.contains(".app/Contents/Library/") else { continue }
+            guard !path.lowercased().contains("/appschannel.app") else { continue }
+
+            let url = URL(fileURLWithPath: path)
+            appURLs.append(url)
+        }
+
+        Task.detached(priority: .userInitiated) {
+            let processedApps = Self.buildDiscoveredApps(from: appURLs)
+            await MainActor.run { [weak self] in
+                guard let self = self else { return }
+                self.integrateSpotlightDiscoveredApps(processedApps)
+            }
+        }
+    }
+
+    private func integrateSpotlightDiscoveredApps(_ freshApps: [DiscoveredApp]) {
+        let existingPaths = Set(self.allDiscoveredApps.map { $0.url.path })
+        let freshPaths = Set(freshApps.map { $0.url.path })
+
+        if existingPaths == freshPaths {
+            return
+        }
+
+        var merged = self.allDiscoveredApps.filter { FileManager.default.fileExists(atPath: $0.url.path) }
+        let currentPaths = Set(merged.map { $0.url.path })
+
+        for app in freshApps where !currentPaths.contains(app.url.path) && !app.isAppsChannelApp {
+            merged.append(app)
+        }
+
+        merged.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        Self.saveCacheToDisk(apps: merged)
+
+        self.allDiscoveredApps = merged
+        self.apps = self.applySavedOrder(to: merged)
+        if self.selectedIndex >= self.apps.count {
+            self.selectedIndex = max(0, self.apps.count / 2)
+        }
     }
 
     // MARK: - Fast Icon Lookup (AppKit internally caches system icons)

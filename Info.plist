@@ -19,5 +19,7 @@
 	<string>https://raw.githubusercontent.com/micah1crandell/AppsChannel/main/appcast.xml</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
+	<key>SUPublicEDKey</key>
+	<string>g8+QmyCoE1TVsIW9O5tqf0xizjAHfy9+JgmSSfK19VY=</string>
 </dict>
 </plist>

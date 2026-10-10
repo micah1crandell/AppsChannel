@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-struct ThreeDSGridView: View {
+struct FlatGridView: View {
     let apps: [DiscoveredApp]
     let activeIndex: Int
     let rowsCount: Int
@@ -193,7 +193,7 @@ struct ThreeDSGridView: View {
                     }
                     .position(x: centerX, y: centerY)
                 } else {
-                    // Floating Speech Bubble Tooltip above active column (3DS Style)
+                    // Floating Tooltip Badge above active column
                     if activeIndex < apps.count {
                         let activeApp = apps[activeIndex]
                         let bubbleY = centerY - (CGFloat(effectiveRows) * rowStep) / 2 - (isCompact ? 28 : 36)
@@ -204,7 +204,7 @@ struct ThreeDSGridView: View {
                             .transition(.scale(scale: 0.95).combined(with: .opacity))
                     }
 
-                    // Flat 3DS Horizontal App Grid
+                    // Flat Horizontal App Grid
                     ForEach(0..<totalColumns, id: \.self) { col in
                         let colOffset = CGFloat(col - activeColumn) + (dragOffset / colStep)
 
@@ -220,7 +220,7 @@ struct ThreeDSGridView: View {
                                     let rowOffsetFromCenter = CGFloat(row) - CGFloat(effectiveRows - 1) / 2.0
                                     let posY = centerY + rowOffsetFromCenter * rowStep + (isCompact ? 12 : 16)
 
-                                    threeDSTile(app: app, index: index, isSelected: isSelected)
+                                    flatGridTile(app: app, index: index, isSelected: isSelected)
                                         .position(x: posX, y: posY)
                                         .zIndex(isSelected ? 200 : 100 - Double(abs(colOffset)))
                                 }
@@ -228,7 +228,7 @@ struct ThreeDSGridView: View {
                         }
                     }
 
-                    // 3DS Side Arrow Navigation Buttons (<- and ->)
+                    // Side Arrow Navigation Buttons (<- and ->)
                     if activeColumn > 0 {
                         Button(action: {
                             onNavigate(-effectiveRows)
@@ -280,8 +280,8 @@ struct ThreeDSGridView: View {
         .frame(height: totalHeight)
     }
 
-    // MARK: - Individual 3DS App Tile
-    private func threeDSTile(app: DiscoveredApp, index: Int, isSelected: Bool) -> some View {
+    // MARK: - Individual Flat Grid App Tile
+    private func flatGridTile(app: DiscoveredApp, index: Int, isSelected: Bool) -> some View {
         let cursorInset: CGFloat = 3.5
 
         return ZStack {
@@ -328,9 +328,9 @@ struct ThreeDSGridView: View {
                 )
             }
 
-            // Iconic Nintendo 3DS Cyan Corner Reticle Selection Cursor [  ]
+            // Neon Cyan Corner Reticle Selection Cursor [  ]
             if isSelected {
-                ThreeDSCursorOverlay(
+                CornerReticleCursorOverlay(
                     width: itemWidth + cursorInset * 2,
                     height: itemHeight + cursorInset * 2,
                     bracketSize: min(20, itemWidth * 0.28)
@@ -353,7 +353,7 @@ struct ThreeDSGridView: View {
         .appContextMenu(for: app, onLaunch: onLaunch)
     }
 
-    // MARK: - 3DS Speech Bubble Tooltip
+    // MARK: - Floating Tooltip Badge
     private func speechBubble(for app: DiscoveredApp) -> some View {
         HStack(spacing: 8) {
             if app.isSeparator {
@@ -422,12 +422,15 @@ struct ThreeDSGridView: View {
     }
 }
 
-// MARK: - Nintendo 3DS Neon Cyan Corner Reticle Cursor
-struct ThreeDSCursorOverlay: View {
+// Backward compatibility alias
+typealias ThreeDSGridView = FlatGridView
+
+// MARK: - Neon Cyan Corner Reticle Cursor
+struct CornerReticleCursorOverlay: View {
     var width: CGFloat
     var height: CGFloat
     let bracketSize: CGFloat
-    let color: Color = Color(red: 0.0, green: 0.95, blue: 0.85) // 3DS vibrant cyan/turquoise
+    let color: Color = Color(red: 0.0, green: 0.95, blue: 0.85) // Vibrant cyan/turquoise
 
     init(size: CGFloat, bracketSize: CGFloat) {
         self.width = size
@@ -511,3 +514,6 @@ struct ThreeDSCursorOverlay: View {
         .shadow(color: color.opacity(0.85), radius: 5, x: 0, y: 0)
     }
 }
+
+// Backward compatibility alias
+typealias ThreeDSCursorOverlay = CornerReticleCursorOverlay

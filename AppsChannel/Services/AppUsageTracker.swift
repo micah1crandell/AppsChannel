@@ -35,7 +35,7 @@ final class AppUsageTracker: ObservableObject {
 
     // MARK: - Record App Launch & Query Association
     func recordLaunch(app: DiscoveredApp, query: String? = nil) {
-        guard !app.isAppsChannelApp else { return }
+        guard !app.isAppsChannelApp, app.url.path != "/", !app.url.path.isEmpty, app.url.path.hasSuffix(".app") else { return }
         let pathKey = app.url.path
 
         // 1. Update Launch Count & Recency
@@ -318,10 +318,12 @@ final class AppUsageTracker: ObservableObject {
         if let data = try? Data(contentsOf: fileURL),
            let decoded = try? JSONDecoder().decode(AppUsageStats.self, from: data) {
             var cleanedStats = decoded
-            cleanedStats.appRecords = cleanedStats.appRecords.filter { !$0.key.lowercased().contains("appschannel") }
+            cleanedStats.appRecords = cleanedStats.appRecords.filter {
+                !$0.key.lowercased().contains("appschannel") && $0.key != "/" && $0.key.hasSuffix(".app")
+            }
             for (query, map) in cleanedStats.searchAssociations {
                 let filteredMap = map.filter { path, count in
-                    if path.lowercased().contains("appschannel") { return false }
+                    if path.lowercased().contains("appschannel") || path == "/" || !path.hasSuffix(".app") { return false }
                     let appName = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent.lowercased()
                     let q = query.lowercased()
                     let isAlias = Self.commonAliases[q]?.contains(where: { appName.contains($0) }) ?? false

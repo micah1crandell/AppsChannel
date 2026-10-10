@@ -39,6 +39,16 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Run Unit Tests
+        run: |
+          xcodebuild test \
+            -scheme AppsChannel \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
       - name: Verify Helper Scripts
         run: |
           bash -n scripts/sign_app.sh

@@ -276,7 +276,7 @@ struct CoverFlowWallView: View {
         .padding(.top, 2)
     }
 
-    // MARK: - 3D Geometry Mathematics for Concave Amphitheater Wall Perspective (Wii Flow / IMAX Style)
+    // MARK: - 3D Geometry Mathematics for Concave Amphitheater Wall Perspective
     private func calculateColumnRotation(offset: CGFloat) -> Double {
         if reduceMotion || abs(offset) < 0.001 { return 0 }
         // Inward facing angle: negative for right side (faces left toward center), positive for left side (faces right toward center)

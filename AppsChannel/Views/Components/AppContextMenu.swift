@@ -10,11 +10,59 @@ struct AppCardContextMenu: ViewModifier {
 
     func body(content: Content) -> some View {
         content.contextMenu {
-            if !app.isAppsChannelApp && !app.isSeparator {
+            if let customId = app.customChannelId {
+                Button {
+                    onLaunch()
+                } label: {
+                    Label(app.channelType == .web ? "Open Website" : "Run Shortcut", systemImage: "arrow.up.right.square")
+                }
+
+                Divider()
+
+                Button {
+                    copyToClipboard(app.url.absoluteString)
+                } label: {
+                    Label("Copy Link / Target", systemImage: "doc.on.doc")
+                }
+
+                Menu {
+                    ForEach(1...9, id: \.self) { slot in
+                        Button {
+                            ShortcutMappingManager.shared.setChannelSlot(appPath: "custom://\(customId.uuidString)", forSlot: slot)
+                            SoundEffectsManager.shared.playAction()
+                        } label: {
+                            if ShortcutMappingManager.shared.assignedAppPath(forSlot: slot) == "custom://\(customId.uuidString)" {
+                                Text("✓ Slot \(slot) (⌥\(slot))")
+                            } else {
+                                Text("Slot \(slot) (⌥\(slot))")
+                            }
+                        }
+                    }
+                } label: {
+                    Label("Assign to Slot (⌥1–9)", systemImage: "target")
+                }
+
+                Divider()
+
+                Button(role: .destructive) {
+                    CustomChannelManager.shared.removeChannel(id: customId)
+                    SoundEffectsManager.shared.playAction()
+                } label: {
+                    Label("Delete Custom Channel", systemImage: "trash")
+                }
+            } else if !app.isAppsChannelApp && !app.isSeparator {
                 Button {
                     onLaunch()
                 } label: {
                     Label(discoveryService.isRunning(app: app) ? "Switch to Application" : "Launch Application", systemImage: "arrow.up.right.square")
+                }
+
+                if RecentDocumentsService.hasDocumentTypes(forAppAt: app.url) {
+                    Button {
+                        NotificationCenter.default.post(name: .toggleRecentDocuments, object: app)
+                    } label: {
+                        Label("Show Recent Documents (⌘↓)", systemImage: "clock.arrow.circlepath")
+                    }
                 }
 
                 Divider()
@@ -144,4 +192,8 @@ extension View {
     func appContextMenu(for app: DiscoveredApp, onLaunch: @escaping () -> Void) -> some View {
         self.modifier(AppCardContextMenu(app: app, onLaunch: onLaunch))
     }
+}
+
+extension Notification.Name {
+    static let toggleRecentDocuments = Notification.Name("toggleRecentDocuments")
 }

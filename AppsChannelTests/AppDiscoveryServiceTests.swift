@@ -203,5 +203,87 @@ final class AppDiscoveryServiceTests: XCTestCase {
         XCTAssertFalse(service.isHidden(app: hiddenTestApp))
         XCTAssertTrue(service.matchingHiddenApps(query: "Secret").isEmpty)
     }
+
+    func testQuickAppPathsScanIncludesStandardAndUtilityPaths() {
+        let paths = AppDiscoveryService.quickAppPathsScan()
+        XCTAssertFalse(paths.isEmpty)
+
+        // Standard system apps that exist on macOS
+        let finderPath = "/System/Library/CoreServices/Finder.app"
+        if FileManager.default.fileExists(atPath: finderPath) {
+            XCTAssertTrue(paths.contains(finderPath))
+        }
+
+        // Must find at least one installed application in /Applications or /System/Applications
+        let hasSystemOrUserApps = paths.contains { $0.hasPrefix("/Applications/") || $0.hasPrefix("/System/Applications/") }
+        XCTAssertTrue(hasSystemOrUserApps)
+    }
+
+    func testUniversalBuildAppIntegrity() {
+        let finderURL = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
+        if FileManager.default.fileExists(atPath: finderURL.path) {
+            let app = AppDiscoveryService.buildApp(at: finderURL)
+            XCTAssertNotNil(app)
+            XCTAssertEqual(app?.name, "Finder")
+            XCTAssertFalse(app?.isAppsChannelApp == true)
+            XCTAssertEqual(app?.url, finderURL)
+        }
+    }
+
+    @MainActor
+    func testMenuBarManagerVisibilityToggle() {
+        let manager = MenuBarManager.shared
+        // Test hiding and restoring menubar presence
+        manager.setVisibility(false)
+        manager.setVisibility(true)
+        // Should execute smoothly without crashing
+        XCTAssertNotNil(manager)
+    }
+
+    @MainActor
+    func testFindAppMatchingQuery() {
+        let service = AppDiscoveryService.shared
+
+        // Test empty query returns nil
+        XCTAssertNil(service.findApp(matching: ""))
+        XCTAssertNil(service.findApp(matching: "   "))
+
+        // Finder is always included in allDiscoveredApps
+        if let finder = service.findApp(matching: "Finder") {
+            XCTAssertEqual(finder.name, "Finder")
+        }
+
+        // Test bundle ID match
+        if let finderByBundle = service.findApp(matching: "com.apple.finder") {
+            XCTAssertEqual(finderByBundle.bundleIdentifier, "com.apple.finder")
+        }
+    }
+
+    @MainActor
+    func testQuickLauncherPresentationAndDismissalIndexReset() {
+        let service = AppDiscoveryService.shared
+        guard !service.apps.isEmpty else { return }
+
+        let expectedCenter = service.apps.count / 2
+
+        // Simulate user navigating to the far right (e.g. index 290 or apps.count - 1)
+        service.selectedIndex = service.apps.count - 1
+        XCTAssertEqual(service.selectedIndex, service.apps.count - 1)
+
+        // Dismissing quick launcher must reset selectedIndex back to Rank #1 center
+        PanelController.shared.hideQuickLauncher()
+        XCTAssertEqual(service.selectedIndex, expectedCenter, "Dismissing Quick Launcher must restore selectedIndex to Rank #1 center")
+
+        // Simulate user searching and selecting index 0
+        service.selectedIndex = 0
+        XCTAssertEqual(service.selectedIndex, 0)
+
+        // Opening quick launcher must also unconditionally reset selectedIndex back to Rank #1 center
+        PanelController.shared.showQuickLauncher()
+        XCTAssertEqual(service.selectedIndex, expectedCenter, "Presenting Quick Launcher must restore selectedIndex to Rank #1 center")
+
+        // Clean up
+        PanelController.shared.hideQuickLauncher()
+    }
 }
 

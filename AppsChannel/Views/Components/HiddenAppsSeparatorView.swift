@@ -101,7 +101,7 @@ struct HiddenAppsSeparatorCardView: View {
     }
 }
 
-// MARK: - Hidden Apps Section Separator Tile (3DS Grid)
+// MARK: - Hidden Apps Section Separator Tile (Flat Grid)
 struct HiddenAppsSeparatorTileView: View {
     let width: CGFloat
     let height: CGFloat

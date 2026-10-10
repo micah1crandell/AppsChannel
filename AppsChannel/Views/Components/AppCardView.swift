@@ -126,7 +126,7 @@ struct AppCardView: View {
                 .frame(width: cardWidth, height: cardHeight)
                 .contentShape(Rectangle())
             } else {
-                // Channel Card Display Style (Nintendo Wii / macOS Glass Card)
+                // Channel Card Display Style (macOS Glass Card)
                 ChannelCardDesignView(
                     app: app,
                     isSelected: isSelected,
@@ -211,7 +211,7 @@ struct AppCardView: View {
     }
 }
 
-// MARK: - Reusable Unified Nintendo Wii / macOS Channel Card View
+// MARK: - Reusable Unified Channel Card View
 struct ChannelCardDesignView: View {
     let app: DiscoveredApp
     let isSelected: Bool
@@ -219,6 +219,8 @@ struct ChannelCardDesignView: View {
     let height: CGFloat
     var showFooter: Bool = true
     var showHeader: Bool = true
+
+    @ObservedObject private var themeManager = ThemeManager.shared
 
     private var cornerRadius: CGFloat {
         max(10, width * 0.105)
@@ -269,12 +271,12 @@ struct ChannelCardDesignView: View {
             )
         } else {
             VStack(spacing: max(2, height * 0.03)) {
-                // Top Header: "macOS • [CATEGORY]" or "HIDDEN • [CATEGORY]"
+                // Top Header: "macOS • [CATEGORY]" or "WEB/SHORTCUT • [CATEGORY]"
                 if showHeader {
                     HStack(spacing: max(2, width * 0.025)) {
-                        Text("macOS")
+                        Text(app.channelType != nil ? (app.channelType == .web ? "WEB" : "SHORTCUT") : "macOS")
                             .font(.system(size: headerFontSize, weight: .bold))
-                            .foregroundStyle(Color.white.opacity(0.9))
+                            .foregroundStyle(themeManager.currentTheme.headerTextColor)
 
                         Circle()
                             .fill(app.isHiddenApp ? Color.orange : app.accentColor)
@@ -303,7 +305,7 @@ struct ChannelCardDesignView: View {
 
                             Text(app.category.uppercased())
                                 .font(.system(size: max(5.5, headerFontSize * 0.92), weight: .heavy, design: .monospaced))
-                                .foregroundStyle(app.isHiddenApp ? Color.orange.opacity(0.9) : Color.white.opacity(0.75))
+                                .foregroundStyle(app.isHiddenApp ? Color.orange.opacity(0.9) : themeManager.currentTheme.headerTextColor.opacity(0.85))
                                 .lineLimit(1)
                         }
                     }
@@ -314,26 +316,10 @@ struct ChannelCardDesignView: View {
                 // Center Icon Canvas
                 ZStack {
                     RoundedRectangle(cornerRadius: canvasCornerRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.black.opacity(0.65),
-                                    Color.black.opacity(0.85)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .fill(themeManager.currentTheme.canvasBackgroundGradient)
                         .overlay(
                             RoundedRectangle(cornerRadius: canvasCornerRadius, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [.white.opacity(0.2), .white.opacity(0.04)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
+                                .strokeBorder(themeManager.currentTheme.canvasBorderGradient, lineWidth: 1)
                         )
 
                     VStack(spacing: max(2, canvasHeight * 0.06)) {
@@ -350,9 +336,9 @@ struct ChannelCardDesignView: View {
 
                         Text(app.name)
                             .font(.system(size: titleFontSize, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(themeManager.currentTheme.titleTextColor)
                             .lineLimit(1)
-                            .shadow(color: .black.opacity(0.6), radius: 2.5, x: 0, y: 1.5)
+                            .shadow(color: .black.opacity(themeManager.currentTheme == .matteWhite ? 0.1 : 0.6), radius: 2.5, x: 0, y: 1.5)
                     }
                     .padding(.vertical, max(3, canvasHeight * 0.07))
                     .padding(.horizontal, max(4, canvasWidth * 0.05))
@@ -376,17 +362,17 @@ struct ChannelCardDesignView: View {
                         } else {
                             Text(app.tagBadge)
                                 .font(.system(size: footerFontSize, weight: .bold, design: .rounded))
-                                .foregroundStyle(Color.white.opacity(0.9))
+                                .foregroundStyle(themeManager.currentTheme.titleTextColor.opacity(0.9))
                                 .padding(.horizontal, max(3.5, width * 0.03))
                                 .padding(.vertical, max(1.5, height * 0.012))
-                                .background(Color.white.opacity(0.12), in: Capsule())
+                                .background(themeManager.currentTheme == .matteWhite ? Color.black.opacity(0.08) : Color.white.opacity(0.12), in: Capsule())
                         }
 
                         Spacer()
 
                         Text(app.sizeString)
                             .font(.system(size: footerFontSize, weight: .medium, design: .monospaced))
-                            .foregroundStyle(Color.white.opacity(0.7))
+                            .foregroundStyle(themeManager.currentTheme.footerTextColor)
                             .lineLimit(1)
                     }
                     .padding(.horizontal, max(5, width * 0.055))
@@ -396,32 +382,17 @@ struct ChannelCardDesignView: View {
             .frame(width: width, height: height)
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(white: 0.10).opacity(0.96),
-                                Color(white: 0.04).opacity(0.98)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(themeManager.currentTheme.cardBackgroundGradient)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(
-                        LinearGradient(
-                            colors: isSelected ?
-                                [Color.white, Color.white.opacity(0.65), Color.white.opacity(0.25)] :
-                                [Color.white.opacity(0.28), Color.white.opacity(0.08)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: isSelected ? max(1.3, width * 0.01) : 1.0
+                        themeManager.currentTheme.cardBorderGradient(isSelected: isSelected),
+                        lineWidth: isSelected ? max(1.5, width * 0.012) : 1.0
                     )
             )
             .shadow(
-                color: isSelected ? Color.white.opacity(0.28) : Color.black.opacity(0.3),
+                color: isSelected ? themeManager.currentTheme.selectionGlowColor : Color.black.opacity(0.3),
                 radius: isSelected ? max(8, width * 0.09) : 6,
                 x: 0,
                 y: isSelected ? max(4, height * 0.035) : 3

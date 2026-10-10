@@ -8,6 +8,13 @@ final class MainAppState: ObservableObject {
     @Published var isShowingSettings: Bool = false
     @Published var isShowingWalkthrough: Bool = false
     var eventMonitor: Any? = nil
+
+    init() {
+        let hasCompleted = UserDefaults.standard.bool(forKey: "hasCompletedWalkthrough")
+        if !hasCompleted {
+            isShowingWalkthrough = true
+        }
+    }
 }
 
 struct MainAppView: View {
@@ -22,6 +29,9 @@ struct MainAppView: View {
     @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
     @State private var layoutMode: MainLayoutViewMode = .gridWall
     @State private var isOrganizeMode: Bool = false
+    @State private var showRecentDocs: Bool = false
+    @State private var isShowingAddChannelSheet: Bool = false
+    @ObservedObject private var themeManager = ThemeManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let onSwitchToQuickLauncher: () -> Void
@@ -116,7 +126,7 @@ struct MainAppView: View {
             // Transparent blurred backdrop floating over desktop
             backdropLayer
 
-            // Center Content: CoverFlow Carousel, Curved Wall Grid, or 3DS Flat Grid
+            // Center Content: CoverFlow Carousel, Curved Wall Grid, or Flat Grid
             VStack {
                 Spacer()
                 if layoutMode == .coverFlow {
@@ -159,8 +169,8 @@ struct MainAppView: View {
                         }
                     )
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
-                } else if layoutMode == .threeDSGrid {
-                    ThreeDSGridView(
+                } else if layoutMode == .flatGrid {
+                    FlatGridView(
                         apps: filteredApps,
                         activeIndex: activeIndex,
                         rowsCount: threeDSGridRows,
@@ -188,12 +198,30 @@ struct MainAppView: View {
             }
             .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
 
-            // Nintendo Wii / 3DS Style Channel Arranger Deck (Apple Liquid Glass)
+            // Channel Arranger Deck (Apple Liquid Glass)
             if isOrganizeMode {
                 VStack {
                     Spacer()
                     channelArrangerDeck
                         .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
+            }
+
+            // Recent Documents Floating Sub-Deck Overlay (Apple Liquid Glass)
+            if showRecentDocs, let app = currentApp, !app.isSeparator, app.channelType == nil {
+                VStack {
+                    Spacer()
+                    RecentDocumentsSubDeckView(
+                        app: app,
+                        onClose: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                showRecentDocs = false
+                            }
+                        }
+                    )
+                    .padding(.bottom, 78)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
             }
@@ -212,14 +240,14 @@ struct MainAppView: View {
                     switch layoutMode {
                     case .coverFlow: navigate(by: -1)
                     case .gridWall: navigate(by: -3)
-                    case .threeDSGrid: navigate(by: -threeDSGridRows)
+                    case .flatGrid: navigate(by: -threeDSGridRows)
                     }
                 },
                 onNext: {
                     switch layoutMode {
                     case .coverFlow: navigate(by: 1)
                     case .gridWall: navigate(by: 3)
-                    case .threeDSGrid: navigate(by: threeDSGridRows)
+                    case .flatGrid: navigate(by: threeDSGridRows)
                     }
                 },
                 onNavigateStep: { step in navigate(by: step) },
@@ -234,7 +262,15 @@ struct MainAppView: View {
                         isOrganizeMode.toggle()
                     }
                 },
-                isOrganizeMode: isOrganizeMode
+                isOrganizeMode: isOrganizeMode,
+                onToggleRecentDocuments: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showRecentDocs.toggle()
+                    }
+                },
+                onAddCustomChannel: {
+                    isShowingAddChannelSheet = true
+                }
             )
             .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
 
@@ -320,14 +356,13 @@ struct MainAppView: View {
             setupEventMonitor()
         }
         .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { notification in
-            searchText = ""
-            discoveryService.selectedIndex = filteredApps.count / 2
-            if let mode = notification.object as? LauncherMode {
-                if mode == .fullScreen {
-                    setupEventMonitor()
-                } else {
-                    removeEventMonitor()
-                }
+            if let mode = notification.object as? LauncherMode, mode == .fullScreen {
+                searchText = ""
+                selectedCategory = "ALL"
+                discoveryService.selectedIndex = filteredApps.count / 2
+                setupEventMonitor()
+            } else {
+                removeEventMonitor()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("AppsChannelOpenPreferences"))) { _ in
@@ -351,8 +386,13 @@ struct MainAppView: View {
                 scrollAccumulator = 0.0
             }
         }
-        .onChange(of: layoutMode) { newMode in
-            layoutModeRaw = newMode.rawValue
+        .onReceive(NotificationCenter.default.publisher(for: .toggleRecentDocuments)) { _ in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                showRecentDocs.toggle()
+            }
+        }
+        .sheet(isPresented: $isShowingAddChannelSheet) {
+            AddCustomChannelSheet()
         }
         .onDisappear {
             removeEventMonitor()
@@ -361,6 +401,7 @@ struct MainAppView: View {
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: appState.isShowingWalkthrough)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.3, dampingFraction: 0.8)), value: isOrganizeMode)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: layoutMode)
+        .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.3, dampingFraction: 0.8)), value: showRecentDocs)
     }
 
     // MARK: - Transparent Floating Backdrop with Behind-Window Desktop Blur
@@ -372,6 +413,21 @@ struct MainAppView: View {
             // Deep obsidian tinted liquid glass layer
             Color(red: 0.04, green: 0.04, blue: 0.05).opacity(0.82)
                 .ignoresSafeArea()
+
+            // Theme atmospheric backdrop tint
+            Group {
+                switch themeManager.currentTheme {
+                case .liquidGlass:
+                    EmptyView()
+                case .matteWhite:
+                    Color(white: 0.95).opacity(0.12)
+                case .indigoPurple:
+                    Color(red: 0.18, green: 0.14, blue: 0.35).opacity(0.42)
+                case .cyberpunkDark:
+                    Color(red: 0.0, green: 0.06, blue: 0.10).opacity(0.50)
+                }
+            }
+            .ignoresSafeArea()
 
             // Subtle dark specular top sheen
             LinearGradient(
@@ -486,15 +542,40 @@ struct MainAppView: View {
                     return nil
                 }
 
-                // Command+V to cycle between Cover Flow, Curved Wall Grid, and 3DS Flat Grid
-                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "v" {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        switch layoutMode {
-                        case .coverFlow: layoutMode = .gridWall
-                        case .gridWall: layoutMode = .threeDSGrid
-                        case .threeDSGrid: layoutMode = .coverFlow
+                // Command+Down Arrow: Toggle Recent Documents for current app
+                if event.modifierFlags.contains(.command) && event.keyCode == 125 {
+                    if let app = currentApp, !app.isSeparator, app.channelType == nil {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showRecentDocs.toggle()
                         }
                     }
+                    return nil
+                }
+
+                // Command+Up Arrow: Dismiss Recent Documents if open
+                if event.modifierFlags.contains(.command) && event.keyCode == 126 {
+                    if showRecentDocs {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showRecentDocs = false
+                        }
+                        return nil
+                    }
+                }
+
+                // Command+Shift+V or Command+V: View Mode Switch vs. Paste
+                if event.modifierFlags.contains(.command) && (event.charactersIgnoringModifiers == "v" || event.charactersIgnoringModifiers == "V") {
+                    if event.modifierFlags.contains(.shift) {
+                        cycleLayoutMode()
+                        return nil
+                    }
+                    if let responder = event.window?.firstResponder, responder is NSText || responder is NSTextView {
+                        return event
+                    }
+                    if let pasted = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !pasted.isEmpty {
+                        searchText.append(pasted)
+                        return nil
+                    }
+                    cycleLayoutMode()
                     return nil
                 }
 
@@ -604,7 +685,7 @@ struct MainAppView: View {
                 case 123: // Left Arrow
                     if layoutMode == .gridWall {
                         navigate(by: -3)
-                    } else if layoutMode == .threeDSGrid {
+                    } else if layoutMode == .flatGrid {
                         navigate(by: -threeDSGridRows)
                     } else {
                         navigate(by: -1)
@@ -614,7 +695,7 @@ struct MainAppView: View {
                 case 124: // Right Arrow
                     if layoutMode == .gridWall {
                         navigate(by: 3)
-                    } else if layoutMode == .threeDSGrid {
+                    } else if layoutMode == .flatGrid {
                         navigate(by: threeDSGridRows)
                     } else {
                         navigate(by: 1)
@@ -626,7 +707,11 @@ struct MainAppView: View {
                     return nil
 
                 case 53: // Escape
-                    if isOrganizeMode {
+                    if showRecentDocs {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showRecentDocs = false
+                        }
+                    } else if isOrganizeMode {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             isOrganizeMode = false
                         }
@@ -674,7 +759,7 @@ struct MainAppView: View {
                 switch layoutMode {
                 case .coverFlow: return 1
                 case .gridWall: return 3
-                case .threeDSGrid: return threeDSGridRows
+                case .flatGrid: return threeDSGridRows
                 }
             }()
             navigate(by: clampedStep * stepMultiplier)
@@ -725,7 +810,17 @@ struct MainAppView: View {
         }
     }
 
-    // MARK: - Nintendo Wii / 3DS Style Liquid Glass Channel Deck
+    private func cycleLayoutMode() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            switch layoutMode {
+            case .coverFlow: layoutMode = .gridWall
+            case .gridWall: layoutMode = .flatGrid
+            case .flatGrid: layoutMode = .coverFlow
+            }
+        }
+    }
+
+    // MARK: - Liquid Glass Channel Deck
     private var channelArrangerDeck: some View {
         HStack(spacing: 16) {
             // Slot Badge (Channel slot count)

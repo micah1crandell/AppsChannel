@@ -21,11 +21,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         PanelController.shared.setup()
-        MenuBarManager.shared.setup()
         HotKeyManager.shared.registerHotKey()
 
-        // Run as a Menu Bar tool without living in the macOS Dock
-        PanelController.shared.setDockVisibility(showInDock: false)
+        // Sync user presence preferences (Dock / Menu Bar)
+        let showInDock = UserDefaults.standard.bool(forKey: "showInDock")
+        let showInMenuBar = UserDefaults.standard.object(forKey: "showInMenuBar") as? Bool ?? true
+
+        PanelController.shared.setDockVisibility(showInDock: showInDock)
+        if showInMenuBar {
+            MenuBarManager.shared.setup()
+        } else {
+            MenuBarManager.shared.setVisibility(false)
+        }
 
         // Sync Launch at Login status
         LaunchAtLoginManager.shared.refreshStatus()
@@ -56,6 +63,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleAppleEvent(_ event: NSAppleEventDescriptor, withReply reply: NSAppleEventDescriptor) {
         didHandleInitialOpen = true
         DispatchQueue.main.async {
+            let hasCompleted = UserDefaults.standard.bool(forKey: "hasCompletedWalkthrough")
+            if !hasCompleted {
+                PanelController.shared.showMainApp()
+                DispatchQueue.main.async {
+                    MainAppState.shared.isShowingWalkthrough = true
+                }
+                return
+            }
             if PanelController.shared.isQuickLauncherVisible {
                 PanelController.shared.hide()
             } else {
@@ -72,6 +87,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        let hasCompleted = UserDefaults.standard.bool(forKey: "hasCompletedWalkthrough")
+        if !hasCompleted {
+            PanelController.shared.showMainApp()
+            DispatchQueue.main.async {
+                MainAppState.shared.isShowingWalkthrough = true
+            }
+            return true
+        }
         if PanelController.shared.isQuickLauncherVisible {
             PanelController.shared.hide()
         } else {
@@ -122,19 +145,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard url.scheme?.lowercased() == "appschannel" else { return }
         let host = (url.host ?? "").lowercased()
         let path = url.path.lowercased()
-        let full = url.absoluteString.lowercased()
 
-        if host == "quick" || path == "/quick" || full.contains("quick") {
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        var queryParams: [String: String] = [:]
+        if let queryItems = components?.queryItems {
+            for item in queryItems {
+                queryParams[item.name.lowercased()] = item.value
+            }
+        }
+
+        if host == "quick" || path == "/quick" {
             PanelController.shared.showQuickLauncher()
-        } else if host == "main" || host == "fullscreen" || path == "/main" || full.contains("main") {
+        } else if host == "main" || host == "fullscreen" || path == "/main" {
             PanelController.shared.showMainApp()
-        } else if host == "walkthrough" || host == "tour" || path == "/walkthrough" || path == "/tour" || full.contains("walkthrough") || full.contains("tour") {
+        } else if host == "close" || host == "hide" || path == "/close" || path == "/hide" {
+            PanelController.shared.hide()
+        } else if host == "toggle" || path == "/toggle" {
+            PanelController.shared.toggle()
+        } else if host == "preferences" || host == "settings" || path == "/preferences" || path == "/settings" {
+            PanelController.shared.showMainApp()
+            DispatchQueue.main.async {
+                MainAppState.shared.isShowingSettings = true
+            }
+        } else if host == "walkthrough" || host == "tour" || path == "/walkthrough" || path == "/tour" {
             PanelController.shared.showMainApp()
             DispatchQueue.main.async {
                 MainAppState.shared.isShowingWalkthrough = true
             }
-        } else if host == "toggle" || path == "/toggle" || full.contains("toggle") {
-            PanelController.shared.toggle()
+        } else if host == "theme" || path.hasPrefix("/theme") {
+            var rawTheme = queryParams["name"] ?? queryParams["theme"]
+            if rawTheme == nil && path.hasPrefix("/theme/") {
+                rawTheme = String(path.dropFirst("/theme/".count)).removingPercentEncoding
+            }
+            if let targetTheme = rawTheme, let theme = AppVisualTheme.from(string: targetTheme) {
+                ThemeManager.shared.setTheme(theme)
+            }
+        } else if host == "launch" || path.hasPrefix("/launch") {
+            var targetQuery = queryParams["query"] ?? queryParams["name"] ?? queryParams["q"]
+            if (targetQuery == nil || targetQuery?.isEmpty == true) && path.hasPrefix("/launch/") {
+                targetQuery = String(path.dropFirst("/launch/".count)).removingPercentEncoding
+            }
+            if let target = targetQuery, !target.isEmpty {
+                DispatchQueue.main.async {
+                    if let app = AppDiscoveryService.shared.findApp(matching: target) {
+                        AppDiscoveryService.shared.launch(app: app, query: target)
+                    }
+                }
+            }
         } else {
             PanelController.shared.showQuickLauncher()
         }

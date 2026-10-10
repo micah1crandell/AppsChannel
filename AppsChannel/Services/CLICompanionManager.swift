@@ -1,0 +1,286 @@
+import Foundation
+import SwiftUI
+import Combine
+
+@MainActor
+final class CLICompanionManager: ObservableObject {
+    static let shared = CLICompanionManager()
+
+    @Published var isInstalled: Bool = false
+    @Published var installedPath: String? = nil
+    @Published var lastStatusMessage: String? = nil
+
+    private let searchPaths: [String] = [
+        "/usr/local/bin/appschannel",
+        (FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/appschannel").path),
+        "/opt/homebrew/bin/appschannel"
+    ]
+
+    init() {
+        checkInstallationStatus()
+    }
+
+    func checkInstallationStatus() {
+        let fm = FileManager.default
+        for path in searchPaths {
+            if fm.fileExists(atPath: path) && fm.isExecutableFile(atPath: path) {
+                self.isInstalled = true
+                self.installedPath = path
+                return
+            }
+        }
+        self.isInstalled = false
+        self.installedPath = nil
+    }
+
+    @discardableResult
+    func installCLI() -> Bool {
+        let fm = FileManager.default
+        let userLocalBin = fm.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin", isDirectory: true)
+        let usrLocalBin = URL(fileURLWithPath: "/usr/local/bin", isDirectory: true)
+
+        let targetDir: URL
+        if fm.isWritableFile(atPath: usrLocalBin.path) {
+            targetDir = usrLocalBin
+        } else {
+            targetDir = userLocalBin
+            try? fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
+        }
+
+        let targetFile = targetDir.appendingPathComponent("appschannel")
+
+        // Try reading from bundle or source directory first, otherwise use embedded script
+        let scriptData: Data
+        if let bundleURL = Bundle.main.url(forResource: "appschannel", withExtension: nil),
+           let data = try? Data(contentsOf: bundleURL) {
+            scriptData = data
+        } else {
+            scriptData = Data(embeddedScript.utf8)
+        }
+
+        do {
+            try scriptData.write(to: targetFile, options: .atomic)
+            try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: targetFile.path)
+            checkInstallationStatus()
+            lastStatusMessage = "Successfully installed 'appschannel' to \(targetFile.path)"
+            SoundEffectsManager.shared.playAction()
+            return true
+        } catch {
+            lastStatusMessage = "Failed to install CLI companion: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    @discardableResult
+    func uninstallCLI() -> Bool {
+        guard let path = installedPath else { return false }
+        do {
+            try FileManager.default.removeItem(atPath: path)
+            checkInstallationStatus()
+            lastStatusMessage = "Successfully removed CLI companion from \(path)"
+            SoundEffectsManager.shared.playAction()
+            return true
+        } catch {
+            lastStatusMessage = "Failed to remove CLI companion: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    private let embeddedScript = """
+    #!/usr/bin/env bash
+    # ==============================================================================
+    #  AppsChannel CLI Companion
+    #  Command-line interface for the retro macOS application launcher.
+    #  GitHub: https://github.com/micah1crandell/AppsChannel
+    # ==============================================================================
+
+    set -e
+
+    VERSION="1.2.0"
+    APP_NAME="AppsChannel"
+    BUNDLE_ID="com.micahcrandell.AppsChannel"
+
+    BOLD="\\033[1m"
+    CYAN="\\033[0;36m"
+    GREEN="\\033[0;32m"
+    YELLOW="\\033[0;33m"
+    PURPLE="\\033[0;35m"
+    RED="\\033[0;31m"
+    RESET="\\033[0m"
+
+    print_banner() {
+        echo -e "${CYAN}${BOLD}"
+        cat << "EOF"
+        ___                         ________                          __
+       /   |  ____  ____  _____    / ____/ /_  ____ _____  ____  ___  / /
+      / /| | / __ \\/ __ \\/ ___/   / /   / __ \\/ __ `/ __ \\/ __ \\/ _ \\/ / 
+     / ___ |/ /_/ / /_/ (__  )   / /___/ / / / /_/ / / / / / / /  __/ /  
+    /_/  |_/ .___/ .___/____/    \\____/_/ /_/\\__,_/_/ /_/_/ /_/\\___/_/   
+          /_/   /_/                                                      
+    EOF
+        echo -e "${RESET}${BOLD} AppsChannel Command Line Companion ${RESET}(v${VERSION})"
+        echo ""
+    }
+
+    print_help() {
+        print_banner
+        echo -e "${BOLD}USAGE:${RESET}"
+        echo "    appschannel <command> [options]"
+        echo ""
+        echo -e "${BOLD}COMMANDS:${RESET}"
+        echo -e "    ${GREEN}toggle${RESET} [mode]       Toggle launcher window (default: current mode, or 'quick'/'main')"
+        echo -e "    ${GREEN}open${RESET}   [mode]       Open launcher window ('quick' for HUD, 'main' for Full Window)"
+        echo -e "    ${GREEN}close${RESET}               Dismiss / hide launcher window"
+        echo -e "    ${GREEN}launch${RESET} <query>      Directly search & launch an application, web channel, or script"
+        echo -e "    ${GREEN}theme${RESET}  <theme>      Set visual theme: 'liquid-glass', 'matte-white', 'indigo', 'cyberpunk'"
+        echo -e "    ${GREEN}list${RESET}                List discovered applications and custom channels"
+        echo -e "    ${GREEN}status${RESET}              Display current AppsChannel process and configuration status"
+        echo -e "    ${GREEN}install${RESET}             Install 'appschannel' CLI binary into /usr/local/bin or ~/.local/bin"
+        echo -e "    ${GREEN}help${RESET}, -h, --help    Show this help message"
+        echo -e "    ${GREEN}version${RESET}, -v         Print AppsChannel version"
+        echo ""
+        echo -e "${BOLD}EXAMPLES:${RESET}"
+        echo "    appschannel toggle"
+        echo "    appschannel open main"
+        echo "    appschannel launch Xcode"
+        echo "    appschannel theme cyberpunk"
+        echo "    appschannel list"
+        echo ""
+    }
+
+    is_running() {
+        pgrep -x "$APP_NAME" >/dev/null 2>&1
+    }
+
+    cmd_toggle() {
+        local mode="${1:-}"
+        if [ -n "$mode" ]; then
+            open "appschannel://toggle?mode=${mode}"
+        else
+            open "appschannel://toggle"
+        fi
+    }
+
+    cmd_open() {
+        local mode="${1:-}"
+        if [ "$mode" = "main" ] || [ "$mode" = "fullscreen" ]; then
+            open "appschannel://main"
+        else
+            open "appschannel://quick"
+        fi
+    }
+
+    cmd_close() {
+        open "appschannel://close"
+    }
+
+    cmd_launch() {
+        local query="$1"
+        if [ -z "$query" ]; then
+            echo -e "${RED}Error:${RESET} Please specify an application name or search query."
+            echo "Example: appschannel launch Safari"
+            exit 1
+        fi
+        local encoded=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$query")
+        open "appschannel://launch?query=${encoded}"
+        echo -e "${GREEN}✓${RESET} Dispatched launch request for ${BOLD}'${query}'${RESET}"
+    }
+
+    cmd_theme() {
+        local theme="$1"
+        if [ -z "$theme" ]; then
+            echo -e "${RED}Error:${RESET} Please specify a theme name: 'liquid-glass', 'matte-white', 'indigo', or 'cyberpunk'."
+            exit 1
+        fi
+        open "appschannel://theme?name=${theme}"
+        echo -e "${GREEN}✓${RESET} Switched visual theme to ${BOLD}'${theme}'${RESET}"
+    }
+
+    cmd_list() {
+        local cache_file="$HOME/Library/Caches/AppsChannel/apps_cache.json"
+        echo -e "${CYAN}${BOLD}Indexed Channels in AppsChannel:${RESET}\\n"
+
+        if [ -f "$cache_file" ]; then
+            python3 -c "
+    import json, sys
+    try:
+        with open('$cache_file', 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        print(f'Total indexed apps: {len(data)}\\n')
+        for idx, item in enumerate(data[:40], 1):
+            name = item.get('name', 'Unknown')
+            cat = item.get('category', 'APP')
+            print(f' {idx:2d}. {name:<28} [{cat}]')
+        if len(data) > 40:
+            print(f'\\n... and {len(data) - 40} more applications.')
+    except Exception as e:
+        print(f'Unable to parse cache: {e}')
+    "
+        else
+            echo "No local app cache found yet. Launch AppsChannel to perform initial index."
+        fi
+
+        local custom_channels_file="$HOME/Library/Application Support/AppsChannel/custom_channels.json"
+        if [ -f "$custom_channels_file" ]; then
+            echo -e "\\n${PURPLE}${BOLD}Custom Channels (Web, Shortcuts, Scripts):${RESET}"
+            python3 -c "
+    import json
+    try:
+        with open('$custom_channels_file', 'r', encoding='utf-8') as f:
+            custom = json.load(f)
+        for c in custom:
+            print(f' * {c.get(\"name\")} ({c.get(\"kind\")}) -> {c.get(\"target\")}')
+    except Exception:
+        pass
+    "
+        fi
+        echo ""
+    }
+
+    cmd_status() {
+        print_banner
+        if is_running; then
+            echo -e "Process Status:       ${GREEN}● Running${RESET}"
+        else
+            echo -e "Process Status:       ${YELLOW}○ Inactive (will launch on next command)${RESET}"
+        fi
+        echo -e "App Bundle:           /Applications/AppsChannel.app"
+        echo -e "CLI Version:          ${VERSION}"
+        echo -e "Custom URL Scheme:    appschannel://"
+        echo ""
+    }
+
+    cmd_install() {
+        local target_dir="/usr/local/bin"
+        if [ ! -d "$target_dir" ] || [ ! -w "$target_dir" ]; then
+            target_dir="$HOME/.local/bin"
+            mkdir -p "$target_dir"
+        fi
+
+        local script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+        local dest="${target_dir}/appschannel"
+
+        echo "Installing CLI companion to ${dest}..."
+        ln -sf "$script_path" "$dest" || cp -f "$script_path" "$dest"
+        chmod +x "$dest"
+
+        echo -e "${GREEN}✓ Successfully installed 'appschannel' to ${dest}!${RESET}"
+        echo "Make sure ${target_dir} is in your \\$PATH."
+    }
+
+    case "${1:-}" in
+        toggle) shift; cmd_toggle "$@" ;;
+        open) shift; cmd_open "$@" ;;
+        close|hide) cmd_close ;;
+        launch) shift; cmd_launch "$@" ;;
+        theme) shift; cmd_theme "$@" ;;
+        list) cmd_list ;;
+        status) cmd_status ;;
+        install) cmd_install ;;
+        version|-v|--version) echo "AppsChannel CLI v${VERSION}" ;;
+        help|-h|--help) print_help ;;
+        "") cmd_toggle ;;
+        *) echo -e "${RED}Unknown command:${RESET} $1"; print_help; exit 1 ;;
+    esac
+    """
+}

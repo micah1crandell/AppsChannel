@@ -17,6 +17,8 @@ struct RetroHUDView: View {
     var onOpenSettings: (() -> Void)? = nil
     var onToggleOrganize: (() -> Void)? = nil
     var isOrganizeMode: Bool = false
+    var onToggleRecentDocuments: (() -> Void)? = nil
+    var onAddCustomChannel: (() -> Void)? = nil
 
     @FocusState private var isSearchFocused: Bool
     @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
@@ -70,11 +72,14 @@ struct RetroHUDView: View {
                             return .handled
                         }
                         .onKeyPress(.leftArrow) {
+                            if !searchText.isEmpty {
+                                return .ignored
+                            }
                             let step: Int = {
                                 switch layoutMode {
                                 case .coverFlow: return -1
                                 case .gridWall: return -3
-                                case .threeDSGrid: return -threeDSGridRows
+                                case .flatGrid: return -threeDSGridRows
                                 }
                             }()
                             if let onNavigateStep = onNavigateStep {
@@ -85,11 +90,14 @@ struct RetroHUDView: View {
                             return .handled
                         }
                         .onKeyPress(.rightArrow) {
+                            if !searchText.isEmpty {
+                                return .ignored
+                            }
                             let step: Int = {
                                 switch layoutMode {
                                 case .coverFlow: return 1
                                 case .gridWall: return 3
-                                case .threeDSGrid: return threeDSGridRows
+                                case .flatGrid: return threeDSGridRows
                                 }
                             }()
                             if let onNavigateStep = onNavigateStep {
@@ -144,7 +152,7 @@ struct RetroHUDView: View {
 
                 Spacer()
 
-                // Rearrange Channels Icon Button (Wii / 3DS Style)
+                // Rearrange Channels Icon Button
                 if let onOrganize = onToggleOrganize {
                     Button(action: onOrganize) {
                         Image(systemName: isOrganizeMode ? "checkmark.circle.fill" : "arrow.left.arrow.right.circle")
@@ -160,7 +168,7 @@ struct RetroHUDView: View {
                     .help(isOrganizeMode ? "Done Arranging" : "Rearrange Channels")
                 }
 
-                // Layout View Mode Switcher: Cover Flow vs Wall Grid vs 3DS Flat Grid
+                // Layout View Mode Switcher: Cover Flow vs Wall Grid vs Flat Grid
                 HStack(spacing: 2) {
                     Button(action: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -196,19 +204,19 @@ struct RetroHUDView: View {
 
                     Button(action: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            layoutMode = .threeDSGrid
+                            layoutMode = .flatGrid
                         }
                     }) {
                         Image(systemName: "square.grid.3x2.fill")
                             .font(.system(size: 11))
-                            .foregroundStyle(layoutMode == .threeDSGrid ? Color.black : Color.white.opacity(0.75))
+                            .foregroundStyle(layoutMode == .flatGrid ? Color.black : Color.white.opacity(0.75))
                             .frame(width: 28, height: 26)
-                            .background(layoutMode == .threeDSGrid ? Color.white : Color.clear, in: Capsule())
+                            .background(layoutMode == .flatGrid ? Color.white : Color.clear, in: Capsule())
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
                     .contentShape(Capsule())
-                    .help("3DS Flat Grid (⌘V)")
+                    .help("Flat Grid (⌘V)")
                 }
                 .padding(3)
                 .background(Color(white: 0.08).opacity(0.85), in: Capsule())
@@ -367,7 +375,7 @@ struct RetroHUDView: View {
                                 }
                             }
 
-                            Text(app.url.path)
+                            Text(app.channelType != nil ? app.url.absoluteString : app.url.path)
                                 .font(.system(size: 10, design: .monospaced))
                                 .foregroundStyle(.white.opacity(0.5))
                                 .lineLimit(1)
@@ -381,6 +389,28 @@ struct RetroHUDView: View {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                     )
+
+                    if app.channelType == nil && !app.isSeparator && !app.isAppsChannelApp && RecentDocumentsService.hasDocumentTypes(forAppAt: app.url),
+                       let onToggleRecent = onToggleRecentDocuments {
+                        Button(action: onToggleRecent) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("Recent (⌘↓)")
+                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(Color(white: 0.08).opacity(0.88), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .help("Show recent documents for this app (⌘↓)")
+                    }
                 }
             }
 
@@ -403,6 +433,21 @@ struct RetroHUDView: View {
 
                 // Action Pills
                 HStack(spacing: 8) {
+                    if isOrganizeMode, let onAdd = onAddCustomChannel {
+                        Button(action: onAdd) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus")
+                                Text("Add Channel")
+                            }
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     keyboardShortcutBadge(key: "⌘1-8", label: "Groups")
                     keyboardShortcutBadge(key: "⌥1-9", label: "Quick Launch")
                     keyboardShortcutBadge(key: "⌘V", label: "View")

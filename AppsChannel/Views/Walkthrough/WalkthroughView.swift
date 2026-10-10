@@ -375,7 +375,7 @@ struct WalkthroughView: View {
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 
-                Text("Inspired by Cover Flow and classic console menus—fast, clean, and out of your way.")
+                Text("Inspired by Cover Flow and retro channel menus—fast, clean, and out of your way.")
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(.white.opacity(0.72))
                     .multilineTextAlignment(.center)
@@ -548,7 +548,7 @@ struct WalkthroughView: View {
                     index: 1,
                     title: "Channel Cards",
                     icon: "rectangle.grid.2x2.fill",
-                    desc: "Console-style cards that display category tags and running status."
+                    desc: "Tactile channel cards that display category tags and running status."
                 )
                 perspectiveTab(
                     index: 2,

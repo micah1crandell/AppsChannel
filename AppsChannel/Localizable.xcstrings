@@ -1,380 +1,611 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "About" : {
-      "comment" : "Preferences tab",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "About"
+  "sourceLanguage": "en",
+  "strings": {
+    "About": {
+      "comment": "Preferences tab",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About"
           }
         }
       }
     },
-    "Appearance" : {
-      "comment" : "Preferences tab",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appearance"
+    "Appearance": {
+      "comment": "Preferences tab",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
           }
         }
       }
     },
-    "Click to select application" : {
-      "comment" : "VoiceOver accessibility hint for unselected card",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Click to select application"
+    "Click to select application": {
+      "comment": "VoiceOver accessibility hint for unselected card",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click to select application"
           }
         }
       }
     },
-    "Copy Bundle ID" : {
-      "comment" : "Context menu action to copy bundle identifier",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copy Bundle ID"
+    "Copy Bundle ID": {
+      "comment": "Context menu action to copy bundle identifier",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Bundle ID"
           }
         }
       }
     },
-    "Copy Details" : {
-      "comment" : "Context menu submenu title",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copy Details"
+    "Copy Details": {
+      "comment": "Context menu submenu title",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Details"
           }
         }
       }
     },
-    "Copy Path" : {
-      "comment" : "Context menu action to copy filesystem path",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copy Path"
+    "Copy Path": {
+      "comment": "Context menu action to copy filesystem path",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Path"
           }
         }
       }
     },
-    "Dimming Intensity" : {
-      "comment" : "Setting label for background dimming",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dimming Intensity"
+    "Dimming Intensity": {
+      "comment": "Setting label for background dimming",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dimming Intensity"
           }
         }
       }
     },
-    "Done" : {
-      "comment" : "Button to finish organizing",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Done"
+    "Done": {
+      "comment": "Button to finish organizing",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
           }
         }
       }
     },
-    "Force Quit" : {
-      "comment" : "Context menu action to force quit active process",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Force Quit"
+    "Force Quit": {
+      "comment": "Context menu action to force quit active process",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Force Quit"
           }
         }
       }
     },
-    "General" : {
-      "comment" : "Preferences tab",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "General"
+    "General": {
+      "comment": "Preferences tab",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
           }
         }
       }
     },
-    "Get Info" : {
-      "comment" : "Context menu action to open Finder Info window",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Get Info"
+    "Get Info": {
+      "comment": "Context menu action to open Finder Info window",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get Info"
           }
         }
       }
     },
-    "Global Hotkey" : {
-      "comment" : "Setting label for global keyboard shortcut",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Global Hotkey"
+    "Global Hotkey": {
+      "comment": "Setting label for global keyboard shortcut",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Global Hotkey"
           }
         }
       }
     },
-    "Haptic Feedback" : {
-      "comment" : "Setting toggle for trackpad haptics",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Haptic Feedback"
+    "Haptic Feedback": {
+      "comment": "Setting toggle for trackpad haptics",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haptic Feedback"
           }
         }
       }
     },
-    "Hidden Apps" : {
-      "comment" : "Preferences tab",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hidden Apps"
+    "Hidden Apps": {
+      "comment": "Preferences tab",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hidden Apps"
           }
         }
       }
     },
-    "Hide from AppsChannel" : {
-      "comment" : "Context menu action to hide item from grid",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hide from AppsChannel"
+    "Hide from AppsChannel": {
+      "comment": "Context menu action to hide item from grid",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide from AppsChannel"
           }
         }
       }
     },
-    "Launch Application" : {
-      "comment" : "Context menu action to launch application",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Launch Application"
+    "Launch Application": {
+      "comment": "Context menu action to launch application",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch Application"
           }
         }
       }
     },
-    "Launch at Login" : {
-      "comment" : "Setting toggle for login item startup",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Launch at Login"
+    "Launch at Login": {
+      "comment": "Setting toggle for login item startup",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch at Login"
           }
         }
       }
     },
-    "Move Left" : {
-      "comment" : "Channel organizer action to reorder left",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move Left"
+    "Move Left": {
+      "comment": "Channel organizer action to reorder left",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move Left"
           }
         }
       }
     },
-    "Move Right" : {
-      "comment" : "Channel organizer action to reorder right",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move Right"
+    "Move Right": {
+      "comment": "Channel organizer action to reorder right",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move Right"
           }
         }
       }
     },
-    "No applications found in this category" : {
-      "comment" : "Empty state message for category filter",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No applications found in this category"
+    "No applications found in this category": {
+      "comment": "Empty state message for category filter",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No applications found in this category"
           }
         }
       }
     },
-    "No matching applications found" : {
-      "comment" : "Empty state label",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No matching applications found"
+    "No matching applications found": {
+      "comment": "Empty state label",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No matching applications found"
           }
         }
       }
     },
-    "Open AppsChannel" : {
-      "comment" : "Card button to switch to main app window",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open AppsChannel"
+    "Open AppsChannel": {
+      "comment": "Card button to switch to main app window",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open AppsChannel"
           }
         }
       }
     },
-    "Pin to Slot 1" : {
-      "comment" : "Channel organizer action to pin item to first position",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pin to Slot 1"
+    "Pin to Slot 1": {
+      "comment": "Channel organizer action to pin item to first position",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pin to Slot 1"
           }
         }
       }
     },
-    "Preferences" : {
-      "comment" : "Preferences modal title",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Preferences"
+    "Preferences": {
+      "comment": "Preferences modal title",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preferences"
           }
         }
       }
     },
-    "Press Return to launch application" : {
-      "comment" : "VoiceOver accessibility hint for selected card",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Press Return to launch application"
+    "Press Return to launch application": {
+      "comment": "VoiceOver accessibility hint for selected card",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press Return to launch application"
           }
         }
       }
     },
-    "Quit Application" : {
-      "comment" : "Context menu action to quit active application",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quit Application"
+    "Quit Application": {
+      "comment": "Context menu action to quit active application",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit Application"
           }
         }
       }
     },
-    "Reset A-Z" : {
-      "comment" : "Channel organizer action to reset order to alphabetical",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reset A-Z"
+    "Reset A-Z": {
+      "comment": "Channel organizer action to reset order to alphabetical",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset A-Z"
           }
         }
       }
     },
-    "Reveal in Finder" : {
-      "comment" : "Context menu action to locate item in Finder",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reveal in Finder"
+    "Reveal in Finder": {
+      "comment": "Context menu action to locate item in Finder",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reveal in Finder"
           }
         }
       }
     },
-    "Running" : {
-      "comment" : "Status indicator for active process",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Running"
+    "Running": {
+      "comment": "Status indicator for active process",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running"
           }
         }
       }
     },
-    "Search applications..." : {
-      "comment" : "Search field placeholder",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search applications..."
+    "Search applications...": {
+      "comment": "Search field placeholder",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search applications..."
           }
         }
       }
     },
-    "Shortcuts" : {
-      "comment" : "Preferences tab",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shortcuts"
+    "Shortcuts": {
+      "comment": "Preferences tab",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shortcuts"
           }
         }
       }
     },
-    "Sound Effects" : {
-      "comment" : "Setting toggle for sound effects",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sound Effects"
+    "Sound Effects": {
+      "comment": "Setting toggle for sound effects",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sound Effects"
           }
         }
       }
     },
-    "Switch to Application" : {
-      "comment" : "Context menu action to activate running application",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Switch to Application"
+    "Switch to Application": {
+      "comment": "Context menu action to activate running application",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to Application"
           }
         }
       }
     },
-    "Usage Order" : {
-      "comment" : "Channel organizer action to reset order by usage frequency",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Usage Order"
+    "Usage Order": {
+      "comment": "Channel organizer action to reset order by usage frequency",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usage Order"
+          }
+        }
+      }
+    },
+    "System Integration": {
+      "comment": "System Integration settings card",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Integration"
+          }
+        }
+      }
+    },
+    "Show Menu Bar Icon": {
+      "comment": "Preference toggle title",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Menu Bar Icon"
+          }
+        }
+      }
+    },
+    "Displays the Cover Flow quick launcher status icon in the macOS menu bar.": {
+      "comment": "Preference toggle description",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Displays the Cover Flow quick launcher status icon in the macOS menu bar."
+          }
+        }
+      }
+    },
+    "Show in macOS Dock": {
+      "comment": "Preference toggle title",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in macOS Dock"
+          }
+        }
+      }
+    },
+    "Keep AppsChannel in your macOS Dock alongside regular desktop applications.": {
+      "comment": "Preference toggle description",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep AppsChannel in your macOS Dock alongside regular desktop applications."
+          }
+        }
+      }
+    },
+    "Channels": {
+      "comment": "Preferences tab for custom web links and shortcuts",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Channels"
+          }
+        }
+      }
+    },
+    "Custom Channels": {
+      "comment": "Settings card and preferences title",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom Channels"
+          }
+        }
+      }
+    },
+    "Add Custom Channel": {
+      "comment": "Title of sheet to create custom web or shortcut channel",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Custom Channel"
+          }
+        }
+      }
+    },
+    "Visual Theme": {
+      "comment": "Settings card title for themes",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visual Theme"
+          }
+        }
+      }
+    },
+    "Liquid Glass": {
+      "comment": "Visual theme name",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liquid Glass"
+          }
+        }
+      }
+    },
+    "Matte White": {
+      "comment": "Visual theme name",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matte White"
+          }
+        }
+      }
+    },
+    "Indigo Purple": {
+      "comment": "Visual theme name",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indigo Purple"
+          }
+        }
+      }
+    },
+    "Cyberpunk Dark": {
+      "comment": "Visual theme name",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cyberpunk Dark"
+          }
+        }
+      }
+    },
+    "Recent Documents": {
+      "comment": "Sub-deck title and label",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent Documents"
+          }
+        }
+      }
+    },
+    "Show Recent Documents (↓)": {
+      "comment": "Context menu action to show recent files",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Recent Documents (↓)"
+          }
+        }
+      }
+    },
+    "Delete Custom Channel": {
+      "comment": "Context menu and settings button to delete channel",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Custom Channel"
+          }
+        }
+      }
+    },
+    "Shell Script": {
+      "comment": "Custom channel kind option",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shell Script"
+          }
+        }
+      }
+    },
+    "Shell Command or Script Path": {
+      "comment": "Custom channel script input prompt",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shell Command or Script Path"
+          }
+        }
+      }
+    },
+    "Command-Line Companion (appschannel)": {
+      "comment": "Settings card title for CLI tool",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command-Line Companion (appschannel)"
+          }
+        }
+      }
+    },
+    "Install CLI Tool": {
+      "comment": "Button to install CLI companion tool",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install CLI Tool"
+          }
+        }
+      }
+    },
+    "Reinstall CLI": {
+      "comment": "Button to reinstall CLI companion tool",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reinstall CLI"
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

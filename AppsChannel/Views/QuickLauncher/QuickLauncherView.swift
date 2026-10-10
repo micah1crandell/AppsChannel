@@ -2,7 +2,8 @@ import SwiftUI
 import AppKit
 
 struct QuickLauncherView: View {
-    @StateObject private var discoveryService = AppDiscoveryService.shared
+    @ObservedObject private var discoveryService = AppDiscoveryService.shared
+    @State private var selectedIndex: Int = 0
     @State private var searchText: String = ""
     @State private var scrollAccumulator: CGFloat = 0.0
     @State private var eventMonitor: Any? = nil
@@ -117,14 +118,21 @@ struct QuickLauncherView: View {
 
     private var displayApps: [DiscoveredApp] {
         var list = filteredApps
-        // Always append the final button to open the main app at the far right
-        list.append(Self.openMainAppCard)
+        let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedSearch.isEmpty {
+            // When searching, include "Open AppsChannel" if the search query matches
+            if Self.openMainAppCard.name.localizedCaseInsensitiveContains(trimmedSearch) ||
+               "AppsChannel".localizedCaseInsensitiveContains(trimmedSearch) ||
+               "Settings".localizedCaseInsensitiveContains(trimmedSearch) {
+                list.append(Self.openMainAppCard)
+            }
+        }
         return list
     }
 
     private var activeIndex: Int {
         guard !displayApps.isEmpty else { return 0 }
-        return min(max(0, discoveryService.selectedIndex), displayApps.count - 1)
+        return min(max(0, selectedIndex), displayApps.count - 1)
     }
 
     private var currentApp: DiscoveredApp? {
@@ -162,7 +170,7 @@ struct QuickLauncherView: View {
             .frame(width: 520, height: 320)
             .allowsHitTesting(false)
 
-            // Middle Content: Fixed, stationary CoverFlow, Wall, or 3DS Grid (never shifts when typing)
+            // Middle Content: Fixed, stationary CoverFlow, Wall, or Flat Grid (never shifts when typing)
             Group {
                 if layoutMode == .coverFlow {
                     CoverFlowCarouselView(
@@ -172,6 +180,7 @@ struct QuickLauncherView: View {
                         isIconOnly: appDisplayStyle == .iconOnly,
                         onSelect: { index in
                             withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
+                                selectedIndex = index
                                 discoveryService.selectedIndex = index
                             }
                         },
@@ -190,6 +199,7 @@ struct QuickLauncherView: View {
                         isOrganizeMode: false,
                         onSelect: { index in
                             withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
+                                selectedIndex = index
                                 discoveryService.selectedIndex = index
                             }
                         },
@@ -200,7 +210,7 @@ struct QuickLauncherView: View {
                     )
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
                 } else {
-                    ThreeDSGridView(
+                    FlatGridView(
                         apps: displayApps,
                         activeIndex: activeIndex,
                         rowsCount: threeDSGridRows,
@@ -209,6 +219,7 @@ struct QuickLauncherView: View {
                         isOrganizeMode: false,
                         onSelect: { index in
                             withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
+                                selectedIndex = index
                                 discoveryService.selectedIndex = index
                             }
                         },
@@ -235,40 +246,71 @@ struct QuickLauncherView: View {
         .onChange(of: searchText) { newText in
             let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
-                // When searching, immediately focus the #1 top matching app
-                if !displayApps.isEmpty {
-                    if displayApps.first?.isSeparator == true && displayApps.count > 1 {
-                        discoveryService.selectedIndex = 1
-                    } else {
-                        discoveryService.selectedIndex = 0
-                    }
-                }
+                let target = (displayApps.first?.isSeparator == true && displayApps.count > 1) ? 1 : 0
+                selectedIndex = target
+                discoveryService.selectedIndex = target
             } else {
-                discoveryService.selectedIndex = displayApps.count / 2
+                let center = displayApps.count / 2
+                selectedIndex = center
+                discoveryService.selectedIndex = center
             }
         }
         .onChange(of: selectedCategory) { _ in
             if !searchText.isEmpty {
+                selectedIndex = 0
                 discoveryService.selectedIndex = 0
             } else {
-                discoveryService.selectedIndex = displayApps.count / 2
+                let center = displayApps.count / 2
+                selectedIndex = center
+                discoveryService.selectedIndex = center
+            }
+        }
+        .onChange(of: discoveryService.apps.count) { _ in
+            if selectedIndex >= displayApps.count {
+                let center = displayApps.count / 2
+                selectedIndex = center
+                discoveryService.selectedIndex = center
             }
         }
         .onAppear {
             searchText = ""
-            discoveryService.selectedIndex = filteredApps.count / 2
+            selectedCategory = "ALL"
+            scrollAccumulator = 0.0
+            let center = displayApps.count / 2
+            selectedIndex = center
+            discoveryService.selectedIndex = center
             setupEventMonitor()
         }
         .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { notification in
-            searchText = ""
-            discoveryService.selectedIndex = filteredApps.count / 2
             if let mode = notification.object as? LauncherMode {
                 if mode == .quickLauncher {
+                    searchText = ""
+                    selectedCategory = "ALL"
+                    scrollAccumulator = 0.0
+                    let center = displayApps.count / 2
+                    selectedIndex = center
+                    discoveryService.selectedIndex = center
                     setupEventMonitor()
                 } else {
                     removeEventMonitor()
                 }
+            } else {
+                searchText = ""
+                selectedCategory = "ALL"
+                scrollAccumulator = 0.0
+                let center = displayApps.count / 2
+                selectedIndex = center
+                discoveryService.selectedIndex = center
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quickLauncherDidDismiss)) { _ in
+            searchText = ""
+            selectedCategory = "ALL"
+            scrollAccumulator = 0.0
+            let center = discoveryService.apps.count / 2
+            selectedIndex = center
+            discoveryService.selectedIndex = center
+            removeEventMonitor()
         }
         .onDisappear {
             searchText = ""
@@ -289,6 +331,11 @@ struct QuickLauncherView: View {
                 return event
             }
 
+            // Ignore leftover hotkey keyDown/scroll events within 0.25s of presentation
+            if Date().timeIntervalSince(PanelController.shared.lastQuickShowTime) < 0.25 {
+                return nil
+            }
+
             if event.type == .scrollWheel {
                 handleScrollEvent(event)
                 return nil
@@ -299,53 +346,47 @@ struct QuickLauncherView: View {
                     return nil
                 }
 
-                // Command+V to cycle between Cover Flow, Wall Grid, and 3DS Grid
-                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "v" {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        let nextMode: MainLayoutViewMode
-                        switch layoutMode {
-                        case .coverFlow: nextMode = .gridWall
-                        case .gridWall: nextMode = .threeDSGrid
-                        case .threeDSGrid: nextMode = .coverFlow
-                        }
-                        layoutModeRaw = nextMode.rawValue
+                // Command+Shift+V or Command+V: View Mode Switch vs. Paste
+                if event.modifierFlags.contains(.command) && (event.charactersIgnoringModifiers == "v" || event.charactersIgnoringModifiers == "V") {
+                    if event.modifierFlags.contains(.shift) {
+                        cycleLayoutMode()
+                        return nil
                     }
+                    if let pasted = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !pasted.isEmpty {
+                        searchText.append(pasted)
+                        return nil
+                    }
+                    cycleLayoutMode()
                     return nil
                 }
 
                 // Command+Shift+R: Reveal selected app in Finder
                 if event.modifierFlags.contains(.command) && (event.charactersIgnoringModifiers == "r" || event.charactersIgnoringModifiers == "R") {
-                    if discoveryService.selectedIndex < displayApps.count {
-                        let selectedApp = displayApps[discoveryService.selectedIndex]
-                        if !selectedApp.isAppsChannelApp {
-                            SoundEffectsManager.shared.playAction()
-                            NSWorkspace.shared.activateFileViewerSelecting([selectedApp.url])
-                            return nil
-                        }
+                    if let selectedApp = currentApp, !selectedApp.isAppsChannelApp {
+                        SoundEffectsManager.shared.playAction()
+                        NSWorkspace.shared.activateFileViewerSelecting([selectedApp.url])
+                        return nil
                     }
                 }
 
                 // Command+I: Get Info on focused application
                 if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "i" {
-                    if discoveryService.selectedIndex < displayApps.count {
-                        let selectedApp = displayApps[discoveryService.selectedIndex]
-                        if !selectedApp.isAppsChannelApp {
-                            SoundEffectsManager.shared.playAction()
-                            let escapedPath = selectedApp.url.path
-                                .replacingOccurrences(of: "\\", with: "\\\\")
-                                .replacingOccurrences(of: "\"", with: "\\\"")
-                            let script = """
-                            tell application "Finder"
-                                activate
-                                open information window of (POSIX file "\(escapedPath)" as alias)
-                            end tell
-                            """
-                            if let appleScript = NSAppleScript(source: script) {
-                                var error: NSDictionary?
-                                appleScript.executeAndReturnError(&error)
-                            }
-                            return nil
+                    if let selectedApp = currentApp, !selectedApp.isAppsChannelApp {
+                        SoundEffectsManager.shared.playAction()
+                        let escapedPath = selectedApp.url.path
+                            .replacingOccurrences(of: "\\", with: "\\\\")
+                            .replacingOccurrences(of: "\"", with: "\\\"")
+                        let script = """
+                        tell application "Finder"
+                            activate
+                            open information window of (POSIX file "\(escapedPath)" as alias)
+                        end tell
+                        """
+                        if let appleScript = NSAppleScript(source: script) {
+                            var error: NSDictionary?
+                            appleScript.executeAndReturnError(&error)
                         }
+                        return nil
                     }
                 }
 
@@ -370,6 +411,9 @@ struct QuickLauncherView: View {
                     if let assigned = ShortcutMappingManager.shared.assignedApp(forSlot: num, in: discoveryService.apps) {
                         let query = searchText
                         searchText = ""
+                        let center = discoveryService.apps.count / 2
+                        selectedIndex = center
+                        discoveryService.selectedIndex = center
                         SoundEffectsManager.shared.playLaunch()
                         discoveryService.launch(app: assigned, query: query)
                         onDismiss()
@@ -382,11 +426,17 @@ struct QuickLauncherView: View {
                         let app = displayApps[targetIdx]
                         if app.url.path == Self.openMainAppCard.url.path {
                             searchText = ""
+                            let center = discoveryService.apps.count / 2
+                            selectedIndex = center
+                            discoveryService.selectedIndex = center
                             onExpandToFullScreen()
                             return nil
                         }
                         let query = searchText
                         searchText = ""
+                        let center = discoveryService.apps.count / 2
+                        selectedIndex = center
+                        discoveryService.selectedIndex = center
                         SoundEffectsManager.shared.playLaunch()
                         discoveryService.launch(app: app, query: query)
                         onDismiss()
@@ -396,7 +446,7 @@ struct QuickLauncherView: View {
 
                 switch event.keyCode {
                 case 126: // Up Arrow
-                    if layoutMode == .gridWall || layoutMode == .threeDSGrid {
+                    if layoutMode == .gridWall || layoutMode == .flatGrid {
                         navigate(by: -1) // Up 1 card in column
                     } else {
                         navigate(by: -1)
@@ -404,7 +454,7 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 125: // Down Arrow
-                    if layoutMode == .gridWall || layoutMode == .threeDSGrid {
+                    if layoutMode == .gridWall || layoutMode == .flatGrid {
                         navigate(by: 1) // Down 1 card in column
                     } else {
                         navigate(by: 1)
@@ -414,7 +464,7 @@ struct QuickLauncherView: View {
                 case 123: // Left Arrow
                     if layoutMode == .gridWall {
                         navigate(by: -3) // Left 1 column
-                    } else if layoutMode == .threeDSGrid {
+                    } else if layoutMode == .flatGrid {
                         navigate(by: -threeDSGridRows) // Left 1 column
                     } else {
                         navigate(by: -1)
@@ -424,7 +474,7 @@ struct QuickLauncherView: View {
                 case 124: // Right Arrow
                     if layoutMode == .gridWall {
                         navigate(by: 3) // Right 1 column
-                    } else if layoutMode == .threeDSGrid {
+                    } else if layoutMode == .flatGrid {
                         navigate(by: threeDSGridRows) // Right 1 column
                     } else {
                         navigate(by: 1)
@@ -438,8 +488,14 @@ struct QuickLauncherView: View {
                 case 53: // Escape key
                     if !searchText.isEmpty {
                         searchText = ""
+                        let center = displayApps.count / 2
+                        selectedIndex = center
+                        discoveryService.selectedIndex = center
                     } else if selectedCategory != "ALL" {
                         selectedCategory = "ALL"
+                        let center = displayApps.count / 2
+                        selectedIndex = center
+                        discoveryService.selectedIndex = center
                     } else {
                         onDismiss()
                     }
@@ -501,10 +557,22 @@ struct QuickLauncherView: View {
                 switch layoutMode {
                 case .coverFlow: return 1
                 case .gridWall: return 3
-                case .threeDSGrid: return threeDSGridRows
+                case .flatGrid: return threeDSGridRows
                 }
             }()
             navigate(by: clampedStep * stepMultiplier)
+        }
+    }
+
+    private func cycleLayoutMode() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            let nextMode: MainLayoutViewMode
+            switch layoutMode {
+            case .coverFlow: nextMode = .gridWall
+            case .gridWall: nextMode = .flatGrid
+            case .flatGrid: nextMode = .coverFlow
+            }
+            layoutModeRaw = nextMode.rawValue
         }
     }
 
@@ -513,6 +581,7 @@ struct QuickLauncherView: View {
         SoundEffectsManager.shared.playNavigation()
         withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
             let nextIndex = min(max(0, activeIndex + step), displayApps.count - 1)
+            selectedIndex = nextIndex
             discoveryService.selectedIndex = nextIndex
         }
     }
@@ -526,11 +595,17 @@ struct QuickLauncherView: View {
         if app.url.path == Self.openMainAppCard.url.path {
             SoundEffectsManager.shared.playAction()
             searchText = ""
+            let center = discoveryService.apps.count / 2
+            selectedIndex = center
+            discoveryService.selectedIndex = center
             onExpandToFullScreen()
             return
         }
         let query = searchText
         searchText = ""
+        let center = discoveryService.apps.count / 2
+        selectedIndex = center
+        discoveryService.selectedIndex = center
         SoundEffectsManager.shared.playLaunch()
         discoveryService.launch(app: app, query: query)
         onDismiss()

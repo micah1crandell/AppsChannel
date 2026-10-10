@@ -24,7 +24,7 @@ final class PanelController {
         (mainAppWindow?.isVisible == true) || (quickLauncherPanel?.isVisible == true)
     }
 
-    private var lastQuickShowTime: Date = .distantPast
+    private(set) var lastQuickShowTime: Date = .distantPast
 
     func setup() {
         setupQuickLauncherPanel()
@@ -99,7 +99,7 @@ final class PanelController {
                 .contentShape(Rectangle())
                 .ignoresSafeArea()
                 .onTapGesture {
-                    self.quickLauncherPanel?.orderOut(nil)
+                    self.hideQuickLauncher()
                 }
 
             QuickLauncherView(
@@ -107,7 +107,7 @@ final class PanelController {
                     self.showMainApp()
                 },
                 onDismiss: {
-                    self.quickLauncherPanel?.orderOut(nil)
+                    self.hideQuickLauncher()
                 }
             )
         }
@@ -129,7 +129,7 @@ final class PanelController {
             if Date().timeIntervalSince(self.lastQuickShowTime) < 0.5 {
                 return
             }
-            self.quickLauncherPanel?.orderOut(nil)
+            self.hideQuickLauncher()
         }
     }
 
@@ -194,9 +194,16 @@ final class PanelController {
         }
     }
 
+    func hideQuickLauncher() {
+        guard let panel = quickLauncherPanel, panel.isVisible else { return }
+        panel.orderOut(nil)
+        NotificationCenter.default.post(name: .quickLauncherDidDismiss, object: nil)
+        AppDiscoveryService.shared.selectedIndex = AppDiscoveryService.shared.apps.count / 2
+    }
+
     func toggleQuickLauncher() {
         if isQuickLauncherVisible {
-            quickLauncherPanel?.orderOut(nil)
+            hideQuickLauncher()
         } else {
             showQuickLauncher()
         }
@@ -221,7 +228,7 @@ final class PanelController {
     }
 
     func showMainApp() {
-        quickLauncherPanel?.orderOut(nil)
+        hideQuickLauncher()
         guard let window = mainAppWindow else { return }
 
         // Position on target screen where mouse is currently located
@@ -232,12 +239,15 @@ final class PanelController {
         NSApp.activate(ignoringOtherApps: true)
         NotificationCenter.default.post(name: .panelDidShow, object: LauncherMode.fullScreen)
         AppDiscoveryService.shared.updateRunningApplications()
-        AppDiscoveryService.shared.performBackgroundDeltaCheck()
     }
 
     func showQuickLauncher() {
         mainAppWindow?.orderOut(nil)
         guard let panel = quickLauncherPanel else { return }
+
+        // Always center on Rank #1 app (middle-out usage center) before presenting
+        let targetCenter = AppDiscoveryService.shared.apps.count / 2
+        AppDiscoveryService.shared.selectedIndex = targetCenter
 
         let targetScreen = Self.targetScreenForPointer()
         panel.setFrame(targetScreen.frame, display: true)
@@ -253,7 +263,6 @@ final class PanelController {
 
         NotificationCenter.default.post(name: .panelDidShow, object: LauncherMode.quickLauncher)
         AppDiscoveryService.shared.updateRunningApplications()
-        AppDiscoveryService.shared.performBackgroundDeltaCheck()
     }
 
     func setDockVisibility(showInDock: Bool) {
@@ -265,11 +274,12 @@ final class PanelController {
     }
 
     func hide() {
-        quickLauncherPanel?.orderOut(nil)
+        hideQuickLauncher()
         mainAppWindow?.orderOut(nil)
     }
 }
 
 extension Notification.Name {
     static let panelDidShow = Notification.Name("AppsChannelPanelDidShow")
+    static let quickLauncherDidDismiss = Notification.Name("AppsChannelQuickLauncherDidDismiss")
 }

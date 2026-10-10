@@ -24,6 +24,20 @@ final class MenuBarManager: NSObject {
         self.statusItem = item
     }
 
+    func setVisibility(_ isVisible: Bool) {
+        if isVisible {
+            if statusItem == nil {
+                setup()
+            }
+        } else {
+            if let item = statusItem {
+                NSStatusBar.system.removeStatusItem(item)
+                statusItem = nil
+                contextMenu = nil
+            }
+        }
+    }
+
     /// Generates a crisp, vector template icon modeled directly on the AppsChannel Cover Flow app icon.
     private func createMenuBarIcon() -> NSImage {
         let size = NSSize(width: 20, height: 16)

@@ -30,7 +30,7 @@ body:
       label: Area of Enhancement
       description: Which part of AppsChannel does this primarily affect?
       options:
-        - "Visual Design & Themes (Cover Flow / Wii / 3DS / Liquid Glass)"
+        - "Visual Design & Themes (Cover Flow / Wall / Flat Grid / Liquid Glass)"
         - "Audio & Haptic Feedback"
         - "Launcher UX & Search Intelligence"
         - "Keyboard Shortcuts & Navigation"
