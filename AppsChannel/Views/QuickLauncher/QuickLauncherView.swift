@@ -92,7 +92,7 @@ struct QuickLauncherView: View {
             category: "WINDOW",
             tagBadge: "MAIN APP",
             sizeString: "⌘O",
-            accentColor: .cyan
+            accentColor: .white
         )
     }()
 
@@ -143,54 +143,8 @@ struct QuickLauncherView: View {
             .frame(width: 520, height: 320)
             .allowsHitTesting(false)
 
-            VStack(spacing: 0) {
-                // Subtle floating status badge (visible when user types or filters by group)
-                if !searchText.isEmpty || selectedCategory != "ALL" {
-                    HStack(spacing: 8) {
-                        if selectedCategory != "ALL" {
-                            Text(selectedCategory)
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.cyan)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.cyan.opacity(0.15), in: Capsule())
-
-                            Button(action: { selectedCategory = "ALL" }) {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.white.opacity(0.6))
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        if !searchText.isEmpty {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(.cyan)
-
-                            Text(searchText)
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white)
-
-                            Button(action: { searchText = "" }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.white.opacity(0.6))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .overlay(
-                        Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
-                    )
-                    .padding(.top, 14)
-                    .transition(.scale(scale: 0.85).combined(with: .opacity))
-                }
-
-                // Middle Content: Supports Flow and Wall look (set in main app or via ⌘V)
+            // Middle Content: Fixed, stationary CoverFlow or Wall (never shifts when typing)
+            Group {
                 if layoutMode == .coverFlow {
                     CoverFlowCarouselView(
                         apps: displayApps,
@@ -206,7 +160,6 @@ struct QuickLauncherView: View {
                             navigate(by: step)
                         }
                     )
-                    .padding(.vertical, searchText.isEmpty ? 16 : 8)
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
                 } else {
                     CoverFlowWallView(
@@ -224,10 +177,19 @@ struct QuickLauncherView: View {
                             navigate(by: step)
                         }
                     )
-                    .padding(.vertical, searchText.isEmpty ? 16 : 8)
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
                 }
             }
+
+            // Top Floating Search & Category Status Badge (floats above carousel without moving it)
+            VStack {
+                if !searchText.isEmpty || selectedCategory != "ALL" {
+                    searchStatusBadge
+                        .transition(.scale(scale: 0.9).combined(with: .opacity).combined(with: .move(edge: .top)))
+                }
+                Spacer()
+            }
+            .padding(.top, 16)
         }
         .frame(width: 1100, height: 500)
         .onChange(of: searchText) { _ in
@@ -419,5 +381,61 @@ struct QuickLauncherView: View {
         }
         discoveryService.launch(app: app, query: searchText)
         onDismiss()
+    }
+
+    // MARK: - Floating Search & Category Status Badge
+    private var searchStatusBadge: some View {
+        HStack(spacing: 8) {
+            if selectedCategory != "ALL" {
+                Text(selectedCategory)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color.white.opacity(0.18), in: Capsule())
+                    .overlay(
+                        Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 1)
+                    )
+
+                Button(action: {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        selectedCategory = "ALL"
+                    }
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+            }
+
+            if !searchText.isEmpty {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.75))
+
+                Text(searchText)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Button(action: {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        searchText = ""
+                    }
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.65))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(Color(white: 0.08).opacity(0.9), in: Capsule())
+        .overlay(
+            Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.4), radius: 12, x: 0, y: 6)
     }
 }
