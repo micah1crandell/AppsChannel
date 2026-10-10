@@ -148,22 +148,53 @@ final class AppUsageTracker: ObservableObject {
     /// - M - 2 (Left) is Rank #5
     /// - M + 3 (Right) is Rank #6
     /// - M - 3 (Left) is Rank #7, etc.
+    ///
+    /// Special constraint: AppsChannel itself is excluded from the top 5 spots (ranks 1..5)
+    /// to avoid usage bias from frequent launcher opening.
     func arrangeMiddleOut<T>(_ ranked: [T]) -> (arranged: [T], centerIndex: Int) {
         guard !ranked.isEmpty else { return ([], 0) }
         guard ranked.count > 1 else { return (ranked, 0) }
 
-        let count = ranked.count
+        var adjustedRanked = ranked
+
+        // If the ranked array contains DiscoveredApp, ensure AppsChannel is not in the top 5
+        if let appList = ranked as? [DiscoveredApp] {
+            var nonSelfApps: [DiscoveredApp] = []
+            var selfApps: [DiscoveredApp] = []
+
+            for app in appList {
+                if app.isAppsChannelApp {
+                    selfApps.append(app)
+                } else {
+                    nonSelfApps.append(app)
+                }
+            }
+
+            if !selfApps.isEmpty {
+                // Keep top 5 non-AppsChannel apps first, then inject selfApps starting at rank 6 (index 5)
+                let topCount = min(5, nonSelfApps.count)
+                var reordered: [DiscoveredApp] = []
+                reordered.append(contentsOf: nonSelfApps.prefix(topCount))
+                reordered.append(contentsOf: selfApps)
+                if nonSelfApps.count > topCount {
+                    reordered.append(contentsOf: nonSelfApps.suffix(from: topCount))
+                }
+                adjustedRanked = reordered as! [T]
+            }
+        }
+
+        let count = adjustedRanked.count
         var result: [T?] = Array(repeating: nil, count: count)
         let center = count / 2
 
         // Center gets Rank #1
-        result[center] = ranked[0]
+        result[center] = adjustedRanked[0]
 
         var rightOffset = 1
         var leftOffset = 1
 
         for i in 1..<count {
-            let item = ranked[i]
+            let item = adjustedRanked[i]
             let wantRight = (i % 2 == 1)
 
             if wantRight {

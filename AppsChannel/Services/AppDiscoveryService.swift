@@ -13,6 +13,20 @@ struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     let sizeString: String
     let accentColor: Color
 
+    var isAppsChannelApp: Bool {
+        if name.localizedCaseInsensitiveCompare("AppsChannel") == .orderedSame {
+            return true
+        }
+        if let bundleId = bundleIdentifier, bundleId.localizedCaseInsensitiveContains("AppsChannel") {
+            return true
+        }
+        let pathLower = url.path.lowercased()
+        if pathLower.hasSuffix("/appschannel.app") || pathLower.contains("/appschannel.app/") {
+            return true
+        }
+        return false
+    }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(url)
     }
