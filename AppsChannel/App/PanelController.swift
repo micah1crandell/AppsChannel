@@ -214,7 +214,15 @@ final class PanelController {
     }
 
     func toggle() {
-        toggleQuickLauncher()
+        if isQuickLauncherVisible {
+            hideQuickLauncher()
+            return
+        }
+        if isMainAppVisible {
+            hideMainApp()
+            return
+        }
+        show()
     }
 
     func show(mode: LauncherMode? = nil) {

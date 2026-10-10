@@ -295,7 +295,7 @@ struct SettingsModalView: View {
     private var generalSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
             // Default Launcher Mode (Show Not Tell - Visual Card Selector)
-            settingsCard(title: "Default Mode", icon: "slider.horizontal.2.square") {
+            settingsCard(title: "Default Mode (Opens on Shortcut & Launch)", icon: "slider.horizontal.2.square") {
                 HStack(spacing: 12) {
                     visualModeCard(
                         mode: .quickLauncher,

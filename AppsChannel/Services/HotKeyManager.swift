@@ -70,7 +70,7 @@ final class HotKeyManager: ObservableObject {
         hotKey = HotKey(keyCombo: keyCombo)
         hotKey?.keyDownHandler = {
             DispatchQueue.main.async {
-                PanelController.shared.toggleQuickLauncher()
+                PanelController.shared.toggle()
             }
         }
     }
