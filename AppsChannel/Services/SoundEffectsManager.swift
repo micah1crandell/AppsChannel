@@ -1,39 +1,94 @@
 import AppKit
 import AudioToolbox
 
+enum SoundTheme: String, CaseIterable, Identifiable {
+    case subtle = "Subtle Classic"
+    case playful = "Playful Pop"
+    case mechanical = "Mechanical Click"
+
+    var id: String { rawValue }
+
+    var navigationSoundName: String {
+        switch self {
+        case .subtle: return "Tink"
+        case .playful: return "Bottle"
+        case .mechanical: return "Hero"
+        }
+    }
+
+    var launchSoundName: String {
+        switch self {
+        case .subtle: return "Pop"
+        case .playful: return "Morse"
+        case .mechanical: return "Ping"
+        }
+    }
+
+    var actionSoundName: String {
+        switch self {
+        case .subtle: return "Glass"
+        case .playful: return "Blow"
+        case .mechanical: return "Submarine"
+        }
+    }
+}
+
 final class SoundEffectsManager {
     static let shared = SoundEffectsManager()
 
-    private var isEnabled: Bool {
+    var isEnabled: Bool {
         UserDefaults.standard.object(forKey: "soundEffects") as? Bool ?? true
     }
 
-    private var navigationSound: NSSound?
-    private var launchSound: NSSound?
-    private var actionSound: NSSound?
+    var isHapticEnabled: Bool {
+        UserDefaults.standard.object(forKey: "hapticFeedback") as? Bool ?? true
+    }
 
-    private init() {
-        // macOS built-in system sounds in /System/Library/Sounds
-        navigationSound = NSSound(named: "Tink")
-        launchSound = NSSound(named: "Pop")
-        actionSound = NSSound(named: "Glass")
+    var currentTheme: SoundTheme {
+        if let raw = UserDefaults.standard.string(forKey: "soundTheme"),
+           let theme = SoundTheme(rawValue: raw) {
+            return theme
+        }
+        return .subtle
+    }
+
+    private init() {}
+
+    private func sound(named name: String) -> NSSound? {
+        NSSound(named: NSSound.Name(name))
     }
 
     func playNavigation() {
+        if isHapticEnabled {
+            performHaptic()
+        }
         guard isEnabled else { return }
-        navigationSound?.stop()
-        navigationSound?.play()
+        let snd = sound(named: currentTheme.navigationSoundName)
+        snd?.stop()
+        snd?.play()
     }
 
     func playLaunch() {
+        if isHapticEnabled {
+            performHaptic(pattern: .generic)
+        }
         guard isEnabled else { return }
-        launchSound?.stop()
-        launchSound?.play()
+        let snd = sound(named: currentTheme.launchSoundName)
+        snd?.stop()
+        snd?.play()
     }
 
     func playAction() {
+        if isHapticEnabled {
+            performHaptic()
+        }
         guard isEnabled else { return }
-        actionSound?.stop()
-        actionSound?.play()
+        let snd = sound(named: currentTheme.actionSoundName)
+        snd?.stop()
+        snd?.play()
+    }
+
+    func performHaptic(pattern: NSHapticFeedbackManager.FeedbackPattern = .alignment) {
+        NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
     }
 }

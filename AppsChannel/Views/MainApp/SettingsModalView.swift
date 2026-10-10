@@ -10,6 +10,8 @@ struct SettingsModalView: View {
     @AppStorage("appDisplayStyle") private var appDisplayStyleRaw: String = AppDisplayStyle.iconOnly.rawValue
     @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
     @AppStorage("soundEffects") private var soundEffects: Bool = true
+    @AppStorage("soundTheme") private var soundThemeRaw: String = SoundTheme.subtle.rawValue
+    @AppStorage("hapticFeedback") private var hapticFeedback: Bool = true
     @AppStorage("dimmingIntensity") private var dimmingIntensity: Double = 0.15
 
     @StateObject private var hotKeyManager = HotKeyManager.shared
@@ -302,6 +304,44 @@ struct SettingsModalView: View {
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(.white)
                             Text("Play subtle audio feedback when navigating cards and launching channels.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .tint(.white)
+
+                    if soundEffects {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Sound Theme")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.white)
+                                Text("Choose between classic retro and modern tactile chime themes.")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.white.opacity(0.6))
+                            }
+                            Spacer()
+                            Picker("", selection: $soundThemeRaw) {
+                                ForEach(SoundTheme.allCases) { theme in
+                                    Text(theme.rawValue).tag(theme.rawValue)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .tint(.white)
+                            .frame(width: 150)
+                        }
+                    }
+
+                    Divider().background(Color.white.opacity(0.08))
+
+                    Toggle(isOn: $hapticFeedback) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Trackpad Force Touch Haptics")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.white)
+                            Text("Trigger subtle mechanical alignment pulses on Force Touch trackpads during navigation.")
                                 .font(.system(size: 11))
                                 .foregroundStyle(.white.opacity(0.6))
                         }
