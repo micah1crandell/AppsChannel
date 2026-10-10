@@ -50,26 +50,9 @@ struct RetroHUDView: View {
     // MARK: - Top Modern Liquid Glass Capsule
     private var topHUD: some View {
         VStack(spacing: 14) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 // Reserved space for native macOS Traffic Light controls (Close, Minimize, Zoom)
                 Spacer().frame(width: 54)
-
-                // AppsChannel Brand Pill
-                HStack(spacing: 8) {
-                    Image(systemName: "square.grid.3x3.topleft.filled")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Color.white)
-                    Text("AppsChannel")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.white)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color(white: 0.08).opacity(0.85), in: Capsule())
-                .overlay(
-                    Capsule()
-                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
-                )
 
                 // Liquid Glass Search Field (Automatically Focused)
                 HStack(spacing: 10) {
@@ -113,7 +96,7 @@ struct RetroHUDView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .frame(minWidth: 160, maxWidth: 260)
+                .frame(minWidth: 180, maxWidth: 300)
                 .background(Color(white: 0.08).opacity(0.85), in: Capsule())
                 .overlay(
                     Capsule()
@@ -122,121 +105,70 @@ struct RetroHUDView: View {
 
                 Spacer()
 
-                // Clock & Status Pill
-                HStack(spacing: 12) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "app.badge")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.cyan)
-                        Text("\(totalAppsCount) Apps")
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.85))
-                    }
-
-                    Divider()
-                        .frame(height: 12)
-                        .background(.white.opacity(0.2))
-
-                    Text(currentTime, style: .time)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color(white: 0.08).opacity(0.85), in: Capsule())
-                .overlay(
-                    Capsule()
-                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
-                )
-
-                // Rearrange Channels Button (Wii / 3DS Style)
+                // Rearrange Channels Icon Button (Wii / 3DS Style)
                 if let onOrganize = onToggleOrganize {
                     Button(action: onOrganize) {
-                        HStack(spacing: 5) {
-                            Image(systemName: isOrganizeMode ? "checkmark.circle.fill" : "arrow.left.arrow.right.circle")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(isOrganizeMode ? .green : .white)
-                            Text(isOrganizeMode ? "Done Arranging" : "Rearrange Channels")
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                        .foregroundStyle(.white.opacity(0.9))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule().fill(isOrganizeMode ? Color.green.opacity(0.25) : Color(white: 0.08).opacity(0.85))
-                        )
-                        .overlay(
-                            Capsule().strokeBorder(isOrganizeMode ? Color.green.opacity(0.6) : Color.white.opacity(0.22), lineWidth: 1)
-                        )
+                        Image(systemName: isOrganizeMode ? "checkmark.circle.fill" : "arrow.left.arrow.right.circle")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(isOrganizeMode ? Color.green : Color.white.opacity(0.85))
+                            .frame(width: 32, height: 32)
+                            .background(isOrganizeMode ? Color.green.opacity(0.25) : Color(white: 0.08).opacity(0.85), in: Circle())
+                            .overlay(
+                                Circle().strokeBorder(isOrganizeMode ? Color.green.opacity(0.6) : Color.white.opacity(0.22), lineWidth: 1)
+                            )
                     }
                     .buttonStyle(.plain)
+                    .help(isOrganizeMode ? "Done Arranging" : "Rearrange Channels")
                 }
 
-                // Layout View Mode Switcher (1-Row CoverFlow vs 3-Row Curved Wall Grid)
-                HStack(spacing: 4) {
+                // Layout View Mode Switcher: Flow vs Wall Icon Toggle
+                HStack(spacing: 2) {
                     Button(action: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             layoutMode = .coverFlow
                         }
                     }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "rectangle.portrait.on.rectangle.portrait.fill")
-                                .font(.system(size: 11))
-                            Text("Flow")
-                                .font(.system(size: 10, weight: .semibold))
-                        }
-                        .foregroundStyle(layoutMode == .coverFlow ? .black : .white.opacity(0.75))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(layoutMode == .coverFlow ? Color.white : Color.clear, in: Capsule())
+                        Image(systemName: "rectangle.portrait.on.rectangle.portrait.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(layoutMode == .coverFlow ? Color.black : Color.white.opacity(0.75))
+                            .frame(width: 28, height: 26)
+                            .background(layoutMode == .coverFlow ? Color.white : Color.clear, in: Capsule())
                     }
                     .buttonStyle(.plain)
+                    .help("Flow View")
 
                     Button(action: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             layoutMode = .gridWall
                         }
                     }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "square.grid.3x3.fill")
-                                .font(.system(size: 11))
-                            Text("Wall")
-                                .font(.system(size: 10, weight: .semibold))
-                        }
-                        .foregroundStyle(layoutMode == .gridWall ? .black : .white.opacity(0.75))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(layoutMode == .gridWall ? Color.white : Color.clear, in: Capsule())
+                        Image(systemName: "square.grid.3x3.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(layoutMode == .gridWall ? Color.black : Color.white.opacity(0.75))
+                            .frame(width: 28, height: 26)
+                            .background(layoutMode == .gridWall ? Color.white : Color.clear, in: Capsule())
                     }
                     .buttonStyle(.plain)
+                    .help("Wall View")
                 }
                 .padding(3)
                 .background(Color(white: 0.08).opacity(0.85), in: Capsule())
                 .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
 
-                // Switch to Quick Launcher Button
+                // Switch to Quick Launcher Icon Button
                 if let onSwitch = onSwitchToQuick {
                     Button(action: onSwitch) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "rectangle.inset.filled.and.cursorarrow")
-                                .font(.system(size: 11))
-                            Text("Quick Mode")
-                                .font(.system(size: 11, weight: .semibold))
-                            Text("⌘O")
-                                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 3))
-                        }
-                        .foregroundStyle(.white.opacity(0.85))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color(white: 0.08).opacity(0.85), in: Capsule())
-                        .overlay(
-                            Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
-                        )
+                        Image(systemName: "rectangle.inset.filled.and.cursorarrow")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.85))
+                            .frame(width: 32, height: 32)
+                            .background(Color(white: 0.08).opacity(0.85), in: Circle())
+                            .overlay(
+                                Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                            )
                     }
                     .buttonStyle(.plain)
+                    .help("Quick Launcher (⌘O)")
                 }
 
                 // Settings Button
@@ -252,6 +184,7 @@ struct RetroHUDView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .help("Settings")
                 }
 
                 // Dismiss button
@@ -266,6 +199,7 @@ struct RetroHUDView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .help("Dismiss (⎋)")
             }
 
             // Category Filter Pills with Direct Command Shortcuts (⌘1, ⌘2, etc.)
