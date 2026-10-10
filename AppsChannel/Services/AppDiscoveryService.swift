@@ -447,23 +447,7 @@ final class AppDiscoveryService: ObservableObject {
     }
 
     nonisolated private static func deriveAccentColor(category: String, name: String) -> Color {
-        switch category {
-        case "SHELL & CLI":
-            return Color(red: 0.2, green: 0.85, blue: 0.55)
-        case "DEVELOPER":
-            return Color(red: 0.2, green: 0.55, blue: 0.95)
-        case "INTERNET":
-            return Color(red: 0.15, green: 0.65, blue: 0.95)
-        case "VIDEO STUDIO":
-            return Color(red: 0.95, green: 0.3, blue: 0.45)
-        case "AUDIO DAW":
-            return Color(red: 0.95, green: 0.55, blue: 0.25)
-        case "3D & VFX":
-            return Color(red: 0.95, green: 0.5, blue: 0.2)
-        case "DESIGN & ART":
-            return Color(red: 0.85, green: 0.35, blue: 0.9)
-        default:
-            return Color(red: 0.3, green: 0.7, blue: 0.95)
-        }
+        // Pure monochrome white glass highlight
+        return Color.white.opacity(0.85)
     }
 }

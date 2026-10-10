@@ -123,7 +123,7 @@ struct AppCardView: View {
                     .strokeBorder(
                         LinearGradient(
                             colors: isSelected ?
-                                [Color.white.opacity(0.7), app.accentColor.opacity(0.6), Color.white.opacity(0.2)] :
+                                [Color.white.opacity(0.95), Color.white.opacity(0.55), Color.white.opacity(0.20)] :
                                 [Color.white.opacity(0.25), Color.white.opacity(0.05)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -132,7 +132,7 @@ struct AppCardView: View {
                     )
             )
             .shadow(
-                color: isSelected ? app.accentColor.opacity(0.35) : Color.black.opacity(0.3),
+                color: isSelected ? Color.white.opacity(0.28) : Color.black.opacity(0.3),
                 radius: isSelected ? 18 : 10,
                 x: 0,
                 y: isSelected ? 8 : 4

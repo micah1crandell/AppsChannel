@@ -220,21 +220,18 @@ struct MainAppView: View {
             Color.black.opacity(0.14)
                 .ignoresSafeArea()
 
-            if let accent = currentApp?.accentColor {
-                RadialGradient(
-                    colors: [
-                        accent.opacity(0.20),
-                        accent.opacity(0.05),
-                        Color.clear
-                    ],
-                    center: .center,
-                    startRadius: 40,
-                    endRadius: 460
-                )
-                .blur(radius: 50)
-                .ignoresSafeArea()
-                .animation(.easeInOut(duration: 0.3), value: activeIndex)
-            }
+            RadialGradient(
+                colors: [
+                    Color.white.opacity(0.10),
+                    Color.white.opacity(0.02),
+                    Color.clear
+                ],
+                center: .center,
+                startRadius: 40,
+                endRadius: 460
+            )
+            .blur(radius: 50)
+            .ignoresSafeArea()
 
             Color.clear
                 .contentShape(Rectangle())

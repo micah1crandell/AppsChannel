@@ -131,19 +131,17 @@ struct QuickLauncherView: View {
                 )
                 .allowsHitTesting(false)
 
-            // Ultra-subtle ambient glow matching the active app's accent color
-            if let accent = currentApp?.accentColor {
-                EllipticalGradient(
-                    stops: [
-                        .init(color: accent.opacity(0.12), location: 0.0),
-                        .init(color: accent.opacity(0.05), location: 0.40),
-                        .init(color: .clear, location: 0.80)
-                    ],
-                    center: .center
-                )
-                .frame(width: 520, height: 320)
-                .allowsHitTesting(false)
-            }
+            // Ultra-subtle monochrome white glass ambient glow
+            EllipticalGradient(
+                stops: [
+                    .init(color: Color.white.opacity(0.08), location: 0.0),
+                    .init(color: Color.white.opacity(0.03), location: 0.40),
+                    .init(color: .clear, location: 0.80)
+                ],
+                center: .center
+            )
+            .frame(width: 520, height: 320)
+            .allowsHitTesting(false)
 
             VStack(spacing: 0) {
                 // Subtle floating status badge (visible when user types or filters by group)

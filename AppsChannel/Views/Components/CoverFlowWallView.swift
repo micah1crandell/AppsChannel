@@ -172,7 +172,7 @@ struct CoverFlowWallView: View {
                     .strokeBorder(
                         LinearGradient(
                             colors: isSelected ?
-                                [Color.white, app.accentColor, Color.cyan] :
+                                [Color.white, Color.white.opacity(0.7), Color.white.opacity(0.3)] :
                                 [Color.white.opacity(0.2), Color.white.opacity(0.04)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -181,7 +181,7 @@ struct CoverFlowWallView: View {
                     )
             )
             .shadow(
-                color: isSelected ? app.accentColor.opacity(0.45) : Color.black.opacity(0.3),
+                color: isSelected ? Color.white.opacity(0.35) : Color.black.opacity(0.3),
                 radius: isSelected ? (isCompact ? 12 : 16) : 8,
                 x: 0,
                 y: isSelected ? 6 : 3
