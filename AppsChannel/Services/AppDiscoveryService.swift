@@ -65,6 +65,7 @@ final class AppDiscoveryService: ObservableObject {
     }
 
     @Published var runningBundleIds: Set<String> = []
+    @Published var runningUrls: Set<URL> = []
 
     init() {
         loadInitialApps()
@@ -73,16 +74,18 @@ final class AppDiscoveryService: ObservableObject {
 
     // MARK: - Running Applications State
     func isRunning(app: DiscoveredApp) -> Bool {
-        guard let bundleId = app.bundleIdentifier else {
-            return false
+        if let bundleId = app.bundleIdentifier, runningBundleIds.contains(bundleId) {
+            return true
         }
-        return runningBundleIds.contains(bundleId)
+        return runningUrls.contains(app.url)
     }
 
     func updateRunningApplications() {
         let running = NSWorkspace.shared.runningApplications
         let ids = Set(running.compactMap { $0.bundleIdentifier })
+        let urls = Set(running.compactMap { $0.bundleURL })
         self.runningBundleIds = ids
+        self.runningUrls = urls
     }
 
     private func setupRunningAppObservers() {
@@ -105,15 +108,22 @@ final class AppDiscoveryService: ObservableObject {
     }
 
     func terminateApp(_ app: DiscoveredApp, force: Bool = false) {
-        guard let bundleId = app.bundleIdentifier else { return }
-        for running in NSWorkspace.shared.runningApplications where running.bundleIdentifier == bundleId {
+        let matching = NSWorkspace.shared.runningApplications.filter {
+            ($0.bundleIdentifier != nil && $0.bundleIdentifier == app.bundleIdentifier) ||
+            ($0.bundleURL != nil && $0.bundleURL?.standardizedFileURL == app.url.standardizedFileURL)
+        }
+        for running in matching {
             if force {
                 running.forceTerminate()
             } else {
                 running.terminate()
             }
         }
+        SoundEffectsManager.shared.playAction()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.updateRunningApplications()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
             self?.updateRunningApplications()
         }
     }

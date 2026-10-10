@@ -292,6 +292,7 @@ struct QuickLauncherView: View {
                     if discoveryService.selectedIndex < displayApps.count {
                         let selectedApp = displayApps[discoveryService.selectedIndex]
                         if !selectedApp.isAppsChannelApp {
+                            SoundEffectsManager.shared.playAction()
                             NSWorkspace.shared.activateFileViewerSelecting([selectedApp.url])
                             return nil
                         }
@@ -303,10 +304,14 @@ struct QuickLauncherView: View {
                     if discoveryService.selectedIndex < displayApps.count {
                         let selectedApp = displayApps[discoveryService.selectedIndex]
                         if !selectedApp.isAppsChannelApp {
+                            SoundEffectsManager.shared.playAction()
+                            let escapedPath = selectedApp.url.path
+                                .replacingOccurrences(of: "\\", with: "\\\\")
+                                .replacingOccurrences(of: "\"", with: "\\\"")
                             let script = """
                             tell application "Finder"
                                 activate
-                                open information window of (POSIX file "\(selectedApp.url.path)" as alias)
+                                open information window of (POSIX file "\(escapedPath)" as alias)
                             end tell
                             """
                             if let appleScript = NSAppleScript(source: script) {

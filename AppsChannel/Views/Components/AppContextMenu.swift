@@ -83,10 +83,13 @@ struct AppCardContextMenu: ViewModifier {
     }
 
     private func openGetInfo(for url: URL) {
+        let escapedPath = url.path
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
         let script = """
         tell application "Finder"
             activate
-            open information window of (POSIX file "\(url.path)" as alias)
+            open information window of (POSIX file "\(escapedPath)" as alias)
         end tell
         """
         if let appleScript = NSAppleScript(source: script) {

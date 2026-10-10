@@ -103,6 +103,20 @@ final class AppDiscoveryServiceTests: XCTestCase {
 
         XCTAssertTrue(service.isRunning(app: finderApp))
 
+        // Test URL fallback when bundleIdentifier is nil
+        let finderAppNoBundleId = DiscoveredApp(
+            id: UUID(),
+            name: "Finder",
+            url: URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app"),
+            bundleIdentifier: nil,
+            icon: NSImage(),
+            category: "System",
+            tagBadge: "SYS",
+            sizeString: "1 MB",
+            accentColor: .blue
+        )
+        XCTAssertTrue(service.isRunning(app: finderAppNoBundleId))
+
         let fakeApp = DiscoveredApp(
             id: UUID(),
             name: "FakeApp",

@@ -231,6 +231,7 @@ final class PanelController {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         NotificationCenter.default.post(name: .panelDidShow, object: LauncherMode.fullScreen)
+        AppDiscoveryService.shared.updateRunningApplications()
         AppDiscoveryService.shared.performBackgroundDeltaCheck()
     }
 
@@ -251,6 +252,7 @@ final class PanelController {
         }
 
         NotificationCenter.default.post(name: .panelDidShow, object: LauncherMode.quickLauncher)
+        AppDiscoveryService.shared.updateRunningApplications()
         AppDiscoveryService.shared.performBackgroundDeltaCheck()
     }
 
