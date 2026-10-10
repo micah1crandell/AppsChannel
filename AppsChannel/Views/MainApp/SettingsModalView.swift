@@ -19,8 +19,19 @@ struct SettingsModalView: View {
     @State private var recordKeyMonitor: Any? = nil
 
     @ObservedObject private var discoveryService = AppDiscoveryService.shared
+    @ObservedObject private var shortcutManager = ShortcutMappingManager.shared
     @State private var hiddenAppsSearchText: String = ""
     @State private var hiddenAppsCategoryFilter: String = "ALL"
+
+    private var availableCategories: [String] {
+        var set = Set<String>()
+        for app in discoveryService.allDiscoveredApps {
+            set.insert(app.category)
+        }
+        var list = Array(set).sorted()
+        list.insert("ALL", at: 0)
+        return list
+    }
 
     enum SettingsTab: String, CaseIterable, Identifiable {
         case general = "General"
@@ -616,7 +627,218 @@ struct SettingsModalView: View {
                 }
             }
 
-            // Card 2: macOS System Integration
+            // Card 2: Category Group Shortcuts
+            settingsCard(title: "Category Group Shortcuts (⌘1 – ⌘8)", icon: "square.grid.3x1.folder.badge.plus") {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Text("Configure which application category is activated by pressing ⌘1 through ⌘8.")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.65))
+                        Spacer()
+                        if !shortcutManager.customGroupShortcuts.isEmpty {
+                            Button(action: {
+                                shortcutManager.resetGroupShortcuts()
+                                SoundEffectsManager.shared.playAction()
+                            }) {
+                                Text("Reset Defaults")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Color.white.opacity(0.1), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    VStack(spacing: 8) {
+                        ForEach(1...8, id: \.self) { slot in
+                            let currentAssigned = shortcutManager.category(forSlot: slot, availableCategories: availableCategories) ?? "ALL"
+                            let isCustomized = shortcutManager.customGroupShortcuts[slot] != nil
+
+                            HStack(spacing: 12) {
+                                Text("⌘\(slot)")
+                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(.black)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.white, in: RoundedRectangle(cornerRadius: 6))
+
+                                Text("Group \(slot)")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.85))
+
+                                Spacer()
+
+                                Picker("", selection: Binding<String>(
+                                    get: { currentAssigned },
+                                    set: { newCat in
+                                        shortcutManager.setGroupShortcut(category: newCat, forSlot: slot)
+                                        SoundEffectsManager.shared.playAction()
+                                    }
+                                )) {
+                                    ForEach(availableCategories, id: \.self) { cat in
+                                        Text(cat).tag(cat)
+                                    }
+                                }
+                                .labelsHidden()
+                                .pickerStyle(.menu)
+                                .tint(.white)
+                                .frame(width: 170)
+
+                                if isCustomized {
+                                    Button(action: {
+                                        shortcutManager.setGroupShortcut(category: nil, forSlot: slot)
+                                        SoundEffectsManager.shared.playAction()
+                                    }) {
+                                        Image(systemName: "arrow.counterclockwise")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.white.opacity(0.6))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Reset to default category")
+                                } else {
+                                    Image(systemName: "arrow.counterclockwise")
+                                        .font(.system(size: 10))
+                                        .opacity(0)
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(isCustomized ? Color.white.opacity(0.25) : Color.white.opacity(0.08), lineWidth: 1)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Card 3: Direct Launch Channel Slots
+            settingsCard(title: "Direct Launch Channel Slots (⌥1 – ⌥9)", icon: "target") {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Text("Assign specific apps to instant shortcuts ⌥1 through ⌥9. Uncustomized slots dynamically launch current grid slots 1–9.")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.65))
+                        Spacer()
+                        if !shortcutManager.customChannelSlots.isEmpty {
+                            Button(action: {
+                                shortcutManager.resetChannelSlots()
+                                SoundEffectsManager.shared.playAction()
+                            }) {
+                                Text("Reset All Slots")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Color.white.opacity(0.1), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    VStack(spacing: 8) {
+                        ForEach(1...9, id: \.self) { slot in
+                            let assignedPath = shortcutManager.assignedAppPath(forSlot: slot)
+                            let assignedApp = shortcutManager.assignedApp(forSlot: slot, in: discoveryService.allDiscoveredApps)
+                            let isCustomized = assignedPath != nil
+
+                            HStack(spacing: 12) {
+                                Text("⌥\(slot)")
+                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(.black)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.white, in: RoundedRectangle(cornerRadius: 6))
+
+                                Text("Slot \(slot)")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.85))
+
+                                Spacer()
+
+                                if let app = assignedApp {
+                                    HStack(spacing: 6) {
+                                        Image(nsImage: app.icon)
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fit)
+                                            .frame(width: 16, height: 16)
+                                        Text(app.name)
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundStyle(.white)
+                                            .lineLimit(1)
+                                    }
+                                    .frame(maxWidth: 170, alignment: .trailing)
+                                } else {
+                                    Text("Automatic (Grid Slot \(slot))")
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                }
+
+                                Menu {
+                                    Button {
+                                        shortcutManager.setChannelSlot(appPath: nil, forSlot: slot)
+                                        SoundEffectsManager.shared.playAction()
+                                    } label: {
+                                        Text("Automatic (Grid Slot \(slot))")
+                                    }
+
+                                    Divider()
+
+                                    ForEach(discoveryService.allDiscoveredApps) { app in
+                                        Button {
+                                            shortcutManager.setChannelSlot(appPath: app.url.path, forSlot: slot)
+                                            SoundEffectsManager.shared.playAction()
+                                        } label: {
+                                            Text(app.name)
+                                        }
+                                    }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(isCustomized ? "Change..." : "Assign App...")
+                                            .font(.system(size: 11, weight: .medium))
+                                        Image(systemName: "chevron.up.chevron.down")
+                                            .font(.system(size: 9))
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 5)
+                                    .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
+                                    .foregroundStyle(.white)
+                                }
+                                .buttonStyle(.plain)
+
+                                if isCustomized {
+                                    Button(action: {
+                                        shortcutManager.setChannelSlot(appPath: nil, forSlot: slot)
+                                        SoundEffectsManager.shared.playAction()
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.white.opacity(0.6))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Reset to default grid position")
+                                } else {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 12))
+                                        .opacity(0)
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(isCustomized ? Color.white.opacity(0.25) : Color.white.opacity(0.08), lineWidth: 1)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Card 4: macOS System Integration
             settingsCard(title: "System Integration", icon: "applelogo") {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("To bind system-wide shortcuts directly through macOS native preferences:")

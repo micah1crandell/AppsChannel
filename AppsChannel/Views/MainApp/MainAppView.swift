@@ -504,24 +504,36 @@ struct MainAppView: View {
                     }
                 }
 
-                // Command + 1..8: Instant Category Group Switch
+                // Command + 1..8: Instant Category Group Switch (Customizable in Settings)
                 if event.modifierFlags.contains(.command),
                    let chars = event.charactersIgnoringModifiers,
-                   let num = Int(chars), num >= 1, num <= categories.count {
-                    let cat = categories[num - 1]
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        selectedCategory = cat
+                   let num = Int(chars), num >= 1, num <= 8 {
+                    if let targetCategory = ShortcutMappingManager.shared.category(forSlot: num, availableCategories: categories) {
+                        SoundEffectsManager.shared.playNavigation()
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            selectedCategory = targetCategory
+                        }
+                        return nil
                     }
-                    return nil
                 }
 
-                // Option + 1..9: Direct Launch Channel Slot 1..9
+                // Option + 1..9: Direct Launch Channel Slot 1..9 (Customizable in Settings)
                 if event.modifierFlags.contains(.option),
                    let chars = event.charactersIgnoringModifiers,
                    let num = Int(chars), num >= 1, num <= 9 {
+                    // Check if a specific app is assigned to this slot
+                    if let assigned = ShortcutMappingManager.shared.assignedApp(forSlot: num, in: discoveryService.apps) {
+                        SoundEffectsManager.shared.playLaunch()
+                        discoveryService.launch(app: assigned, query: searchText)
+                        onDismiss()
+                        return nil
+                    }
+
+                    // Fall back to current grid index
                     let targetIdx = num - 1
                     if targetIdx < filteredApps.count {
                         let targetApp = filteredApps[targetIdx]
+                        SoundEffectsManager.shared.playLaunch()
                         discoveryService.launch(app: targetApp, query: searchText)
                         onDismiss()
                         return nil

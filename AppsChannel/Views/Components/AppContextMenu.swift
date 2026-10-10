@@ -49,6 +49,39 @@ struct AppCardContextMenu: ViewModifier {
                     Label("Copy Details", systemImage: "doc.on.clipboard")
                 }
 
+                Menu {
+                    ForEach(1...9, id: \.self) { slot in
+                        Button {
+                            ShortcutMappingManager.shared.setChannelSlot(appPath: app.url.path, forSlot: slot)
+                            SoundEffectsManager.shared.playAction()
+                        } label: {
+                            if ShortcutMappingManager.shared.assignedAppPath(forSlot: slot) == app.url.path {
+                                Text("✓ Slot \(slot) (⌥\(slot))")
+                            } else {
+                                Text("Slot \(slot) (⌥\(slot))")
+                            }
+                        }
+                    }
+
+                    let isAssignedToAny = (1...9).contains { ShortcutMappingManager.shared.assignedAppPath(forSlot: $0) == app.url.path }
+                    if isAssignedToAny {
+                        Divider()
+                        Button {
+                            for slot in 1...9 {
+                                if ShortcutMappingManager.shared.assignedAppPath(forSlot: slot) == app.url.path {
+                                    ShortcutMappingManager.shared.setChannelSlot(appPath: nil, forSlot: slot)
+                                }
+                            }
+                            SoundEffectsManager.shared.playAction()
+                        } label: {
+                            Text("Remove from Quick Launch Slots")
+                        }
+                    }
+                } label: {
+                    Label("Assign to Slot (⌥1–9)", systemImage: "target")
+                }
+
+
                 if discoveryService.isRunning(app: app) {
                     Divider()
 
