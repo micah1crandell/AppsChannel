@@ -4,7 +4,7 @@ import AppKit
 struct SettingsModalView: View {
     @Binding var isPresented: Bool
     @State private var selectedTab: SettingsTab = .general
-    @AppStorage("launchAtLogin") private var launchAtLogin: Bool = false
+    @StateObject private var launchAtLoginManager = LaunchAtLoginManager.shared
     @AppStorage("defaultMode") private var defaultMode: String = LauncherMode.quickLauncher.rawValue
     @AppStorage("soundEffects") private var soundEffects: Bool = true
     @AppStorage("dimmingIntensity") private var dimmingIntensity: Double = 0.15
@@ -235,12 +235,15 @@ struct SettingsModalView: View {
             // Card 1: App Behavior
             settingsCard(title: "Application Behavior", icon: "macwindow") {
                 VStack(alignment: .leading, spacing: 14) {
-                    Toggle(isOn: $launchAtLogin) {
+                    Toggle(isOn: Binding(
+                        get: { launchAtLoginManager.isEnabled },
+                        set: { launchAtLoginManager.setEnabled($0) }
+                    )) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Launch at Login")
+                            Text("Launch at Login (Background Daemon)")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(.white)
-                            Text("Automatically start AppsChannel in the background when logging into macOS.")
+                            Text("Runs silently in the menu bar at macOS login so your shortcut always responds, even before opening any window.")
                                 .font(.system(size: 11))
                                 .foregroundStyle(.white.opacity(0.6))
                         }
@@ -489,9 +492,14 @@ struct SettingsModalView: View {
                     // Method A
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Method A: macOS Shortcuts App (Recommended)")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.white)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Method A: macOS Shortcuts App (Works Even When Quit)")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.white)
+                                Text("Uses macOS system daemon to trigger Quick Launcher from a complete cold start.")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.white.opacity(0.6))
+                            }
                             Spacer()
                             Button(action: {
                                 NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Shortcuts.app"))
@@ -508,9 +516,9 @@ struct SettingsModalView: View {
                         }
 
                         walkthroughStep(number: "1", title: "Open Shortcuts", desc: "Launch the native macOS Shortcuts app.")
-                        walkthroughStep(number: "2", title: "Add Action", desc: "Click '+' and search for 'Open App'.")
-                        walkthroughStep(number: "3", title: "Choose AppsChannel", desc: "Select 'AppsChannel' as the target application.")
-                        walkthroughStep(number: "4", title: "Assign Hotkey", desc: "In Details panel, check 'Use as Quick Action' > 'Add Keyboard Shortcut'.")
+                        walkthroughStep(number: "2", title: "Add Action", desc: "Click '+' and search for 'Open URL' (or 'Open App').")
+                        walkthroughStep(number: "3", title: "Set Target", desc: "Enter 'appschannel://quick' (or select 'AppsChannel').")
+                        walkthroughStep(number: "4", title: "Assign Hotkey", desc: "In Shortcut Details (ℹ︎), check 'Use as Quick Action' > 'Add Keyboard Shortcut'.")
                     }
                     .padding(12)
                     .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
