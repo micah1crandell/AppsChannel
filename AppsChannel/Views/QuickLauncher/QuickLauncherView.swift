@@ -14,6 +14,7 @@ struct QuickLauncherView: View {
     @AppStorage("appDisplayStyle") private var appDisplayStyleRaw: String = AppDisplayStyle.iconOnly.rawValue
     @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
     @State private var selectedCategory: String = "ALL"
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var layoutMode: MainLayoutViewMode {
         MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow
@@ -247,8 +248,8 @@ struct QuickLauncherView: View {
             searchText = ""
             removeEventMonitor()
         }
-        .animation(.spring(response: 0.28, dampingFraction: 0.8), value: searchText.isEmpty)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: layoutMode)
+        .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.28, dampingFraction: 0.8)), value: searchText.isEmpty)
+        .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: layoutMode)
     }
 
     // MARK: - Direct Key & Scroll Handling
@@ -284,6 +285,37 @@ struct QuickLauncherView: View {
                         layoutModeRaw = nextMode.rawValue
                     }
                     return nil
+                }
+
+                // Command+Shift+R: Reveal selected app in Finder
+                if event.modifierFlags.contains(.command) && (event.charactersIgnoringModifiers == "r" || event.charactersIgnoringModifiers == "R") {
+                    if discoveryService.selectedIndex < displayApps.count {
+                        let selectedApp = displayApps[discoveryService.selectedIndex]
+                        if !selectedApp.isAppsChannelApp {
+                            NSWorkspace.shared.activateFileViewerSelecting([selectedApp.url])
+                            return nil
+                        }
+                    }
+                }
+
+                // Command+I: Get Info on focused application
+                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "i" {
+                    if discoveryService.selectedIndex < displayApps.count {
+                        let selectedApp = displayApps[discoveryService.selectedIndex]
+                        if !selectedApp.isAppsChannelApp {
+                            let script = """
+                            tell application "Finder"
+                                activate
+                                open information window of (POSIX file "\(selectedApp.url.path)" as alias)
+                            end tell
+                            """
+                            if let appleScript = NSAppleScript(source: script) {
+                                var error: NSDictionary?
+                                appleScript.executeAndReturnError(&error)
+                            }
+                            return nil
+                        }
+                    }
                 }
 
                 // Command + 1..8: Category Group Filtering

@@ -13,6 +13,8 @@ struct ThreeDSGridView: View {
     let onNavigate: (Int) -> Void
     var onMoveApp: ((Int, Int) -> Void)? = nil
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var dragOffset: CGFloat = 0.0
 
     private var effectiveRows: Int {
@@ -316,8 +318,12 @@ struct ThreeDSGridView: View {
                 )
             }
         }
-        .scaleEffect(isSelected ? 1.08 : 1.0)
-        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isSelected)
+        .scaleEffect(isSelected ? (reduceMotion ? 1.03 : 1.08) : 1.0)
+        .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.25, dampingFraction: 0.75), value: isSelected)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(app.name), \(app.category)")
+        .accessibilityHint(isSelected ? "Press Return to launch application" : "Click to select application")
+        .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : [.isButton])
         .onTapGesture {
             if isSelected {
                 onLaunch()
@@ -325,23 +331,7 @@ struct ThreeDSGridView: View {
                 onSelect(index)
             }
         }
-        .contextMenu {
-            if !app.isAppsChannelApp {
-                Button {
-                    NSWorkspace.shared.activateFileViewerSelecting([app.url])
-                } label: {
-                    Label("Reveal in Finder", systemImage: "folder")
-                }
-
-                Divider()
-
-                Button(role: .destructive) {
-                    AppDiscoveryService.shared.hideApp(app)
-                } label: {
-                    Label("Hide from AppsChannel", systemImage: "eye.slash")
-                }
-            }
-        }
+        .appContextMenu(for: app, onLaunch: onLaunch)
     }
 
     // MARK: - 3DS Speech Bubble Tooltip

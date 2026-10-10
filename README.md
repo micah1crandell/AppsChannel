@@ -32,11 +32,26 @@ AppsChannel is a lightweight, hardware-accelerated macOS application launcher bu
 - Move cards left, right, or pin to the front with custom order persistence (`UserDefaults`).
 - Reset anytime to usage-based smart order or alphabetical order in Settings.
 
-### 6. Power-User Keyboard & Gesture Shortcuts
+### 6. Running Indicators & Quick Actions
+- **Active Process Dots**: Glowing ambient green indicators reactively surface applications currently executing in system memory.
+- **Context Actions (Right-Click / Keyboard)**:
+  - *Reveal in Finder* (`⌘⇧R` or `⌘R`)
+  - *Get Info* (`⌘I`)
+  - *Copy Path & Bundle ID*
+  - *Quit / Force Quit Application* for active processes
+  - *Hide Application* from the grid
+
+### 7. Multi-Display & Accessibility Ergonomics
+- **Pointer-Targeted Display Spawning**: Automatically detects which monitor contains your mouse cursor to present the HUD on your active screen without jumping to primary displays.
+- **Reduce Motion Compliant**: Automatically adapts 3D transforms, perspective spins, and spring physics when *Reduce Motion* is enabled in macOS Accessibility.
+
+### 8. Power-User Keyboard & Gesture Shortcuts
 | Shortcut | Action |
 | :--- | :--- |
 | `⌥L` | Toggle Quick Launcher from anywhere in macOS (customizable) |
 | `⌘V` | Cycle between App Icon Flow, Channel Cards Flow, and Wall Grid |
+| `⌘⇧R` | Reveal currently focused application in Finder |
+| `⌘I` | Open macOS Finder Get Info window for focused app |
 | `⌥1` – `⌥9` | Direct Launch Channel Slots 1 through 9 |
 | `⌘1` – `⌘8` | Instant Category Group Switching (Dev, Productivity, Design, etc.) |
 | `⌘O` | Switch from Quick Launcher to Main App Window |
@@ -45,7 +60,7 @@ AppsChannel is a lightweight, hardware-accelerated macOS application launcher bu
 | `←` / `→` / Trackpad Scroll | Smooth carousel navigation |
 | `Return` / Click | Launch selected application |
 
-### 7. Blazing Fast Performance
+### 9. Blazing Fast Performance
 - **Instant Cold Start (< 10ms)**: Multi-tier local disk caching with asynchronous delta scanning.
 - **Dynamic Accent Glow**: Extracts each application's dominant palette to cast subtle ambient illumination across the glass backdrop.
 

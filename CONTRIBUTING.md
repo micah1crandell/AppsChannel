@@ -50,3 +50,9 @@ Thank you for your interest in contributing to **AppsChannel**! We welcome all c
 3. Commit your changes with clear commit messages (`git commit -m 'feat: add custom theme support'`).
 4. Push to your branch (`git push origin feature/my-feature`).
 5. Open a Pull Request referencing any related issues.
+
+---
+
+## Releasing & Distribution
+
+For details on Apple Developer ID code signing, Hardened Runtime, Apple Notarization, Sparkle feeds, and Homebrew cask updates, please see the [Distribution & Notarization Guide](docs/DISTRIBUTION_AND_SIGNING.md).

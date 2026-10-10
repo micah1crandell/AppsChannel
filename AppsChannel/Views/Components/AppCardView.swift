@@ -10,6 +10,9 @@ struct AppCardView: View {
     let onSelect: () -> Void
     let onLaunch: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var discoveryService = AppDiscoveryService.shared
+
     var cardWidth: CGFloat {
         if isIconOnly {
             return isCompact ? 136 : 180
@@ -76,12 +79,21 @@ struct AppCardView: View {
                             }
                         )
 
-                    Text(app.name)
-                        .font(.system(size: isCompact ? 13 : 16, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .shadow(color: .black.opacity(0.85), radius: 4, x: 0, y: 2)
-                        .opacity(isSelected ? 1.0 : max(0.25, 1.0 - abs(offset) * 0.55))
+                    HStack(spacing: 5) {
+                        if discoveryService.isRunning(app: app) {
+                            Circle()
+                                .fill(Color(red: 0.25, green: 0.90, blue: 0.55))
+                                .frame(width: isCompact ? 5 : 6, height: isCompact ? 5 : 6)
+                                .shadow(color: Color(red: 0.25, green: 0.90, blue: 0.55).opacity(0.85), radius: 3)
+                        }
+
+                        Text(app.name)
+                            .font(.system(size: isCompact ? 13 : 16, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .shadow(color: .black.opacity(0.85), radius: 4, x: 0, y: 2)
+                    }
+                    .opacity(isSelected ? 1.0 : max(0.25, 1.0 - abs(offset) * 0.55))
                 }
                 .frame(width: cardWidth, height: cardHeight)
                 .contentShape(Rectangle())
@@ -114,6 +126,11 @@ struct AppCardView: View {
             anchor: .center,
             perspective: 0.45
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(app.name), \(app.category)")
+        .accessibilityValue(app.tagBadge.isEmpty ? "" : app.tagBadge)
+        .accessibilityHint(isSelected ? "Press Return to launch application" : "Click to select application")
+        .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : [.isButton])
         .onTapGesture {
             if isSelected {
                 onLaunch()
@@ -121,23 +138,7 @@ struct AppCardView: View {
                 onSelect()
             }
         }
-        .contextMenu {
-            if !app.isAppsChannelApp {
-                Button {
-                    NSWorkspace.shared.activateFileViewerSelecting([app.url])
-                } label: {
-                    Label("Reveal in Finder", systemImage: "folder")
-                }
-
-                Divider()
-
-                Button(role: .destructive) {
-                    AppDiscoveryService.shared.hideApp(app)
-                } label: {
-                    Label("Hide from AppsChannel", systemImage: "eye.slash")
-                }
-            }
-        }
+        .appContextMenu(for: app, onLaunch: onLaunch)
     }
 
     private var reflectionView: some View {
@@ -166,7 +167,7 @@ struct AppCardView: View {
     }
 
     private func calculateRotation(offset: CGFloat) -> Double {
-        if abs(offset) < 0.001 { return 0 }
+        if reduceMotion || abs(offset) < 0.001 { return 0 }
         let maxAngle: Double = 46.0
         let sign: Double = offset > 0 ? -1 : 1
         return sign * min(maxAngle, 36.0 + Double(abs(offset)) * 2.0)
@@ -174,6 +175,9 @@ struct AppCardView: View {
 
     private func calculateScale(offset: CGFloat) -> CGFloat {
         let absOffset = abs(offset)
+        if reduceMotion {
+            return isSelected ? 1.02 : 0.98
+        }
         if absOffset < 0.2 { return 1.05 }
         return max(0.78, 1.0 - (absOffset * 0.06))
     }
@@ -241,10 +245,19 @@ struct ChannelCardDesignView: View {
 
                     Spacer()
 
-                    Text(app.category.uppercased())
-                        .font(.system(size: max(5.5, headerFontSize * 0.92), weight: .heavy, design: .monospaced))
-                        .foregroundStyle(Color.white.opacity(0.75))
-                        .lineLimit(1)
+                    HStack(spacing: max(2.5, width * 0.02)) {
+                        if AppDiscoveryService.shared.isRunning(app: app) {
+                            Circle()
+                                .fill(Color(red: 0.25, green: 0.90, blue: 0.55))
+                                .frame(width: max(4.5, width * 0.032), height: max(4.5, width * 0.032))
+                                .shadow(color: Color(red: 0.25, green: 0.90, blue: 0.55).opacity(0.85), radius: 2.5)
+                        }
+
+                        Text(app.category.uppercased())
+                            .font(.system(size: max(5.5, headerFontSize * 0.92), weight: .heavy, design: .monospaced))
+                            .foregroundStyle(Color.white.opacity(0.75))
+                            .lineLimit(1)
+                    }
                 }
                 .padding(.horizontal, max(5, width * 0.055))
                 .padding(.top, max(4, height * 0.045))

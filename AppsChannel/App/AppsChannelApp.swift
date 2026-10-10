@@ -95,6 +95,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             PanelController.shared.showQuickLauncher()
             return
         }
+        if args.contains("--tour") || args.contains("--walkthrough") {
+            PanelController.shared.showMainApp()
+            DispatchQueue.main.async {
+                MainAppState.shared.isShowingWalkthrough = true
+            }
+            return
+        }
+
+        // First time open walkthrough: check if user has completed it
+        let hasCompletedWalkthrough = UserDefaults.standard.bool(forKey: "hasCompletedWalkthrough")
+        if !hasCompletedWalkthrough {
+            PanelController.shared.showMainApp()
+            DispatchQueue.main.async {
+                MainAppState.shared.isShowingWalkthrough = true
+            }
+            return
+        }
 
         // Regular user launch: show according to user's default launcher preference (defaults to Quick Launcher)
         PanelController.shared.show()
@@ -111,6 +128,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             PanelController.shared.showQuickLauncher()
         } else if host == "main" || host == "fullscreen" || path == "/main" || full.contains("main") {
             PanelController.shared.showMainApp()
+        } else if host == "walkthrough" || host == "tour" || path == "/walkthrough" || path == "/tour" || full.contains("walkthrough") || full.contains("tour") {
+            PanelController.shared.showMainApp()
+            DispatchQueue.main.async {
+                MainAppState.shared.isShowingWalkthrough = true
+            }
         } else if host == "toggle" || path == "/toggle" || full.contains("toggle") {
             PanelController.shared.toggle()
         } else {

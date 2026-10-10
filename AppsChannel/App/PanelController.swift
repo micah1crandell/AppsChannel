@@ -29,6 +29,43 @@ final class PanelController {
     func setup() {
         setupQuickLauncherPanel()
         setupMainAppWindow()
+        setupScreenChangeObserver()
+    }
+
+    private func setupScreenChangeObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleScreenParametersChanged()
+        }
+    }
+
+    @objc private func handleScreenParametersChanged() {
+        let activeScreen = Self.targetScreenForPointer()
+        if let panel = quickLauncherPanel {
+            panel.setFrame(activeScreen.frame, display: true)
+        }
+        if let window = mainAppWindow, window.isVisible {
+            repositionWindowInsideVisibleScreen(window, on: activeScreen)
+        }
+    }
+
+    static func targetScreenForPointer() -> NSScreen {
+        let mouseLocation = NSEvent.mouseLocation
+        if let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) {
+            return screen
+        }
+        return NSScreen.main ?? NSScreen.screens.first ?? NSScreen()
+    }
+
+    private func repositionWindowInsideVisibleScreen(_ window: NSWindow, on targetScreen: NSScreen? = nil) {
+        let screen = (targetScreen ?? Self.targetScreenForPointer()).visibleFrame
+        let curFrame = window.frame
+        let newX = max(screen.minX, min(screen.midX - (curFrame.width / 2), screen.maxX - curFrame.width))
+        let newY = max(screen.minY, min(screen.midY - (curFrame.height / 2), screen.maxY - curFrame.height))
+        window.setFrameOrigin(NSPoint(x: newX, y: newY))
     }
 
     private func setupQuickLauncherPanel() {
@@ -179,14 +216,8 @@ final class PanelController {
         guard let window = mainAppWindow else { return }
 
         // Position on target screen where mouse is currently located
-        let mouseLocation = NSEvent.mouseLocation
-        if let targetScreen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) {
-            let screen = targetScreen.visibleFrame
-            let curFrame = window.frame
-            let newX = max(screen.minX, min(screen.midX - (curFrame.width / 2), screen.maxX - curFrame.width))
-            let newY = max(screen.minY, min(screen.midY - (curFrame.height / 2), screen.maxY - curFrame.height))
-            window.setFrameOrigin(NSPoint(x: newX, y: newY))
-        }
+        let targetScreen = Self.targetScreenForPointer()
+        repositionWindowInsideVisibleScreen(window, on: targetScreen)
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -198,10 +229,8 @@ final class PanelController {
         mainAppWindow?.orderOut(nil)
         guard let panel = quickLauncherPanel else { return }
 
-        let mouseLocation = NSEvent.mouseLocation
-        if let targetScreen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) {
-            panel.setFrame(targetScreen.frame, display: true)
-        }
+        let targetScreen = Self.targetScreenForPointer()
+        panel.setFrame(targetScreen.frame, display: true)
 
         lastQuickShowTime = Date()
         panel.makeKeyAndOrderFront(nil)

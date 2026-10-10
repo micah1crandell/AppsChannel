@@ -12,6 +12,8 @@ struct CoverFlowWallView: View {
     let onNavigate: (Int) -> Void
     var onMoveApp: ((Int, Int) -> Void)? = nil
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var dragOffset: CGFloat = 0.0
     @State private var draggedIndex: Int? = nil
 
@@ -208,6 +210,10 @@ struct CoverFlowWallView: View {
                 Spacer().frame(height: isCompact ? 26 : 38)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(app.name), \(app.category)")
+        .accessibilityHint(isSelected ? "Press Return to launch application" : "Click to select application")
+        .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : [.isButton])
         .onTapGesture {
             if isSelected {
                 onLaunch()
@@ -215,23 +221,7 @@ struct CoverFlowWallView: View {
                 onSelect(index)
             }
         }
-        .contextMenu {
-            if !app.isAppsChannelApp {
-                Button {
-                    NSWorkspace.shared.activateFileViewerSelecting([app.url])
-                } label: {
-                    Label("Reveal in Finder", systemImage: "folder")
-                }
-
-                Divider()
-
-                Button(role: .destructive) {
-                    AppDiscoveryService.shared.hideApp(app)
-                } label: {
-                    Label("Hide from AppsChannel", systemImage: "eye.slash")
-                }
-            }
-        }
+        .appContextMenu(for: app, onLaunch: onLaunch)
     }
 
     private func reflectionView(for icon: NSImage) -> some View {
@@ -258,7 +248,7 @@ struct CoverFlowWallView: View {
 
     // MARK: - 3D Geometry Mathematics for Concave Amphitheater Wall Perspective (Wii Flow / IMAX Style)
     private func calculateColumnRotation(offset: CGFloat) -> Double {
-        if abs(offset) < 0.001 { return 0 }
+        if reduceMotion || abs(offset) < 0.001 { return 0 }
         // Inward facing angle: negative for right side (faces left toward center), positive for left side (faces right toward center)
         let angleStep: Double = isCompact ? 10.5 : 12.8
         let rawAngle = -Double(offset) * angleStep
@@ -266,6 +256,9 @@ struct CoverFlowWallView: View {
     }
 
     private func calculateScale(offset: CGFloat, isSelected: Bool) -> CGFloat {
+        if reduceMotion {
+            return isSelected ? 1.04 : 1.0
+        }
         // Concave curvature: sides wrap forward closer to viewer with tight, controlled growth
         let absOffset = Double(abs(offset))
         let growth = pow(absOffset, 1.10) * 0.045

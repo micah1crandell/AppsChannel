@@ -38,3 +38,10 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+      - name: Verify Helper Scripts
+        run: |
+          bash -n scripts/create_dmg.sh
+          bash -n scripts/update_cask.sh
+          bash -n scripts/generate_appcast.sh
+          echo "✅ All release scripts verified."

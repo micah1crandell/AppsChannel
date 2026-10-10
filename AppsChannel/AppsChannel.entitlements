@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Allow incoming and outgoing network connections (required for Sparkle updates) -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+
+	<!-- Allow sending Apple Events to other applications (for launching and activating apps) -->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+
+	<!-- Allow JIT compilation if required by dependencies -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+
+	<!-- Disable library validation if needed for third-party plug-ins or system frameworks -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+
+	<!-- Allow reading user-selected files -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+</dict>
+</plist>

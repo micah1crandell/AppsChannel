@@ -6,6 +6,7 @@ import Combine
 final class MainAppState: ObservableObject {
     static let shared = MainAppState()
     @Published var isShowingSettings: Bool = false
+    @Published var isShowingWalkthrough: Bool = false
     var eventMonitor: Any? = nil
 }
 
@@ -21,6 +22,7 @@ struct MainAppView: View {
     @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
     @State private var layoutMode: MainLayoutViewMode = .gridWall
     @State private var isOrganizeMode: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let onSwitchToQuickLauncher: () -> Void
     let onDismiss: () -> Void
@@ -172,7 +174,7 @@ struct MainAppView: View {
                 }
                 Spacer()
             }
-            .allowsHitTesting(!appState.isShowingSettings)
+            .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
 
             // Nintendo Wii / 3DS Style Channel Arranger Deck (Apple Liquid Glass)
             if isOrganizeMode {
@@ -181,7 +183,7 @@ struct MainAppView: View {
                     channelArrangerDeck
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .allowsHitTesting(!appState.isShowingSettings)
+                .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
             }
 
             // Full Screen Liquid Glass HUD
@@ -222,7 +224,7 @@ struct MainAppView: View {
                 },
                 isOrganizeMode: isOrganizeMode
             )
-            .allowsHitTesting(!appState.isShowingSettings)
+            .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
 
             // Settings & Account Modal Sheet
             if appState.isShowingSettings {
@@ -236,6 +238,25 @@ struct MainAppView: View {
 
                 SettingsModalView(isPresented: $appState.isShowingSettings)
                     .transition(.scale(scale: 0.95).combined(with: .opacity))
+            }
+
+            // First-Time Open Walkthrough Modal Sheet
+            if appState.isShowingWalkthrough {
+                Color.black.opacity(0.48)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        // Keep focused on walkthrough
+                    }
+
+                WalkthroughView(
+                    isPresented: $appState.isShowingWalkthrough,
+                    onComplete: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            appState.isShowingWalkthrough = false
+                        }
+                    }
+                )
+                .transition(.scale(scale: 0.95).combined(with: .opacity))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -288,7 +309,18 @@ struct MainAppView: View {
                 appState.isShowingSettings = true
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openWalkthrough)) { _ in
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                appState.isShowingSettings = false
+                appState.isShowingWalkthrough = true
+            }
+        }
         .onChange(of: appState.isShowingSettings) { isShowing in
+            if isShowing {
+                scrollAccumulator = 0.0
+            }
+        }
+        .onChange(of: appState.isShowingWalkthrough) { isShowing in
             if isShowing {
                 scrollAccumulator = 0.0
             }
@@ -299,9 +331,10 @@ struct MainAppView: View {
         .onDisappear {
             removeEventMonitor()
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: appState.isShowingSettings)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isOrganizeMode)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: layoutMode)
+        .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.3, dampingFraction: 0.8)), value: appState.isShowingSettings)
+        .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: appState.isShowingWalkthrough)
+        .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.3, dampingFraction: 0.8)), value: isOrganizeMode)
+        .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: layoutMode)
     }
 
     // MARK: - Transparent Floating Backdrop with Behind-Window Desktop Blur
@@ -363,6 +396,28 @@ struct MainAppView: View {
                 return event
             }
 
+            // When Walkthrough modal is active, isolate events and allow keyboard walkthrough navigation:
+            if MainAppState.shared.isShowingWalkthrough {
+                scrollAccumulator = 0.0
+                if event.type == .keyDown {
+                    if event.keyCode == 53 { // Escape: Dismiss/Skip
+                        SoundEffectsManager.shared.playLaunch()
+                        UserDefaults.standard.set(true, forKey: "hasCompletedWalkthrough")
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            MainAppState.shared.isShowingWalkthrough = false
+                        }
+                        return nil
+                    } else if event.keyCode == 123 { // Left Arrow
+                        NotificationCenter.default.post(name: .walkthroughPrevious, object: nil)
+                        return nil
+                    } else if event.keyCode == 124 || event.keyCode == 36 || event.keyCode == 49 { // Right Arrow, Return, Space
+                        NotificationCenter.default.post(name: .walkthroughNext, object: nil)
+                        return nil
+                    }
+                }
+                return nil
+            }
+
             // When Settings modal is active, isolate events:
             if MainAppState.shared.isShowingSettings {
                 scrollAccumulator = 0.0
@@ -415,6 +470,33 @@ struct MainAppView: View {
                         }
                     }
                     return nil
+                }
+
+                // Command+Shift+R: Reveal focused application in Finder
+                if event.modifierFlags.contains(.command) && (event.charactersIgnoringModifiers == "r" || event.charactersIgnoringModifiers == "R") {
+                    if discoveryService.selectedIndex < filteredApps.count {
+                        let selectedApp = filteredApps[discoveryService.selectedIndex]
+                        NSWorkspace.shared.activateFileViewerSelecting([selectedApp.url])
+                        return nil
+                    }
+                }
+
+                // Command+I: Get Info on focused application
+                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "i" {
+                    if discoveryService.selectedIndex < filteredApps.count {
+                        let selectedApp = filteredApps[discoveryService.selectedIndex]
+                        let script = """
+                        tell application "Finder"
+                            activate
+                            open information window of (POSIX file "\(selectedApp.url.path)" as alias)
+                        end tell
+                        """
+                        if let appleScript = NSAppleScript(source: script) {
+                            var error: NSDictionary?
+                            appleScript.executeAndReturnError(&error)
+                        }
+                        return nil
+                    }
                 }
 
                 // Command + 1..8: Instant Category Group Switch

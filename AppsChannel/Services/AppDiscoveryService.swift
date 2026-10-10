@@ -64,8 +64,58 @@ final class AppDiscoveryService: ObservableObject {
         return appCacheDir.appendingPathComponent("apps_cache.json")
     }
 
+    @Published var runningBundleIds: Set<String> = []
+
     init() {
         loadInitialApps()
+        setupRunningAppObservers()
+    }
+
+    // MARK: - Running Applications State
+    func isRunning(app: DiscoveredApp) -> Bool {
+        guard let bundleId = app.bundleIdentifier else {
+            return false
+        }
+        return runningBundleIds.contains(bundleId)
+    }
+
+    func updateRunningApplications() {
+        let running = NSWorkspace.shared.runningApplications
+        let ids = Set(running.compactMap { $0.bundleIdentifier })
+        self.runningBundleIds = ids
+    }
+
+    private func setupRunningAppObservers() {
+        updateRunningApplications()
+        let center = NSWorkspace.shared.notificationCenter
+        center.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateRunningApplications()
+        }
+        center.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateRunningApplications()
+        }
+    }
+
+    func terminateApp(_ app: DiscoveredApp, force: Bool = false) {
+        guard let bundleId = app.bundleIdentifier else { return }
+        for running in NSWorkspace.shared.runningApplications where running.bundleIdentifier == bundleId {
+            if force {
+                running.forceTerminate()
+            } else {
+                running.terminate()
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.updateRunningApplications()
+        }
     }
 
     private let customOrderKey = "AppsChannelUserCustomOrder"

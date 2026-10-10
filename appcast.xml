@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>AppsChannel Updates</title>
+        <link>https://raw.githubusercontent.com/micah1crandell/AppsChannel/main/appcast.xml</link>
+        <description>Most recent updates for AppsChannel launcher.</description>
+        <language>en</language>
+        <item>
+            <title>AppsChannel 1.0.0</title>
+            <sparkle:releaseNotesLink>https://github.com/micah1crandell/AppsChannel/releases/tag/v1.0.0</sparkle:releaseNotesLink>
+            <pubDate>Fri, 09 Oct 2026 21:00:00 -0700</pubDate>
+            <enclosure
+                url="https://github.com/micah1crandell/AppsChannel/releases/download/v1.0.0/AppsChannel.zip"
+                sparkle:version="1"
+                sparkle:shortVersionString="1.0.0"
+                length="12850000"
+                type="application/octet-stream" />
+        </item>
+    </channel>
+</rss>

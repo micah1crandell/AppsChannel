@@ -4,22 +4,77 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag (e.g. v1.0.1)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
 
 jobs:
   release:
-    name: Build & Publish Release
+    name: Build, Sign, Notarize & Publish
     runs-on: macos-14
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Select Xcode
-        run: sudo xcode-select -switch /Applications/Xcode_15.4.app || sudo xcode-select -switch /Applications/Xcode.app
+        run: |
+          sudo xcode-select -switch /Applications/Xcode_15.4.app 2>/dev/null || sudo xcode-select -switch /Applications/Xcode.app
+          xcodebuild -version
 
-      - name: Show Xcode Version
-        run: xcodebuild -version
+      - name: Install Release Tooling
+        run: |
+          brew install create-dmg || true
 
+      - name: Resolve Swift Packages
+        run: |
+          xcodebuild -resolvePackageDependencies -project AppsChannel.xcodeproj -scheme AppsChannel
+
+      # ========================================================================
+      # Keychain & Apple Developer ID Application Certificate Setup
+      # ========================================================================
+      - name: Configure Signing Keychain
+        id: keychain
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+        run: |
+          if [ -n "$MACOS_CERTIFICATE" ]; then
+            echo "🔐 Apple Developer Certificate secret detected. Preparing keychain..."
+            KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+            KEYCHAIN_PWD=$(uuidgen)
+
+            security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+            security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+
+            CERT_P12=$RUNNER_TEMP/certificate.p12
+            echo "$MACOS_CERTIFICATE" | base64 --decode > "$CERT_P12"
+            security import "$CERT_P12" -k "$KEYCHAIN_PATH" -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+
+            # Detect imported Developer ID signing identity
+            IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -n 1 | awk -F '"' '{print $2}')
+            echo "SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_OUTPUT"
+            echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_OUTPUT"
+            echo "✅ Configured signing identity: $IDENTITY"
+          else
+            echo "⚠️  MACOS_CERTIFICATE secret not configured. Falling back to ad-hoc code signing."
+            echo "SIGNING_IDENTITY=-" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ========================================================================
+      # Build AppsChannel (Release Configuration with Hardened Runtime)
+      # ========================================================================
       - name: Build AppsChannel (Release)
         run: |
           xcodebuild -scheme AppsChannel \
@@ -31,23 +86,169 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      - name: Package Release Archive (.zip)
+      # ========================================================================
+      # Code Signing & Hardened Runtime Verification
+      # ========================================================================
+      - name: Sign App Bundle and Frameworks
+        env:
+          SIGNING_IDENTITY: ${{ steps.keychain.outputs.SIGNING_IDENTITY }}
         run: |
-          cd build/Build/Products/Release
+          APP_PATH="./build/Build/Products/Release/AppsChannel.app"
+
+          if [ "$SIGNING_IDENTITY" != "-" ] && [ -n "$SIGNING_IDENTITY" ]; then
+            echo "✍️  Signing embedded frameworks..."
+            find "$APP_PATH/Contents/Frameworks" -type d -name "*.framework" 2>/dev/null | while read -r framework; do
+              codesign --force --verify --verbose --sign "$SIGNING_IDENTITY" --options runtime --timestamp "$framework"
+            done
+
+            echo "✍️  Signing main application bundle with Hardened Runtime..."
+            codesign --force --deep --verify --verbose \
+              --sign "$SIGNING_IDENTITY" \
+              --options runtime \
+              --entitlements AppsChannel/AppsChannel.entitlements \
+              --timestamp \
+              "$APP_PATH"
+
+            codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          else
+            echo "ℹ️  Using ad-hoc signing signature for app bundle."
+            codesign --force --deep --sign - "$APP_PATH"
+          fi
+
+      # ========================================================================
+      # Apple Notarization (if Apple ID & App-Specific Password provided)
+      # ========================================================================
+      - name: Notarize App Bundle
+        id: notarize
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SIGNING_IDENTITY: ${{ steps.keychain.outputs.SIGNING_IDENTITY }}
+        run: |
+          APP_PATH="./build/Build/Products/Release/AppsChannel.app"
+
+          if [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && [ "$SIGNING_IDENTITY" != "-" ]; then
+            echo "🚀 Submitting app for Apple Notarization..."
+            ZIP_NOTARIZE="./build/Build/Products/Release/AppsChannel-notarize.zip"
+            ditto -c -k --keepParent "$APP_PATH" "$ZIP_NOTARIZE"
+
+            xcrun notarytool submit "$ZIP_NOTARIZE" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait
+
+            echo "📎 Stapling notarization ticket to app bundle..."
+            xcrun stapler staple "$APP_PATH"
+            spctl --assess --type execute -v "$APP_PATH" || true
+            echo "NOTARIZED=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "⚠️  Apple Notarization skipped (requires APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and Developer ID certificate)."
+            echo "NOTARIZED=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ========================================================================
+      # Package Release ZIP & Polished Drag-and-Drop DMG
+      # ========================================================================
+      - name: Package Release ZIP Archive
+        run: |
+          cd ./build/Build/Products/Release
           ditto -c -k --keepParent AppsChannel.app AppsChannel.zip
+          ls -lh AppsChannel.zip
 
-      - name: Create DMG
+      - name: Build Polished Drag-and-Drop DMG
         run: |
-          APP_PATH="build/Build/Products/Release/AppsChannel.app"
-          DMG_PATH="build/Build/Products/Release/AppsChannel.dmg"
-          hdiutil create -volname "AppsChannel" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
+          APP_PATH="./build/Build/Products/Release/AppsChannel.app"
+          DMG_PATH="./build/Build/Products/Release/AppsChannel.dmg"
+          ./scripts/create_dmg.sh "$APP_PATH" "$DMG_PATH" "AppsChannel"
 
+      - name: Staple DMG (if Notarized)
+        if: steps.notarize.outputs.NOTARIZED == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          DMG_PATH="./build/Build/Products/Release/AppsChannel.dmg"
+          echo "🚀 Submitting DMG for Apple Notarization..."
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          echo "📎 Stapling notarization ticket to DMG..."
+          xcrun stapler staple "$DMG_PATH"
+          spctl --assess --type open --context context:primary-signature -v "$DMG_PATH" || true
+
+      # ========================================================================
+      # Sparkle Appcast Generation & Signing
+      # ========================================================================
+      - name: Sign Sparkle Update & Update appcast.xml
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag_name }}
+        run: |
+          VERSION="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          VERSION="${VERSION#v}"
+          ZIP_PATH="./build/Build/Products/Release/AppsChannel.zip"
+
+          SPARKLE_SIG=""
+          if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "🔑 Downloading Sparkle CLI tools to sign update..."
+            mkdir -p $RUNNER_TEMP/sparkle-bin
+            curl -sL https://github.com/sparkle-project/Sparkle/releases/download/2.6.4/Sparkle-2.6.4.tar.xz | tar -xJ -C $RUNNER_TEMP/sparkle-bin
+
+            echo "✍️  Generating Ed25519 signature..."
+            SPARKLE_SIG=$($RUNNER_TEMP/sparkle-bin/bin/sign_update -s "$SPARKLE_PRIVATE_KEY" "$ZIP_PATH" 2>/dev/null | grep -o 'sparkle:edSignature="[^"]*"' | cut -d'"' -f2 || true)
+            echo "Generated signature: $SPARKLE_SIG"
+          else
+            echo "ℹ️  SPARKLE_PRIVATE_KEY not set. Generating feed entry without Ed25519 signature."
+          fi
+
+          ./scripts/generate_appcast.sh "$VERSION" "$ZIP_PATH" "$SPARKLE_SIG"
+
+      # ========================================================================
+      # Update Homebrew Cask Definition
+      # ========================================================================
+      - name: Update Homebrew Cask
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag_name }}
+        run: |
+          VERSION="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          DMG_PATH="./build/Build/Products/Release/AppsChannel.dmg"
+          ./scripts/update_cask.sh "$VERSION" "$DMG_PATH" "Casks/appschannel.rb"
+
+      # ========================================================================
+      # Commit Feed & Cask Updates Back to Main
+      # ========================================================================
+      - name: Commit and Push Updated Metadata
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml Casks/appschannel.rb || true
+
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): update appcast.xml and Casks/appschannel.rb [skip ci]"
+            git push origin HEAD:main || echo "⚠️ Push back to main failed (check permissions)"
+          else
+            echo "No repository metadata changes to commit."
+          fi
+
+      # ========================================================================
+      # Publish GitHub Release
+      # ========================================================================
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
           files: |
             build/Build/Products/Release/AppsChannel.zip
             build/Build/Products/Release/AppsChannel.dmg
+            appcast.xml
           generate_release_notes: true
           draft: false
           prerelease: false
