@@ -203,9 +203,16 @@ struct QuickLauncherView: View {
             discoveryService.selectedIndex = filteredApps.count / 2
             setupEventMonitor()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { notification in
             searchText = ""
             discoveryService.selectedIndex = filteredApps.count / 2
+            if let mode = notification.object as? LauncherMode {
+                if mode == .quickLauncher {
+                    setupEventMonitor()
+                } else {
+                    removeEventMonitor()
+                }
+            }
         }
         .onDisappear {
             searchText = ""
@@ -219,6 +226,13 @@ struct QuickLauncherView: View {
     private func setupEventMonitor() {
         guard eventMonitor == nil else { return }
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown]) { [self] event in
+            // Only process events when QuickLauncher is visible and event belongs to its panel
+            guard PanelController.shared.isQuickLauncherVisible,
+                  let window = event.window ?? NSApp.keyWindow,
+                  window is AppsChannelPanel else {
+                return event
+            }
+
             if event.type == .scrollWheel {
                 handleScrollEvent(event)
                 return nil

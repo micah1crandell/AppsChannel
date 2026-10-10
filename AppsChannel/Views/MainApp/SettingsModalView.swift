@@ -58,6 +58,7 @@ struct SettingsModalView: View {
                         .foregroundStyle(.white.opacity(0.85))
                         .frame(width: 28, height: 28)
                         .background(Color(white: 0.08).opacity(0.85), in: Circle())
+                        .contentShape(Circle())
                         .overlay(
                             Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                         )
@@ -113,6 +114,7 @@ struct SettingsModalView: View {
                                         lineWidth: 1
                                     )
                             )
+                            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -145,6 +147,7 @@ struct SettingsModalView: View {
                     .contentShape(Rectangle())
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
             }
         }
         .frame(width: 710, height: 510)
@@ -311,6 +314,7 @@ struct SettingsModalView: View {
                                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                                     .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
                             )
+                            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         }
                         .buttonStyle(.plain)
 
@@ -327,6 +331,7 @@ struct SettingsModalView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
                             .background(Color.white, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -376,6 +381,7 @@ struct SettingsModalView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.14), lineWidth: 1)
             )
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -418,6 +424,7 @@ struct SettingsModalView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
                             .background(isRecordingShortcut ? Color.white.opacity(0.9) : Color.white, in: Capsule())
+                            .contentShape(Capsule())
                         }
                         .buttonStyle(.plain)
                     }
@@ -463,6 +470,7 @@ struct SettingsModalView: View {
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                                             .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.18), lineWidth: 1)
                                     )
+                                    .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -485,14 +493,17 @@ struct SettingsModalView: View {
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(.white)
                             Spacer()
-                            Button("Open Shortcuts") {
+                            Button(action: {
                                 NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Shortcuts.app"))
+                            }) {
+                                Text("Open Shortcuts")
+                                    .foregroundStyle(.black)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Color.white, in: RoundedRectangle(cornerRadius: 6))
+                                    .contentShape(RoundedRectangle(cornerRadius: 6))
                             }
-                            .foregroundStyle(.black)
-                            .font(.system(size: 11, weight: .semibold))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Color.white, in: RoundedRectangle(cornerRadius: 6))
                             .buttonStyle(.plain)
                         }
 
@@ -514,17 +525,20 @@ struct SettingsModalView: View {
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(.white.opacity(0.9))
                             Spacer()
-                            Button("Open Settings") {
+                            Button(action: {
                                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.keyboard") {
                                     NSWorkspace.shared.open(url)
                                 }
+                            }) {
+                                Text("Open Settings")
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .font(.system(size: 11, weight: .medium))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+                                    .contentShape(RoundedRectangle(cornerRadius: 6))
                             }
-                            .foregroundStyle(.white.opacity(0.85))
-                            .font(.system(size: 11, weight: .medium))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
-                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
                             .buttonStyle(.plain)
                         }
 

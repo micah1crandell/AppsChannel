@@ -219,8 +219,20 @@ struct MainAppView: View {
             discoveryService.selectedIndex = filteredApps.count / 2
             setupEventMonitor()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { notification in
             discoveryService.selectedIndex = filteredApps.count / 2
+            if let mode = notification.object as? LauncherMode {
+                if mode == .fullScreen {
+                    setupEventMonitor()
+                } else {
+                    removeEventMonitor()
+                }
+            }
+        }
+        .onChange(of: appState.isShowingSettings) { isShowing in
+            if isShowing {
+                scrollAccumulator = 0.0
+            }
         }
         .onChange(of: layoutMode) { newMode in
             layoutModeRaw = newMode.rawValue
@@ -287,8 +299,16 @@ struct MainAppView: View {
         appState.eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown]) { [weak appState] event in
             guard let appState = appState else { return event }
 
+            // Only process events when Main App window is visible and key
+            guard PanelController.shared.isMainAppVisible,
+                  let window = event.window ?? NSApp.keyWindow,
+                  !(window is AppsChannelPanel) else {
+                return event
+            }
+
             // When Settings modal is active, isolate events:
             if appState.isShowingSettings {
+                scrollAccumulator = 0.0
                 if event.type == .scrollWheel {
                     // Let SettingsModalView's ScrollView handle scroll events natively without moving background cards
                     return event
