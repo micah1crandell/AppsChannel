@@ -51,15 +51,6 @@ final class MenuBarManager: NSObject {
 
         menu.addItem(NSMenuItem.separator())
 
-        let tourItem = NSMenuItem(
-            title: "Welcome Walkthrough...",
-            action: #selector(openWalkthrough),
-            keyEquivalent: ""
-        )
-        tourItem.target = self
-        tourItem.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)
-        menu.addItem(tourItem)
-
         let prefsItem = NSMenuItem(
             title: "Preferences...",
             action: #selector(openPreferences),
@@ -121,11 +112,6 @@ final class MenuBarManager: NSObject {
     @objc private func openPreferences() {
         PanelController.shared.showMainApp()
         NotificationCenter.default.post(name: Notification.Name("AppsChannelOpenPreferences"), object: nil)
-    }
-
-    @objc private func openWalkthrough() {
-        PanelController.shared.showMainApp()
-        NotificationCenter.default.post(name: .openWalkthrough, object: nil)
     }
 
     @objc private func checkForUpdates() {

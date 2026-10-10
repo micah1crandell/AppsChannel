@@ -366,45 +366,6 @@ struct SettingsModalView: View {
                     }
                     .toggleStyle(.switch)
                     .tint(.white)
-
-                    Divider().background(Color.white.opacity(0.08))
-
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Welcome Walkthrough")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.white)
-                            Text("Replay the interactive first-time walkthrough animation and shortcuts tour.")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.6))
-                        }
-                        Spacer()
-                        Button(action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                isPresented = false
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                    MainAppState.shared.isShowingWalkthrough = true
-                                }
-                            }
-                        }) {
-                            HStack(spacing: 5) {
-                                Image(systemName: "sparkles")
-                                    .font(.system(size: 11, weight: .semibold))
-                                Text("Replay Walkthrough")
-                                    .font(.system(size: 11, weight: .semibold))
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 11)
-                            .padding(.vertical, 5)
-                            .background(Color.white.opacity(0.12), in: Capsule())
-                            .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
-                            .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .contentShape(Capsule())
-                    }
                 }
             }
 
@@ -1556,33 +1517,6 @@ struct SettingsModalView: View {
                             Text("Cover Flow meets the Nintendo Channel Grid for macOS")
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.65))
-
-                            Button(action: {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    isPresented = false
-                                }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                        MainAppState.shared.isShowingWalkthrough = true
-                                    }
-                                }
-                            }) {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "sparkles")
-                                        .font(.system(size: 10, weight: .semibold))
-                                    Text("Replay Walkthrough")
-                                        .font(.system(size: 10.5, weight: .semibold))
-                                }
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 4)
-                                .background(Color.white.opacity(0.12), in: Capsule())
-                                .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
-                                .contentShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .contentShape(Capsule())
-                            .padding(.top, 2)
                         }
                     }
 
