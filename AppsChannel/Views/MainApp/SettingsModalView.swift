@@ -123,6 +123,44 @@ struct SettingsModalView: View {
                         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     Spacer()
+
+                    // Support / Buy Me a Coffee Button (Bottom Left)
+                    Button(action: {
+                        if let url = URL(string: "https://www.buymeacoffee.com/micahcrandell") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        HStack(spacing: 7) {
+                            Image(systemName: "cup.and.saucer.fill")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(Color(red: 1.0, green: 0.82, blue: 0.2))
+
+                            Text("Buy Me a Coffee")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color.white.opacity(0.92))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color(red: 1.0, green: 0.82, blue: 0.2).opacity(0.12))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(
+                                    Color(red: 1.0, green: 0.82, blue: 0.2).opacity(0.35),
+                                    lineWidth: 1
+                                )
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .help("Support development on Buy Me a Coffee")
                 }
                 .frame(width: 160)
                 .padding(14)
@@ -1262,6 +1300,30 @@ struct SettingsModalView: View {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
                                 .background(Color.white.opacity(0.12), in: Capsule())
+                                .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .contentShape(Capsule())
+
+                            Button(action: {
+                                if let url = URL(string: "https://www.buymeacoffee.com/micahcrandell") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "cup.and.saucer.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Color(red: 1.0, green: 0.82, blue: 0.2))
+                                    Text("Buy Me a Coffee")
+                                        .font(.system(size: 11, weight: .semibold))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color(red: 1.0, green: 0.82, blue: 0.2).opacity(0.15), in: Capsule())
+                                .overlay(
+                                    Capsule().strokeBorder(Color(red: 1.0, green: 0.82, blue: 0.2).opacity(0.35), lineWidth: 1)
+                                )
                                 .contentShape(Capsule())
                             }
                             .buttonStyle(.plain)
