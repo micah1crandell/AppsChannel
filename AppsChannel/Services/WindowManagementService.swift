@@ -54,6 +54,7 @@ final class WindowManagementService: ObservableObject {
 
     private var registeredHotKeys: [WindowSnappingAction: HotKey] = [:]
     private var windowRestoreHistory: [pid_t: [CGRect]] = [:]
+    private var lastPermissionPromptTime: Date = .distantPast
 
     private let configsStorageKey = "AppsChannelWindowActionConfigs_v1"
     private let masterEnabledStorageKey = "AppsChannelWindowManagement_MasterEnabled"
@@ -280,31 +281,50 @@ final class WindowManagementService: ObservableObject {
     // MARK: - Window Snapping Execution
     func performAction(_ action: WindowSnappingAction) {
         checkAccessibility()
-        guard isAccessibilityGranted else {
-            requestAccessibilityPermission()
-            return
+        if !isAccessibilityGranted {
+            let now = Date()
+            if now.timeIntervalSince(lastPermissionPromptTime) > 10.0 {
+                lastPermissionPromptTime = now
+                requestAccessibilityPermission()
+            }
         }
 
         // Determine target application:
         // If AppsChannel is currently active, dismiss AppsChannel and use lastExternalApp
         let targetApp: NSRunningApplication?
-        if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Bundle.main.bundleIdentifier {
+        let front = NSWorkspace.shared.frontmostApplication
+        if front == nil || front?.bundleIdentifier == Bundle.main.bundleIdentifier {
             PanelController.shared.hide()
             targetApp = lastExternalApp ?? NSWorkspace.shared.runningApplications.first(where: {
                 $0.activationPolicy == .regular && $0.bundleIdentifier != Bundle.main.bundleIdentifier
             })
         } else {
-            targetApp = NSWorkspace.shared.frontmostApplication
+            targetApp = front
         }
 
         guard let app = targetApp, app.processIdentifier > 0 else { return }
 
-        // Activate target app if needed
-        app.activate(options: [.activateIgnoringOtherApps])
+        // If target app is not AppsChannel, activate it
+        if app.bundleIdentifier != Bundle.main.bundleIdentifier {
+            app.activate(options: [.activateIgnoringOtherApps])
+        }
 
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        guard let window = getTargetWindow(for: axApp) else { return }
 
+        if let window = getTargetWindow(for: axApp) {
+            executeSnap(action: action, window: window, app: app)
+        } else {
+            // If window wasn't immediately focused (e.g. app switch transition in flight), retry after 60ms
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { [weak self] in
+                guard let self = self else { return }
+                if let retryWindow = self.getTargetWindow(for: axApp) {
+                    self.executeSnap(action: action, window: retryWindow, app: app)
+                }
+            }
+        }
+    }
+
+    private func executeSnap(action: WindowSnappingAction, window: AXUIElement, app: NSRunningApplication) {
         switch action {
         case .minimize:
             AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
@@ -610,8 +630,21 @@ final class WindowManagementService: ObservableObject {
 
         var windowsList: CFTypeRef?
         if AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &windowsList) == .success,
-           let array = windowsList as? [AXUIElement], let first = array.first {
-            return first
+           let cfList = windowsList {
+            let count = CFArrayGetCount(cfList as! CFArray)
+            for i in 0..<count {
+                let elem = CFArrayGetValueAtIndex(cfList as! CFArray, i)
+                let candidate = unsafeBitCast(elem, to: AXUIElement.self)
+                var role: CFTypeRef?
+                if AXUIElementCopyAttributeValue(candidate, kAXRoleAttribute as CFString, &role) == .success,
+                   let r = role as? String, r == (kAXWindowRole as String) {
+                    return candidate
+                }
+            }
+            if count > 0 {
+                let elem = CFArrayGetValueAtIndex(cfList as! CFArray, 0)
+                return unsafeBitCast(elem, to: AXUIElement.self)
+            }
         }
 
         return nil
@@ -640,15 +673,27 @@ final class WindowManagementService: ObservableObject {
         var pt = frame.origin
         var sz = frame.size
 
-        if let posVal = AXValueCreate(.cgPoint, &pt) {
-            AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, posVal)
-        }
+        // Step 1: Set size first (prevents clamping against screen bounds when shrinking)
         if let sizeVal = AXValueCreate(.cgSize, &sz) {
-            AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeVal)
+            _ = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeVal)
         }
-        // Double-pass position in case the app clamped size and shifted
+
+        // Step 2: Set position
         if let posVal = AXValueCreate(.cgPoint, &pt) {
-            AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, posVal)
+            _ = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, posVal)
+        }
+
+        // Step 3: Set size second (in case window was expanding and needed the new position first)
+        if let sizeVal = AXValueCreate(.cgSize, &sz) {
+            _ = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeVal)
+        }
+
+        // Step 4: Final position pass
+        if let posVal = AXValueCreate(.cgPoint, &pt) {
+            let res = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, posVal)
+            if res == .success {
+                self.isAccessibilityGranted = true
+            }
         }
     }
 }
