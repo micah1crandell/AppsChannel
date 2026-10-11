@@ -52,31 +52,54 @@ jobs:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
         run: |
+          SIGNING_IDENTITY="-"
           if [ -n "$MACOS_CERTIFICATE" ]; then
             echo "🔐 Apple Developer Certificate secret detected. Preparing keychain..."
             KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
             KEYCHAIN_PWD=$(uuidgen)
 
-            security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
-            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-            security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+            security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH" || true
+            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH" || true
+            security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH" || true
 
             CERT_P12=$RUNNER_TEMP/certificate.p12
-            echo "$MACOS_CERTIFICATE" | base64 --decode > "$CERT_P12"
-            security import "$CERT_P12" -k "$KEYCHAIN_PATH" -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
-            security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed -e s/\"//g)
-            security default-keychain -s "$KEYCHAIN_PATH"
+            echo "$MACOS_CERTIFICATE" | tr -d '\r\n ' | base64 --decode > "$CERT_P12" 2>/dev/null || true
 
-            # Detect imported Developer ID signing identity
-            IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -n 1 | awk -F '"' '{print $2}')
-            echo "SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_OUTPUT"
-            echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_OUTPUT"
-            echo "✅ Configured signing identity: $IDENTITY"
-          else
-            echo "⚠️  MACOS_CERTIFICATE secret not configured. Falling back to ad-hoc code signing."
-            echo "SIGNING_IDENTITY=-" >> "$GITHUB_OUTPUT"
+            IMPORT_SUCCESS=false
+            if security import "$CERT_P12" -k "$KEYCHAIN_PATH" -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign 2>/dev/null; then
+              IMPORT_SUCCESS=true
+            else
+              echo "Standard import failed. Attempting OpenSSL legacy compatibility conversion..."
+              openssl pkcs12 -in "$CERT_P12" -passin "pass:$MACOS_CERTIFICATE_PWD" -nodes -out "$RUNNER_TEMP/temp.pem" 2>/dev/null || true
+              if [ -s "$RUNNER_TEMP/temp.pem" ]; then
+                openssl pkcs12 -export -legacy -in "$RUNNER_TEMP/temp.pem" -passout "pass:$MACOS_CERTIFICATE_PWD" -out "$RUNNER_TEMP/legacy.p12" 2>/dev/null || true
+                if security import "$RUNNER_TEMP/legacy.p12" -k "$KEYCHAIN_PATH" -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign 2>/dev/null; then
+                  IMPORT_SUCCESS=true
+                fi
+                rm -f "$RUNNER_TEMP/temp.pem" "$RUNNER_TEMP/legacy.p12"
+              fi
+            fi
+
+            if [ "$IMPORT_SUCCESS" = "true" ]; then
+              security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" "$KEYCHAIN_PATH" || true
+              security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed -e s/\"//g) || true
+              security default-keychain -s "$KEYCHAIN_PATH" || true
+
+              IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -n 1 | awk -F '"' '{print $2}')
+              if [ -n "$IDENTITY" ]; then
+                SIGNING_IDENTITY="$IDENTITY"
+                echo "✅ Configured signing identity: $IDENTITY"
+              fi
+            fi
+            rm -f "$CERT_P12"
           fi
+
+          if [ "$SIGNING_IDENTITY" = "-" ]; then
+            echo "⚠️  Valid Developer ID certificate not available in keychain. Falling back to ad-hoc code signing."
+          fi
+
+          echo "SIGNING_IDENTITY=$SIGNING_IDENTITY" >> "$GITHUB_OUTPUT"
+          echo "KEYCHAIN_PATH=${KEYCHAIN_PATH:-}" >> "$GITHUB_OUTPUT"
 
       # ========================================================================
       # Build AppsChannel (Release Configuration with Hardened Runtime)

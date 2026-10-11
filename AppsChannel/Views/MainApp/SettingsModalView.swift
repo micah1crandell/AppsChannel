@@ -920,12 +920,20 @@ struct SettingsModalView: View {
     }
 
     private func miniFullWindowPreview(isSelected: Bool) -> some View {
-        VStack(spacing: 0) {
+        let dotColor: Color = isSelected ? Color.black.opacity(0.65) : Color.white.opacity(0.75)
+        let dividerColor: Color = isSelected ? Color.black.opacity(0.12) : Color.white.opacity(0.12)
+        let outerCardFill: Color = isSelected ? Color.black.opacity(0.1) : Color.white.opacity(0.1)
+        let centerCardFill: Color = isSelected ? Color.black.opacity(0.25) : Color.white.opacity(0.25)
+        let centerCardStroke: Color = isSelected ? Color.black.opacity(0.45) : Color.white.opacity(0.45)
+        let bgFill: Color = isSelected ? Color.black.opacity(0.04) : Color.white.opacity(0.06)
+        let borderStroke: Color = isSelected ? Color.black.opacity(0.3) : Color.white.opacity(0.25)
+
+        return VStack(spacing: 0) {
             // macOS Window Title Bar with monochrome stoplight dots (white/black, no red/green/yellow)
             HStack(spacing: 3) {
                 ForEach(0..<3) { _ in
                     Circle()
-                        .fill(isSelected ? Color.black.opacity(0.65) : Color.white.opacity(0.75))
+                        .fill(dotColor)
                         .frame(width: 3.5, height: 3.5)
                 }
                 Spacer()
@@ -935,23 +943,23 @@ struct SettingsModalView: View {
 
             // Titlebar hairline divider
             Rectangle()
-                .fill(isSelected ? Color.black.opacity(0.12) : Color.white.opacity(0.12))
+                .fill(dividerColor)
                 .frame(height: 0.75)
 
             // Window content body: miniature channel preview inside window
             HStack(spacing: 3) {
                 RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(isSelected ? Color.black.opacity(0.1) : Color.white.opacity(0.1))
+                    .fill(outerCardFill)
                     .frame(width: 9, height: 9)
                 RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(isSelected ? Color.black.opacity(0.25) : Color.white.opacity(0.25))
+                    .fill(centerCardFill)
                     .frame(width: 12, height: 11)
                     .overlay(
                         RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                            .strokeBorder(isSelected ? Color.black.opacity(0.45) : Color.white.opacity(0.45), lineWidth: 0.75)
+                            .strokeBorder(centerCardStroke, lineWidth: 0.75)
                     )
                 RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(isSelected ? Color.black.opacity(0.1) : Color.white.opacity(0.1))
+                    .fill(outerCardFill)
                     .frame(width: 9, height: 9)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -959,11 +967,11 @@ struct SettingsModalView: View {
         .frame(width: 48, height: 26)
         .background(
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(isSelected ? Color.black.opacity(0.04) : Color.white.opacity(0.06))
+                .fill(bgFill)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .strokeBorder(isSelected ? Color.black.opacity(0.3) : Color.white.opacity(0.25), lineWidth: 1)
+                .strokeBorder(borderStroke, lineWidth: 1)
         )
     }
 
