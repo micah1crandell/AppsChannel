@@ -13,17 +13,22 @@ concurrency:
 jobs:
   build:
     name: Build & Verify macOS App
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -switch /Applications/Xcode_15.4.app || sudo xcode-select -switch /Applications/Xcode.app
-
-      - name: Show Xcode Version
-        run: xcodebuild -version
+        run: |
+          for xcode in /Applications/Xcode_16*.app /Applications/Xcode.app; do
+            if [ -d "$xcode" ]; then
+              echo "Selecting $xcode"
+              sudo xcode-select -switch "$xcode"
+              break
+            fi
+          done
+          xcodebuild -version
 
       - name: Resolve Swift Packages
         run: |

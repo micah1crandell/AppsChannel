@@ -17,7 +17,7 @@ permissions:
 jobs:
   release:
     name: Build, Sign, Notarize & Publish
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - name: Checkout Code
@@ -28,7 +28,13 @@ jobs:
 
       - name: Select Xcode
         run: |
-          sudo xcode-select -switch /Applications/Xcode_15.4.app 2>/dev/null || sudo xcode-select -switch /Applications/Xcode.app
+          for xcode in /Applications/Xcode_16*.app /Applications/Xcode.app; do
+            if [ -d "$xcode" ]; then
+              echo "Selecting $xcode"
+              sudo xcode-select -switch "$xcode"
+              break
+            fi
+          done
           xcodebuild -version
 
       - name: Install Release Tooling
