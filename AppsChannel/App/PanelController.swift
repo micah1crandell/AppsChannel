@@ -281,7 +281,6 @@ final class PanelController {
             ClipboardMonitorService.shared.lastExternalApp = frontApp
         }
         hideQuickLauncher()
-        mainAppWindow?.orderOut(nil)
         guard let panel = clipboardPanel else { return }
 
         let targetScreen = Self.targetScreenForPointer()
@@ -318,21 +317,11 @@ final class PanelController {
             hideQuickLauncher()
             return
         }
-        if isMainAppVisible {
-            hideMainApp()
-            return
-        }
-        show()
+        showQuickLauncher()
     }
 
     func show(mode: LauncherMode? = nil) {
-        let targetMode = mode ?? (UserDefaults.standard.string(forKey: "defaultMode").flatMap(LauncherMode.init) ?? .quickLauncher)
-        switch targetMode {
-        case .quickLauncher:
-            showQuickLauncher()
-        case .fullScreen:
-            showMainApp()
-        }
+        showQuickLauncher()
     }
 
     func showMainApp() {
@@ -362,7 +351,6 @@ final class PanelController {
             ClipboardMonitorService.shared.lastExternalApp = frontApp
         }
         hideClipboardHistory()
-        mainAppWindow?.orderOut(nil)
         guard let panel = quickLauncherPanel else { return }
 
         // Always center on Rank #1 app (middle-out usage center) before presenting

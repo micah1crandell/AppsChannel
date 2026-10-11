@@ -691,7 +691,7 @@ struct QuickLauncherView: View {
     }
 
     private func openRecentDocs(app: DiscoveredApp) {
-        guard !app.isSeparator, app.channelType == nil, app.systemAction == nil, app.url.path != Self.openMainAppCard.url.path else {
+        guard !app.isSeparator, app.url.path != Self.openMainAppCard.url.path else {
             SoundEffectsManager.shared.playAction()
             return
         }

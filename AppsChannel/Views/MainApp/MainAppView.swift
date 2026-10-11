@@ -210,11 +210,11 @@ struct MainAppView: View {
                 .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
             }
 
-            // Recent Documents Floating Sub-Deck Overlay (Apple Liquid Glass)
-            if showRecentDocs, let app = currentApp, !app.isSeparator, app.channelType == nil {
+            // Dynamic App Context Floating Sub-Deck Overlay (Apple Liquid Glass)
+            if showRecentDocs, let app = currentApp, !app.isSeparator {
                 VStack {
                     Spacer()
-                    RecentDocumentsSubDeckView(
+                    AppContextSubDeckView(
                         app: app,
                         onClose: {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -576,9 +576,9 @@ struct MainAppView: View {
                     return nil
                 }
 
-                // Command+Down Arrow: Toggle Recent Documents for current app
+                // Command+Down Arrow: Toggle Context Sub-Deck for current app
                 if event.modifierFlags.contains(.command) && event.keyCode == 125 {
-                    if let app = currentApp, !app.isSeparator, app.channelType == nil {
+                    if let app = currentApp, !app.isSeparator {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             showRecentDocs.toggle()
                         }
@@ -875,7 +875,7 @@ struct MainAppView: View {
     }
 
     private func toggleRecentDocs(app: DiscoveredApp) {
-        guard !app.isSeparator, app.channelType == nil, app.systemAction == nil else {
+        guard !app.isSeparator else {
             SoundEffectsManager.shared.playAction()
             return
         }

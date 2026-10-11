@@ -127,6 +127,12 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Sendable {
         }
     }
 
+    public var formattedRelativeTime: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: copiedAt, relativeTo: Date())
+    }
+
     // MARK: - Classification Helpers
     public static func detectType(text: String) -> (type: ClipboardContentType, colorHex: String?) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

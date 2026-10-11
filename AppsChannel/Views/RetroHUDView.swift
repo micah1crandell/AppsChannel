@@ -391,13 +391,13 @@ struct RetroHUDView: View {
                             .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                     )
 
-                    if app.channelType == nil && !app.isSeparator && !app.isAppsChannelApp && app.systemAction == nil && app.url.isFileURL && RecentDocumentsService.hasDocumentTypes(forAppAt: app.url),
-                       let onToggleRecent = onToggleRecentDocuments {
+                    if !app.isSeparator, let onToggleRecent = onToggleRecentDocuments {
+                        let contextKind = AppContextSubDeckService.shared.detectContext(for: app)
                         Button(action: onToggleRecent) {
                             HStack(spacing: 5) {
-                                Image(systemName: "clock.arrow.circlepath")
+                                Image(systemName: contextKind.systemIcon)
                                     .font(.system(size: 11, weight: .bold))
-                                Text("Recent (⌘↓)")
+                                Text(contextKind.buttonLabel)
                                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                             }
                             .foregroundStyle(.white)
@@ -410,7 +410,7 @@ struct RetroHUDView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .help("Show recent documents for this app (⌘↓)")
+                        .help("Show \(contextKind.title) for this app (⌘↓)")
                     }
                 }
             }
