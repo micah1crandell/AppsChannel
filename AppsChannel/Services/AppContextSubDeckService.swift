@@ -54,6 +54,12 @@ enum AppContextKind: String, CaseIterable, Sendable {
     }
 }
 
+// MARK: - Sub-Deck Keyboard Navigation Location
+struct SubDeckLocation: Equatable, Hashable, Sendable {
+    var row: Int
+    var column: Int
+}
+
 // MARK: - Specialized Data Models
 struct AppGlanceInfo: Sendable {
     let architectureBadge: String
@@ -1101,4 +1107,197 @@ final class AppContextSubDeckService: ObservableObject {
         }
         return nil
     }
+
+    // MARK: - Keyboard Navigation Helper Methods
+    func availableRows(for app: DiscoveredApp) -> [Int] {
+        let kind = detectContext(for: app)
+        switch kind {
+        case .browser:
+            var rows: [Int] = [3] // Row 0: New Window, Private Window, Google Search
+            if !recentURLs.isEmpty {
+                rows.append(recentURLs.count)
+            }
+            if !recentDownloads.isEmpty {
+                rows.append(recentDownloads.count)
+            }
+            return rows
+
+        case .clipboard:
+            let count = min(8, ClipboardMonitorService.shared.items.count)
+            return count > 0 ? [count] : [0]
+
+        case .photos:
+            if !recentPhotos.isEmpty {
+                return [recentPhotos.count]
+            }
+            return [app.url.isFileURL ? 2 : 1]
+
+        case .media:
+            var rows: [Int] = []
+            if nowPlayingInfo != nil {
+                rows.append(1) // Play/pause toggle
+            }
+            if !recentDocuments.isEmpty {
+                rows.append(recentDocuments.count)
+            }
+            if rows.isEmpty {
+                rows = [app.url.isFileURL ? 2 : 1]
+            }
+            return rows
+
+        case .developer:
+            if !recentDevProjects.isEmpty {
+                return [recentDevProjects.count]
+            }
+            return [app.url.isFileURL ? 2 : 1]
+
+        case .documents:
+            if !recentDocuments.isEmpty {
+                return [recentDocuments.count]
+            }
+            return [app.url.isFileURL ? 2 : 1]
+
+        case .systemAction:
+            return [1]
+
+        case .appGlance:
+            return [app.url.isFileURL ? 2 : 1]
+        }
+    }
+
+    func executeItem(at location: SubDeckLocation, app: DiscoveredApp, onActionExecuted: (() -> Void)? = nil) {
+        let kind = detectContext(for: app)
+        switch kind {
+        case .browser:
+            if location.row == 0 {
+                switch location.column {
+                case 0:
+                    launchBrowserNewWindow(app: app)
+                    SoundEffectsManager.shared.playLaunch()
+                    onActionExecuted?()
+                case 1:
+                    launchBrowserPrivateWindow(app: app)
+                    SoundEffectsManager.shared.playLaunch()
+                    onActionExecuted?()
+                case 2:
+                    launchWebSearch()
+                    SoundEffectsManager.shared.playLaunch()
+                    onActionExecuted?()
+                default:
+                    break
+                }
+            } else if location.row == 1 && !recentURLs.isEmpty {
+                if location.column < recentURLs.count {
+                    let item = recentURLs[location.column]
+                    openURLInBrowser(item.url, browserApp: app)
+                    SoundEffectsManager.shared.playLaunch()
+                    onActionExecuted?()
+                }
+            } else {
+                if location.column < recentDownloads.count {
+                    let item = recentDownloads[location.column]
+                    NSWorkspace.shared.open(item.url)
+                    SoundEffectsManager.shared.playLaunch()
+                    onActionExecuted?()
+                }
+            }
+
+        case .clipboard:
+            let items = ClipboardMonitorService.shared.items
+            if location.column < items.count {
+                let item = items[location.column]
+                ClipboardMonitorService.shared.pasteToFrontmostApp(item)
+                SoundEffectsManager.shared.playLaunch()
+                onActionExecuted?()
+            }
+
+        case .photos:
+            if !recentPhotos.isEmpty {
+                if location.column < recentPhotos.count {
+                    let photo = recentPhotos[location.column]
+                    openFileInApp(photo.url, app: app)
+                    SoundEffectsManager.shared.playLaunch()
+                    onActionExecuted?()
+                }
+            } else {
+                executeGlanceAction(at: location.column, app: app, onActionExecuted: onActionExecuted)
+            }
+
+        case .media:
+            if nowPlayingInfo != nil && location.row == 0 {
+                togglePlayback()
+                SoundEffectsManager.shared.playAction()
+            } else if !recentDocuments.isEmpty {
+                if location.column < recentDocuments.count {
+                    let doc = recentDocuments[location.column]
+                    openFileInApp(doc.url, app: app)
+                    SoundEffectsManager.shared.playLaunch()
+                    onActionExecuted?()
+                }
+            } else {
+                executeGlanceAction(at: location.column, app: app, onActionExecuted: onActionExecuted)
+            }
+
+        case .developer:
+            if !recentDevProjects.isEmpty {
+                if location.column < recentDevProjects.count {
+                    let project = recentDevProjects[location.column]
+                    openFileInApp(project.url, app: app)
+                    SoundEffectsManager.shared.playLaunch()
+                    onActionExecuted?()
+                }
+            } else {
+                executeGlanceAction(at: location.column, app: app, onActionExecuted: onActionExecuted)
+            }
+
+        case .documents:
+            if !recentDocuments.isEmpty {
+                if location.column < recentDocuments.count {
+                    let doc = recentDocuments[location.column]
+                    openFileInApp(doc.url, app: app)
+                    SoundEffectsManager.shared.playLaunch()
+                    onActionExecuted?()
+                }
+            } else {
+                executeGlanceAction(at: location.column, app: app, onActionExecuted: onActionExecuted)
+            }
+
+        case .systemAction:
+            if let action = app.systemAction {
+                SystemActionService.shared.execute(action)
+            } else if let windowAction = app.windowAction {
+                WindowManagementService.shared.performAction(windowAction)
+            }
+            SoundEffectsManager.shared.playLaunch()
+            onActionExecuted?()
+
+        case .appGlance:
+            executeGlanceAction(at: location.column, app: app, onActionExecuted: onActionExecuted)
+        }
+    }
+
+    func executeGlanceAction(at column: Int, app: DiscoveredApp, onActionExecuted: (() -> Void)? = nil) {
+        if column == 0 && app.url.isFileURL {
+            NSWorkspace.shared.activateFileViewerSelecting([app.url])
+            SoundEffectsManager.shared.playAction()
+            onActionExecuted?()
+        } else {
+            NSPasteboard.general.clearContents()
+            let path = app.url.isFileURL ? app.url.path : app.url.absoluteString
+            NSPasteboard.general.setString(path, forType: .string)
+            SoundEffectsManager.shared.playAction()
+            onActionExecuted?()
+        }
+    }
+
+    private func openFileInApp(_ fileURL: URL, app: DiscoveredApp) {
+        if app.url.isFileURL {
+            let config = NSWorkspace.OpenConfiguration()
+            config.createsNewApplicationInstance = false
+            NSWorkspace.shared.open([fileURL], withApplicationAt: app.url, configuration: config) { _, _ in }
+        } else {
+            NSWorkspace.shared.open(fileURL)
+        }
+    }
 }
+

@@ -9,6 +9,7 @@ struct QuickLauncherView: View {
     @State private var eventMonitor: Any? = nil
     @State private var toastMessage: String? = nil
     @State private var showSubDeck: Bool = false
+    @State private var subDeckLocation: SubDeckLocation? = nil
     @ObservedObject private var modifierManager = KeyboardModifierManager.shared
 
     let onExpandToFullScreen: () -> Void
@@ -19,10 +20,6 @@ struct QuickLauncherView: View {
     @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
     @State private var selectedCategory: String = "ALL"
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var containerHeight: CGFloat {
-        showSubDeck ? 730 : 500
-    }
 
     private var layoutMode: MainLayoutViewMode {
         MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow
@@ -149,9 +146,10 @@ struct QuickLauncherView: View {
 
     var body: some View {
         ZStack {
-            // Soft feathered backdrop blur that smoothly fades out at the edges into the desktop
+            // Soft feathered backdrop blur that smoothly expands downwards when subdeck opens
             VisualEffectBackground(material: .underWindowBackground, blendingMode: .behindWindow)
-                .frame(width: 1100, height: containerHeight)
+                .frame(width: 1100, height: showSubDeck ? 740 : 480)
+                .offset(y: showSubDeck ? 120 : 0)
                 .mask(
                     EllipticalGradient(
                         stops: [
@@ -177,7 +175,7 @@ struct QuickLauncherView: View {
             .frame(width: 520, height: 320)
             .allowsHitTesting(false)
 
-            // Middle Content: Fixed, stationary CoverFlow, Wall, or Flat Grid (never shifts when typing)
+            // Middle Content: Stationary CoverFlow, Wall, or Flat Grid (never shifts when typing or opening sub-deck)
             Group {
                 if layoutMode == .coverFlow {
                     CoverFlowCarouselView(
@@ -238,32 +236,26 @@ struct QuickLauncherView: View {
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
                 }
             }
-            .offset(y: showSubDeck ? -100 : 0)
 
-            // Bottom Area: Floating Sub-Deck or Sub-Deck Pill
-            VStack {
-                Spacer()
-
-                if showSubDeck, let app = currentApp, !app.isSeparator {
-                    AppContextSubDeckView(
-                        app: app,
-                        onClose: {
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                                showSubDeck = false
-                            }
-                        },
-                        onActionExecuted: {
+            // Sub-Deck Content: Positioned snug directly below the carousel tiles and reflection
+            if showSubDeck, let app = currentApp, !app.isSeparator {
+                AppContextSubDeckView(
+                    app: app,
+                    focusedLocation: subDeckLocation,
+                    onClose: {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                             showSubDeck = false
-                            onDismiss()
+                            subDeckLocation = nil
                         }
-                    )
-                    .padding(.bottom, 22)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                } else if let app = currentApp, !app.isSeparator {
-                    subDeckTogglePill(for: app)
-                        .padding(.bottom, 16)
-                        .transition(.scale(scale: 0.94).combined(with: .opacity))
-                }
+                    },
+                    onActionExecuted: {
+                        showSubDeck = false
+                        subDeckLocation = nil
+                        onDismiss()
+                    }
+                )
+                .offset(y: 260)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
             // Top Floating Search & Category Status Badge (floats above carousel without moving it)
@@ -298,7 +290,7 @@ struct QuickLauncherView: View {
             .padding(.top, 16)
             .padding(.bottom, 18)
         }
-        .frame(width: 1100, height: containerHeight)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: searchText) { _, newText in
             let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
@@ -333,6 +325,7 @@ struct QuickLauncherView: View {
             selectedCategory = "ALL"
             scrollAccumulator = 0.0
             showSubDeck = false
+            subDeckLocation = nil
             let center = displayApps.count / 2
             selectedIndex = center
             discoveryService.selectedIndex = center
@@ -345,6 +338,7 @@ struct QuickLauncherView: View {
                     selectedCategory = "ALL"
                     scrollAccumulator = 0.0
                     showSubDeck = false
+                    subDeckLocation = nil
                     let center = displayApps.count / 2
                     selectedIndex = center
                     discoveryService.selectedIndex = center
@@ -357,6 +351,7 @@ struct QuickLauncherView: View {
                 selectedCategory = "ALL"
                 scrollAccumulator = 0.0
                 showSubDeck = false
+                subDeckLocation = nil
                 let center = displayApps.count / 2
                 selectedIndex = center
                 discoveryService.selectedIndex = center
@@ -367,6 +362,7 @@ struct QuickLauncherView: View {
             selectedCategory = "ALL"
             scrollAccumulator = 0.0
             showSubDeck = false
+            subDeckLocation = nil
             let center = discoveryService.apps.count / 2
             selectedIndex = center
             discoveryService.selectedIndex = center
@@ -375,12 +371,14 @@ struct QuickLauncherView: View {
         .onDisappear {
             searchText = ""
             showSubDeck = false
+            subDeckLocation = nil
             removeEventMonitor()
             KeyboardModifierManager.shared.reset()
         }
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.28, dampingFraction: 0.8)), value: searchText.isEmpty)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: layoutMode)
         .animation(.spring(response: 0.32, dampingFraction: 0.82), value: showSubDeck)
+        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: subDeckLocation)
     }
 
     // MARK: - Direct Key & Scroll Handling
@@ -420,6 +418,7 @@ struct QuickLauncherView: View {
                         SoundEffectsManager.shared.playAction()
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                             showSubDeck.toggle()
+                            subDeckLocation = showSubDeck ? SubDeckLocation(row: 0, column: 0) : nil
                         }
                     }
                     return nil
@@ -431,6 +430,7 @@ struct QuickLauncherView: View {
                         SoundEffectsManager.shared.playAction()
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                             showSubDeck = false
+                            subDeckLocation = nil
                         }
                         return nil
                     }
@@ -542,6 +542,26 @@ struct QuickLauncherView: View {
 
                 switch event.keyCode {
                 case 126: // Up Arrow
+                    if let loc = subDeckLocation {
+                        if loc.row > 0, let app = currentApp {
+                            let nextRow = loc.row - 1
+                            let rows = AppContextSubDeckService.shared.availableRows(for: app)
+                            let maxCols = rows.indices.contains(nextRow) ? rows[nextRow] : 1
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                subDeckLocation = SubDeckLocation(row: nextRow, column: min(loc.column, max(0, maxCols - 1)))
+                            }
+                            SoundEffectsManager.shared.playNavigation()
+                        } else {
+                            // Reached top of sub-deck -> Move focus back UP to highlight the app tile!
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                subDeckLocation = nil
+                            }
+                            SoundEffectsManager.shared.playNavigation()
+                        }
+                        return nil
+                    }
+
+                    // On carousel:
                     if layoutMode == .gridWall || layoutMode == .flatGrid {
                         navigate(by: -1) // Up 1 card in column
                     } else {
@@ -550,14 +570,50 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 125: // Down Arrow
-                    if layoutMode == .gridWall || layoutMode == .flatGrid {
-                        navigate(by: 1) // Down 1 card in column
-                    } else {
-                        navigate(by: 1)
+                    if subDeckLocation == nil {
+                        // From carousel: move down into the sub-deck!
+                        if let app = currentApp, !app.isSeparator {
+                            if !showSubDeck {
+                                SoundEffectsManager.shared.playAction()
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                                    showSubDeck = true
+                                    subDeckLocation = SubDeckLocation(row: 0, column: 0)
+                                }
+                            } else {
+                                SoundEffectsManager.shared.playNavigation()
+                                withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                    subDeckLocation = SubDeckLocation(row: 0, column: 0)
+                                }
+                            }
+                        }
+                        return nil
+                    } else if let loc = subDeckLocation, let app = currentApp {
+                        // Inside sub-deck: move down to next row if available
+                        let rows = AppContextSubDeckService.shared.availableRows(for: app)
+                        if loc.row < rows.count - 1 {
+                            let nextRow = loc.row + 1
+                            let maxCols = rows.indices.contains(nextRow) ? rows[nextRow] : 1
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                subDeckLocation = SubDeckLocation(row: nextRow, column: min(loc.column, max(0, maxCols - 1)))
+                            }
+                            SoundEffectsManager.shared.playNavigation()
+                        }
+                        return nil
                     }
                     return nil
 
                 case 123: // Left Arrow
+                    if let loc = subDeckLocation {
+                        if loc.column > 0 {
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                subDeckLocation = SubDeckLocation(row: loc.row, column: loc.column - 1)
+                            }
+                            SoundEffectsManager.shared.playNavigation()
+                        }
+                        return nil
+                    }
+
+                    // On carousel:
                     if layoutMode == .gridWall {
                         navigate(by: -3) // Left 1 column
                     } else if layoutMode == .flatGrid {
@@ -568,6 +624,20 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 124: // Right Arrow
+                    if let loc = subDeckLocation, let app = currentApp {
+                        let rows = AppContextSubDeckService.shared.availableRows(for: app)
+                        let curRow = loc.row
+                        let maxCols = rows.indices.contains(curRow) ? rows[curRow] : 1
+                        if loc.column < maxCols - 1 {
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                subDeckLocation = SubDeckLocation(row: loc.row, column: loc.column + 1)
+                            }
+                            SoundEffectsManager.shared.playNavigation()
+                        }
+                        return nil
+                    }
+
+                    // On carousel:
                     if layoutMode == .gridWall {
                         navigate(by: 3) // Right 1 column
                     } else if layoutMode == .flatGrid {
@@ -577,7 +647,18 @@ struct QuickLauncherView: View {
                     }
                     return nil
 
-                case 36, 76: // Return key or Keypad Enter -> Launch app
+                case 36, 76: // Return key or Keypad Enter
+                    if let loc = subDeckLocation, let app = currentApp {
+                        // Execute the focused subdeck item!
+                        AppContextSubDeckService.shared.executeItem(at: loc, app: app, onActionExecuted: {
+                            showSubDeck = false
+                            subDeckLocation = nil
+                            onDismiss()
+                        })
+                        return nil
+                    }
+
+                    // Launch focused app on carousel
                     if let app = currentApp {
                         if event.modifierFlags.contains(.command) {
                             revealAppInFinder(app: app)
@@ -594,10 +675,16 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 53: // Escape key
-                    if showSubDeck {
+                    if subDeckLocation != nil {
+                        SoundEffectsManager.shared.playAction()
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                            subDeckLocation = nil
+                        }
+                    } else if showSubDeck {
                         SoundEffectsManager.shared.playAction()
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                             showSubDeck = false
+                            subDeckLocation = nil
                         }
                     } else if !searchText.isEmpty {
                         searchText = ""
@@ -629,6 +716,9 @@ struct QuickLauncherView: View {
                        !event.modifierFlags.contains(.option) {
                         let allowed = CharacterSet.alphanumerics.union(.punctuationCharacters).union(.whitespaces)
                         if characters.unicodeScalars.allSatisfy({ allowed.contains($0) }) {
+                            if subDeckLocation != nil {
+                                subDeckLocation = nil
+                            }
                             searchText.append(characters)
                             return nil
                         }
@@ -763,40 +853,8 @@ struct QuickLauncherView: View {
         SoundEffectsManager.shared.playAction()
         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
             showSubDeck.toggle()
+            subDeckLocation = showSubDeck ? SubDeckLocation(row: 0, column: 0) : nil
         }
-    }
-
-    private func subDeckTogglePill(for app: DiscoveredApp) -> some View {
-        let kind = AppContextSubDeckService.shared.classifyAppKind(for: app)
-        return Button(action: {
-            SoundEffectsManager.shared.playAction()
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                showSubDeck = true
-            }
-        }) {
-            HStack(spacing: 6) {
-                Image(systemName: kind.systemIcon)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(app.accentColor)
-
-                Text(kind.buttonLabel)
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.85))
-
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.45))
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(Color(white: 0.08).opacity(0.85), in: Capsule())
-            .overlay(
-                Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.3), radius: 6, x: 0, y: 3)
-        }
-        .buttonStyle(.plain)
-        .help("Open \(kind.title) Sub-Deck (⌘↓)")
     }
 
     private func copyAppPathOrURL(app: DiscoveredApp) {

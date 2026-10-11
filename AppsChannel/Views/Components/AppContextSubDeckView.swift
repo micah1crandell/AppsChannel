@@ -3,6 +3,7 @@ import AppKit
 
 struct AppContextSubDeckView: View {
     let app: DiscoveredApp
+    var focusedLocation: SubDeckLocation? = nil
     let onClose: () -> Void
     var onActionExecuted: (() -> Void)? = nil
 
@@ -93,11 +94,6 @@ struct AppContextSubDeckView: View {
 
             Spacer()
 
-            Text("⌘↑ to close")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.4))
-                .padding(.trailing, 6)
-
             Button(action: onClose) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 16))
@@ -159,10 +155,11 @@ struct AppContextSubDeckView: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(clipboardService.items.prefix(8)) { item in
+                        ForEach(Array(clipboardService.items.prefix(8).enumerated()), id: \.element.id) { index, item in
                             ClipboardDeckTile(
                                 item: item,
                                 isHovered: hoveredItemId == item.id,
+                                isFocused: focusedLocation == SubDeckLocation(row: 0, column: index),
                                 onPaste: {
                                     clipboardService.pasteToFrontmostApp(item)
                                     SoundEffectsManager.shared.playLaunch()
@@ -187,8 +184,9 @@ struct AppContextSubDeckView: View {
     // MARK: - Web Browser Deck Content
     private var browserContentView: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Quick Browser Action Buttons
+            // Quick Browser Action Buttons (Row 0)
             HStack(spacing: 8) {
+                let isNewWinFocused = focusedLocation == SubDeckLocation(row: 0, column: 0)
                 Button {
                     service.launchBrowserNewWindow(app: app)
                     SoundEffectsManager.shared.playLaunch()
@@ -202,10 +200,17 @@ struct AppContextSubDeckView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(isNewWinFocused ? Color.blue : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(isNewWinFocused ? Color.white.opacity(0.9) : Color.clear, lineWidth: 1.5)
+                    )
+                    .shadow(color: isNewWinFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 6)
+                    .scaleEffect(isNewWinFocused ? 1.03 : 1.0)
                 }
                 .buttonStyle(.plain)
 
+                let isPrivateFocused = focusedLocation == SubDeckLocation(row: 0, column: 1)
                 Button {
                     service.launchBrowserPrivateWindow(app: app)
                     SoundEffectsManager.shared.playLaunch()
@@ -219,10 +224,17 @@ struct AppContextSubDeckView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(isPrivateFocused ? Color.blue : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(isPrivateFocused ? Color.white.opacity(0.9) : Color.clear, lineWidth: 1.5)
+                    )
+                    .shadow(color: isPrivateFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 6)
+                    .scaleEffect(isPrivateFocused ? 1.03 : 1.0)
                 }
                 .buttonStyle(.plain)
 
+                let isSearchFocused = focusedLocation == SubDeckLocation(row: 0, column: 2)
                 Button {
                     service.launchWebSearch()
                     SoundEffectsManager.shared.playLaunch()
@@ -236,14 +248,20 @@ struct AppContextSubDeckView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(isSearchFocused ? Color.blue : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(isSearchFocused ? Color.white.opacity(0.9) : Color.clear, lineWidth: 1.5)
+                    )
+                    .shadow(color: isSearchFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 6)
+                    .scaleEffect(isSearchFocused ? 1.03 : 1.0)
                 }
                 .buttonStyle(.plain)
 
                 Spacer()
             }
 
-            // Recent URLs & Bookmarks
+            // Recent URLs & Bookmarks (Row 1)
             if !service.recentURLs.isEmpty {
                 VStack(alignment: .leading, spacing: 5) {
                     HStack {
@@ -258,10 +276,11 @@ struct AppContextSubDeckView: View {
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 10) {
-                            ForEach(service.recentURLs) { item in
+                            ForEach(Array(service.recentURLs.enumerated()), id: \.element.id) { index, item in
                                 BrowserURLTile(
                                     item: item,
                                     isHovered: hoveredItemId == item.id,
+                                    isFocused: focusedLocation == SubDeckLocation(row: 1, column: index),
                                     onOpen: {
                                         service.openURLInBrowser(item.url, browserApp: app)
                                         SoundEffectsManager.shared.playLaunch()
@@ -278,8 +297,9 @@ struct AppContextSubDeckView: View {
                 }
             }
 
-            // Recent Downloads
+            // Recent Downloads (Row 2, or Row 1 if URLs empty)
             if !service.recentDownloads.isEmpty {
+                let downloadRow = service.recentURLs.isEmpty ? 1 : 2
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Recent Downloads")
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
@@ -287,10 +307,11 @@ struct AppContextSubDeckView: View {
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 10) {
-                            ForEach(service.recentDownloads) { download in
+                            ForEach(Array(service.recentDownloads.enumerated()), id: \.element.id) { index, download in
                                 BrowserDownloadTile(
                                     download: download,
                                     isHovered: hoveredItemId == download.id,
+                                    isFocused: focusedLocation == SubDeckLocation(row: downloadRow, column: index),
                                     onOpen: {
                                         NSWorkspace.shared.open(download.url)
                                         SoundEffectsManager.shared.playLaunch()
@@ -317,10 +338,11 @@ struct AppContextSubDeckView: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(service.recentPhotos) { photo in
+                        ForEach(Array(service.recentPhotos.enumerated()), id: \.element.id) { index, photo in
                             PhotoDeckTile(
                                 photo: photo,
                                 isHovered: hoveredItemId == photo.id,
+                                isFocused: focusedLocation == SubDeckLocation(row: 0, column: index),
                                 onOpen: {
                                     openFileInApp(photo.url)
                                 }
@@ -340,6 +362,7 @@ struct AppContextSubDeckView: View {
     private var mediaContentView: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let nowPlaying = service.nowPlayingInfo {
+                let isPlayFocused = focusedLocation == SubDeckLocation(row: 0, column: 0)
                 HStack(spacing: 12) {
                     Image(systemName: nowPlaying.isPlaying ? "waveform" : "pause.circle.fill")
                         .font(.system(size: 24))
@@ -374,7 +397,10 @@ struct AppContextSubDeckView: View {
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 32, height: 32)
-                            .background(Color.white.opacity(0.18), in: Circle())
+                            .background(isPlayFocused ? Color.blue : Color.white.opacity(0.18), in: Circle())
+                            .overlay(Circle().strokeBorder(isPlayFocused ? Color.white : Color.clear, lineWidth: 1.5))
+                            .shadow(color: isPlayFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 6)
+                            .scaleEffect(isPlayFocused ? 1.08 : 1.0)
                     }
                     .buttonStyle(.plain)
                 }
@@ -383,12 +409,14 @@ struct AppContextSubDeckView: View {
             }
 
             if !service.recentDocuments.isEmpty {
+                let docRow = service.nowPlayingInfo != nil ? 1 : 0
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(service.recentDocuments) { doc in
+                        ForEach(Array(service.recentDocuments.enumerated()), id: \.element.id) { index, doc in
                             RecentDocumentTile(
                                 doc: doc,
                                 isHovered: hoveredItemId == doc.id,
+                                isFocused: focusedLocation == SubDeckLocation(row: docRow, column: index),
                                 onOpen: {
                                     openFileInApp(doc.url)
                                 }
@@ -414,10 +442,11 @@ struct AppContextSubDeckView: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(service.recentDevProjects) { project in
+                        ForEach(Array(service.recentDevProjects.enumerated()), id: \.element.id) { index, project in
                             DevProjectDeckTile(
                                 project: project,
                                 isHovered: hoveredItemId == project.id,
+                                isFocused: focusedLocation == SubDeckLocation(row: 0, column: index),
                                 onOpen: {
                                     openFileInApp(project.url)
                                 }
@@ -441,10 +470,11 @@ struct AppContextSubDeckView: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(service.recentDocuments) { doc in
+                        ForEach(Array(service.recentDocuments.enumerated()), id: \.element.id) { index, doc in
                             RecentDocumentTile(
                                 doc: doc,
                                 isHovered: hoveredItemId == doc.id,
+                                isFocused: focusedLocation == SubDeckLocation(row: 0, column: index),
                                 onOpen: {
                                     openFileInApp(doc.url)
                                 }
@@ -462,7 +492,8 @@ struct AppContextSubDeckView: View {
 
     // MARK: - System Action Deck Content
     private var systemActionContentView: some View {
-        HStack(spacing: 14) {
+        let isExecFocused = focusedLocation == SubDeckLocation(row: 0, column: 0)
+        return HStack(spacing: 14) {
             Image(systemName: app.systemAction?.iconSymbolName ?? "macwindow.on.rectangle")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(app.accentColor)
@@ -488,7 +519,7 @@ struct AppContextSubDeckView: View {
                     WindowManagementService.shared.performAction(windowAction)
                 }
                 SoundEffectsManager.shared.playLaunch()
-                onClose()
+                (onActionExecuted ?? onClose)()
             } label: {
                 Text("Execute Action")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
@@ -496,6 +527,12 @@ struct AppContextSubDeckView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(app.accentColor, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(isExecFocused ? Color.white : Color.clear, lineWidth: 2)
+                    )
+                    .shadow(color: isExecFocused ? Color.white.opacity(0.8) : Color.clear, radius: 8)
+                    .scaleEffect(isExecFocused ? 1.04 : 1.0)
             }
             .buttonStyle(.plain)
         }
@@ -537,10 +574,11 @@ struct AppContextSubDeckView: View {
             HStack {
                 HStack(spacing: 8) {
                     if app.url.isFileURL {
+                        let isRevealFocused = focusedLocation == SubDeckLocation(row: 0, column: 0)
                         Button {
                             NSWorkspace.shared.activateFileViewerSelecting([app.url])
                             SoundEffectsManager.shared.playAction()
-                            onClose()
+                            (onActionExecuted ?? onClose)()
                         } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "folder")
@@ -550,16 +588,25 @@ struct AppContextSubDeckView: View {
                             .foregroundStyle(.white.opacity(0.85))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
-                            .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            .background(isRevealFocused ? Color.blue : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .strokeBorder(isRevealFocused ? Color.white.opacity(0.9) : Color.clear, lineWidth: 1.5)
+                            )
+                            .shadow(color: isRevealFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 6)
+                            .scaleEffect(isRevealFocused ? 1.03 : 1.0)
                         }
                         .buttonStyle(.plain)
                     }
 
+                    let copyCol = app.url.isFileURL ? 1 : 0
+                    let isCopyFocused = focusedLocation == SubDeckLocation(row: 0, column: copyCol)
                     Button {
                         NSPasteboard.general.clearContents()
                         let path = app.url.isFileURL ? app.url.path : app.url.absoluteString
                         NSPasteboard.general.setString(path, forType: .string)
                         SoundEffectsManager.shared.playAction()
+                        (onActionExecuted ?? onClose)()
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "doc.on.doc")
@@ -569,7 +616,13 @@ struct AppContextSubDeckView: View {
                         .foregroundStyle(.white.opacity(0.85))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
-                        .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .background(isCopyFocused ? Color.blue : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .strokeBorder(isCopyFocused ? Color.white.opacity(0.9) : Color.clear, lineWidth: 1.5)
+                        )
+                        .shadow(color: isCopyFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 6)
+                        .scaleEffect(isCopyFocused ? 1.03 : 1.0)
                     }
                     .buttonStyle(.plain)
                 }
@@ -635,6 +688,7 @@ private struct MetricChip: View {
 private struct ClipboardDeckTile: View {
     let item: ClipboardItem
     let isHovered: Bool
+    var isFocused: Bool = false
     let onPaste: () -> Void
     let onCopy: () -> Void
 
@@ -698,12 +752,14 @@ private struct ClipboardDeckTile: View {
             .frame(width: 140, height: 86)
             .background(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(Color.white.opacity(isHovered ? 0.16 : 0.08))
+                    .fill(Color.white.opacity(isFocused ? 0.22 : (isHovered ? 0.16 : 0.08)))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .strokeBorder(isHovered ? Color.white.opacity(0.35) : Color.white.opacity(0.1), lineWidth: 1)
+                    .strokeBorder(isFocused ? Color.blue : (isHovered ? Color.white.opacity(0.35) : Color.white.opacity(0.1)), lineWidth: isFocused ? 2 : 1)
             )
+            .shadow(color: isFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 8, x: 0, y: 2)
+            .scaleEffect(isFocused ? 1.03 : 1.0)
         }
         .buttonStyle(.plain)
     }
@@ -712,6 +768,7 @@ private struct ClipboardDeckTile: View {
 private struct PhotoDeckTile: View {
     let photo: PhotoDeckItem
     let isHovered: Bool
+    var isFocused: Bool = false
     let onOpen: () -> Void
 
     var body: some View {
@@ -743,12 +800,14 @@ private struct PhotoDeckTile: View {
             .padding(.horizontal, 6)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.white.opacity(isHovered ? 0.16 : 0.06))
+                    .fill(Color.white.opacity(isFocused ? 0.22 : (isHovered ? 0.16 : 0.06)))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(isHovered ? Color.white.opacity(0.35) : Color.white.opacity(0.1), lineWidth: 1)
+                    .strokeBorder(isFocused ? Color.blue : (isHovered ? Color.white.opacity(0.35) : Color.white.opacity(0.1)), lineWidth: isFocused ? 2 : 1)
             )
+            .shadow(color: isFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 8, x: 0, y: 2)
+            .scaleEffect(isFocused ? 1.03 : 1.0)
         }
         .buttonStyle(.plain)
     }
@@ -757,6 +816,7 @@ private struct PhotoDeckTile: View {
 private struct DevProjectDeckTile: View {
     let project: DevProjectItem
     let isHovered: Bool
+    var isFocused: Bool = false
     let onOpen: () -> Void
 
     var body: some View {
@@ -782,12 +842,14 @@ private struct DevProjectDeckTile: View {
             .padding(.horizontal, 6)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.white.opacity(isHovered ? 0.16 : 0.06))
+                    .fill(Color.white.opacity(isFocused ? 0.22 : (isHovered ? 0.16 : 0.06)))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(isHovered ? Color.white.opacity(0.35) : Color.white.opacity(0.1), lineWidth: 1)
+                    .strokeBorder(isFocused ? Color.blue : (isHovered ? Color.white.opacity(0.35) : Color.white.opacity(0.1)), lineWidth: isFocused ? 2 : 1)
             )
+            .shadow(color: isFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 8, x: 0, y: 2)
+            .scaleEffect(isFocused ? 1.03 : 1.0)
         }
         .buttonStyle(.plain)
     }
@@ -796,6 +858,7 @@ private struct DevProjectDeckTile: View {
 private struct BrowserDownloadTile: View {
     let download: BrowserDownloadItem
     let isHovered: Bool
+    var isFocused: Bool = false
     let onOpen: () -> Void
 
     var body: some View {
@@ -820,12 +883,14 @@ private struct BrowserDownloadTile: View {
             .padding(.horizontal, 6)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.white.opacity(isHovered ? 0.16 : 0.06))
+                    .fill(Color.white.opacity(isFocused ? 0.22 : (isHovered ? 0.16 : 0.06)))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(isHovered ? Color.white.opacity(0.35) : Color.white.opacity(0.1), lineWidth: 1)
+                    .strokeBorder(isFocused ? Color.blue : (isHovered ? Color.white.opacity(0.35) : Color.white.opacity(0.1)), lineWidth: isFocused ? 2 : 1)
             )
+            .shadow(color: isFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 8, x: 0, y: 2)
+            .scaleEffect(isFocused ? 1.03 : 1.0)
         }
         .buttonStyle(.plain)
     }
@@ -834,6 +899,7 @@ private struct BrowserDownloadTile: View {
 private struct RecentDocumentTile: View {
     let doc: RecentDocumentItem
     let isHovered: Bool
+    var isFocused: Bool = false
     let onOpen: () -> Void
 
     var body: some View {
@@ -860,12 +926,14 @@ private struct RecentDocumentTile: View {
             .padding(.horizontal, 8)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.white.opacity(isHovered ? 0.16 : 0.06))
+                    .fill(Color.white.opacity(isFocused ? 0.22 : (isHovered ? 0.16 : 0.06)))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(isHovered ? Color.white.opacity(0.35) : Color.white.opacity(0.1), lineWidth: 1)
+                    .strokeBorder(isFocused ? Color.blue : (isHovered ? Color.white.opacity(0.35) : Color.white.opacity(0.1)), lineWidth: isFocused ? 2 : 1)
             )
+            .shadow(color: isFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 8, x: 0, y: 2)
+            .scaleEffect(isFocused ? 1.03 : 1.0)
         }
         .buttonStyle(.plain)
     }
@@ -874,6 +942,7 @@ private struct RecentDocumentTile: View {
 private struct BrowserURLTile: View {
     let item: BrowserURLItem
     let isHovered: Bool
+    var isFocused: Bool = false
     let onOpen: () -> Void
 
     var body: some View {
@@ -881,7 +950,7 @@ private struct BrowserURLTile: View {
             HStack(spacing: 8) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(Color.white.opacity(isHovered ? 0.22 : 0.12))
+                        .fill(Color.white.opacity(isFocused ? 0.35 : (isHovered ? 0.22 : 0.12)))
                         .frame(width: 30, height: 30)
 
                     Image(systemName: item.iconName)
@@ -914,14 +983,16 @@ private struct BrowserURLTile: View {
             .frame(width: 185, height: 46)
             .background(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(Color.white.opacity(isHovered ? 0.18 : 0.08))
+                    .fill(Color.white.opacity(isFocused ? 0.25 : (isHovered ? 0.18 : 0.08)))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .strokeBorder(isHovered ? Color.white.opacity(0.4) : Color.white.opacity(0.12), lineWidth: 1)
+                    .strokeBorder(isFocused ? Color.blue : (isHovered ? Color.white.opacity(0.4) : Color.white.opacity(0.12)), lineWidth: isFocused ? 2 : 1)
             )
-            .scaleEffect(isHovered ? 1.02 : 1.0)
+            .shadow(color: isFocused ? Color.blue.opacity(0.6) : Color.clear, radius: 8, x: 0, y: 2)
+            .scaleEffect(isFocused ? 1.03 : (isHovered ? 1.02 : 1.0))
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHovered)
+            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isFocused)
         }
         .buttonStyle(.plain)
         .help("\(item.title) — \(item.url.absoluteString)")
