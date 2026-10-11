@@ -9,7 +9,7 @@ enum CustomChannelKind: String, Codable, Sendable {
     case script = "script"
 }
 
-struct CustomChannelRecord: Identifiable, Codable, Sendable {
+struct CustomChannelRecord: Identifiable, Codable, Sendable, Equatable {
     var id: UUID
     var name: String
     var kind: CustomChannelKind

@@ -267,49 +267,168 @@ struct SettingsModalView: View {
         }
     }
 
-    // MARK: - Reusable Obsidian Glass Card Container
-    private func settingsCard<Content: View>(
-        title: String,
+    // MARK: - Reusable Modern Preferences Components (Matching WindowManagementSettingsView)
+    private func settingsSectionHeader<Trailing: View>(
         icon: String,
+        title: String,
+        accentColor: Color,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(accentColor)
+
+                Text(title)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+
+            Spacer()
+
+            trailing()
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private func settingsGroupBox<Content: View>(
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 7) {
+        VStack(spacing: 1) {
+            content()
+        }
+        .padding(.vertical, 4)
+        .background(Color.black.opacity(0.2))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private func settingsRow<Trailing: View>(
+        icon: String,
+        iconColor: Color,
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(iconColor)
+                    .frame(width: 24, height: 24)
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.85))
-                Text(title)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.white)
             }
 
-            content()
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                if let subtitle = subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            trailing()
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(white: 0.07).opacity(0.85))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.09), lineWidth: 1)
-        )
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
+
+    private var settingsDivider: some View {
+        Divider()
+            .background(Color.white.opacity(0.05))
+    }
+
+    private func settingsFooter(
+        text: String,
+        actionTitle: String? = nil,
+        accentColor: Color = Color(red: 0.05, green: 0.52, blue: 1.0),
+        action: (() -> Void)? = nil
+    ) -> some View {
+        HStack {
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.4))
+
+            Spacer()
+
+            if let actionTitle = actionTitle, let action = action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(accentColor)
+            }
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
+    }
+
+    private func pillBadge(text: String, color: Color = .white, bgOpacity: Double = 0.08) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Color.white.opacity(bgOpacity))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+            )
+    }
+
 
     // MARK: - 1. General Settings Tab
     private var generalSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // Default Launcher Mode (Show Not Tell - Visual Card Selector)
-            settingsCard(title: "Default Mode (Opens on Shortcut & Launch)", icon: "slider.horizontal.2.square") {
-                HStack(spacing: 12) {
+            // Header
+            settingsSectionHeader(
+                icon: "gearshape.fill",
+                title: "General",
+                accentColor: Color(red: 0.05, green: 0.52, blue: 1.0)
+            ) {
+                pillBadge(
+                    text: defaultMode == LauncherMode.quickLauncher.rawValue ? "Quick Launcher" : "Channel Window",
+                    color: Color(red: 0.05, green: 0.52, blue: 1.0)
+                )
+            }
+
+            // Default Mode Card
+            settingsGroupBox {
+                settingsRow(
+                    icon: "slider.horizontal.2.square",
+                    iconColor: Color(red: 0.05, green: 0.52, blue: 1.0),
+                    title: "Default Mode",
+                    subtitle: "Choose interface summoned on hotkey or app launch"
+                ) {
+                    EmptyView()
+                }
+
+                settingsDivider
+
+                HStack(spacing: 10) {
                     visualModeCard(
                         mode: .quickLauncher,
                         title: "Quick Launcher",
                         badge: "Floating HUD",
                         isSelected: defaultMode == LauncherMode.quickLauncher.rawValue
                     ) { isSel in
-                        // Mini Channel Cards Mockup (Floating tiles)
                         HStack(spacing: 5) {
                             ForEach(0..<3) { idx in
                                 miniChannelCardPreview(index: idx, isSelected: isSel)
@@ -324,139 +443,160 @@ struct SettingsModalView: View {
                         badge: "Full Menu",
                         isSelected: defaultMode == LauncherMode.fullScreen.rawValue
                     ) { isSel in
-                        // Full window look with monochrome stop light dots
                         miniFullWindowPreview(isSelected: isSel)
                             .frame(height: 26)
                     }
                 }
+                .padding(10)
             }
 
             // System Integration
-            settingsCard(title: "System Integration", icon: "macwindow") {
-                VStack(spacing: 10) {
-                    HStack {
-                        settingLabel(icon: "power", title: "Launch at Login", subtitle: "Background daemon responds to hotkey instantly")
-                        Spacer()
-                        Toggle("", isOn: Binding(
-                            get: { launchAtLoginManager.isEnabled },
-                            set: { launchAtLoginManager.setEnabled($0) }
-                        ))
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .tint(.white)
-                    }
+            settingsGroupBox {
+                settingsRow(
+                    icon: "power",
+                    iconColor: Color(red: 0.2, green: 0.8, blue: 0.4),
+                    title: "Launch at Login",
+                    subtitle: "Background daemon responds to hotkey instantly"
+                ) {
+                    Toggle("", isOn: Binding(
+                        get: { launchAtLoginManager.isEnabled },
+                        set: { launchAtLoginManager.setEnabled($0) }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .tint(Color(red: 0.05, green: 0.52, blue: 1.0))
+                }
 
-                    Divider().background(Color.white.opacity(0.06))
+                settingsDivider
 
-                    HStack {
-                        settingLabel(icon: "menubar.arrow.up.rectangle", title: "Show in Menu Bar", subtitle: "Cover Flow icon in status bar")
-                        Spacer()
-                        Toggle("", isOn: Binding(
-                            get: { showInMenuBar },
-                            set: { newValue in
-                                if !newValue && !showInDock {
-                                    showInDock = true
-                                    PanelController.shared.setDockVisibility(showInDock: true)
-                                }
-                                showInMenuBar = newValue
-                                MenuBarManager.shared.setVisibility(newValue)
+                settingsRow(
+                    icon: "menubar.arrow.up.rectangle",
+                    iconColor: Color(red: 0.65, green: 0.35, blue: 1.0),
+                    title: "Show in Menu Bar",
+                    subtitle: "Cover Flow icon in macOS status bar"
+                ) {
+                    Toggle("", isOn: Binding(
+                        get: { showInMenuBar },
+                        set: { newValue in
+                            if !newValue && !showInDock {
+                                showInDock = true
+                                PanelController.shared.setDockVisibility(showInDock: true)
                             }
-                        ))
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .tint(.white)
-                    }
+                            showInMenuBar = newValue
+                            MenuBarManager.shared.setVisibility(newValue)
+                        }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .tint(Color(red: 0.05, green: 0.52, blue: 1.0))
+                }
 
-                    Divider().background(Color.white.opacity(0.06))
+                settingsDivider
 
-                    HStack {
-                        settingLabel(icon: "dock.rectangle", title: "Show in Dock", subtitle: "Visible alongside macOS applications")
-                        Spacer()
-                        Toggle("", isOn: Binding(
-                            get: { showInDock },
-                            set: { newValue in
-                                if !newValue && !showInMenuBar {
-                                    showInMenuBar = true
-                                    MenuBarManager.shared.setVisibility(true)
-                                }
-                                showInDock = newValue
-                                PanelController.shared.setDockVisibility(showInDock: newValue)
+                settingsRow(
+                    icon: "dock.rectangle",
+                    iconColor: Color(red: 1.0, green: 0.55, blue: 0.0),
+                    title: "Show in Dock",
+                    subtitle: "Visible alongside macOS applications in Dock"
+                ) {
+                    Toggle("", isOn: Binding(
+                        get: { showInDock },
+                        set: { newValue in
+                            if !newValue && !showInMenuBar {
+                                showInMenuBar = true
+                                MenuBarManager.shared.setVisibility(true)
                             }
-                        ))
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .tint(.white)
-                    }
+                            showInDock = newValue
+                            PanelController.shared.setDockVisibility(showInDock: newValue)
+                        }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .tint(Color(red: 0.05, green: 0.52, blue: 1.0))
                 }
             }
 
-            // Sound & Haptics (Show Not Tell - Live Sound Preview Button)
-            settingsCard(title: "Audio & Feedback", icon: "speaker.wave.2.fill") {
-                VStack(spacing: 10) {
-                    HStack {
-                        settingLabel(icon: "speaker.wave.2", title: "Sound Effects", subtitle: "Audio cues for navigation and launches")
-
-                        Spacer()
-
+            // Audio & Feedback
+            settingsGroupBox {
+                settingsRow(
+                    icon: "speaker.wave.2.fill",
+                    iconColor: Color(red: 1.0, green: 0.3, blue: 0.5),
+                    title: "Sound Effects",
+                    subtitle: "Audio cues for navigation, selection, and launches"
+                ) {
+                    HStack(spacing: 8) {
                         if soundEffects {
-                            HStack(spacing: 8) {
-                                Picker("", selection: $soundThemeRaw) {
-                                    ForEach(SoundTheme.allCases) { theme in
-                                        Text(theme.rawValue).tag(theme.rawValue)
-                                    }
+                            Picker("", selection: $soundThemeRaw) {
+                                ForEach(SoundTheme.allCases) { theme in
+                                    Text(theme.rawValue).tag(theme.rawValue)
                                 }
-                                .labelsHidden()
-                                .pickerStyle(.menu)
-                                .tint(.white)
-                                .frame(width: 140)
-                                .onChange(of: soundThemeRaw) { _, newTheme in
-                                    if let theme = SoundTheme(rawValue: newTheme) {
-                                        SoundEffectsManager.shared.playPreview(for: theme)
-                                    }
-                                }
-
-                                Button(action: {
-                                    if let theme = SoundTheme(rawValue: soundThemeRaw) {
-                                        SoundEffectsManager.shared.playPreview(for: theme)
-                                    } else {
-                                        SoundEffectsManager.shared.playNavigation()
-                                    }
-                                }) {
-                                    Image(systemName: "speaker.wave.2.bubble.fill")
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(.black)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 5)
-                                        .background(Color.white, in: Capsule())
-                                }
-                                .buttonStyle(.plain)
-                                .help("Preview sound")
                             }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .tint(.white)
+                            .frame(width: 130)
+                            .onChange(of: soundThemeRaw) { _, newTheme in
+                                if let theme = SoundTheme(rawValue: newTheme) {
+                                    SoundEffectsManager.shared.playPreview(for: theme)
+                                }
+                            }
+
+                            Button(action: {
+                                if let theme = SoundTheme(rawValue: soundThemeRaw) {
+                                    SoundEffectsManager.shared.playPreview(for: theme)
+                                } else {
+                                    SoundEffectsManager.shared.playNavigation()
+                                }
+                            }) {
+                                Image(systemName: "speaker.wave.2.bubble.fill")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 4)
+                                    .background(Color.white.opacity(0.1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Preview sound theme")
                         }
 
                         Toggle("", isOn: $soundEffects)
                             .labelsHidden()
                             .toggleStyle(.switch)
-                            .tint(.white)
+                            .tint(Color(red: 0.05, green: 0.52, blue: 1.0))
                     }
+                }
 
-                    Divider().background(Color.white.opacity(0.06))
+                settingsDivider
 
-                    HStack {
-                        settingLabel(icon: "hand.tap.fill", title: "Trackpad Haptics", subtitle: "Force Touch alignment pulses")
-                        Spacer()
-                        Toggle("", isOn: $hapticFeedback)
-                            .labelsHidden()
-                            .toggleStyle(.switch)
-                            .tint(.white)
-                    }
+                settingsRow(
+                    icon: "hand.tap.fill",
+                    iconColor: Color(red: 0.1, green: 0.75, blue: 0.75),
+                    title: "Trackpad Haptics",
+                    subtitle: "Force Touch alignment pulses"
+                ) {
+                    Toggle("", isOn: $hapticFeedback)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(Color(red: 0.05, green: 0.52, blue: 1.0))
                 }
             }
 
-            // Smart Ranking (Show Not Tell - Visual Diagram)
-            settingsCard(title: "Smart Ranking", icon: "chart.line.uptrend.xyaxis") {
+            // Smart Ranking
+            settingsGroupBox {
+                settingsRow(
+                    icon: "chart.line.uptrend.xyaxis",
+                    iconColor: Color(red: 0.35, green: 0.45, blue: 1.0),
+                    title: "Smart Ranking",
+                    subtitle: "Center-Out distribution places frequent apps in primary focus"
+                ) {
+                    EmptyView()
+                }
+
+                settingsDivider
+
                 HStack(spacing: 14) {
-                    // Mini Visual Diagram of Center-Out arrangement
+                    // Mini Visual Diagram
                     HStack(spacing: 6) {
                         Text("3")
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
@@ -491,15 +631,15 @@ struct SettingsModalView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+                    .background(Color.black.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Center-Out Distribution")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.white)
-                        Text("Most used apps occupy the center slots for fastest reach")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.white.opacity(0.55))
+                        Text("Top apps occupy center slots for quickest thumb/eye reach")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.white.opacity(0.5))
                     }
 
                     Spacer()
@@ -518,7 +658,9 @@ struct SettingsModalView: View {
                             .foregroundStyle(.white.opacity(0.85))
                             .padding(.horizontal, 9)
                             .padding(.vertical, 5)
-                            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
                         .help("Clear launch history")
@@ -532,15 +674,30 @@ struct SettingsModalView: View {
                                 Text("Reapply")
                             }
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(Color.white, in: RoundedRectangle(cornerRadius: 6))
+                            .background(Color(red: 0.05, green: 0.52, blue: 1.0))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .help("Reorder cards by current launch frequency")
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+
+            // Footer
+            settingsFooter(
+                text: "Core launcher, daemon, and feedback preferences",
+                actionTitle: "Reset to Defaults"
+            ) {
+                defaultMode = LauncherMode.quickLauncher.rawValue
+                soundEffects = true
+                soundThemeRaw = SoundTheme.subtle.rawValue
+                hapticFeedback = true
+                SoundEffectsManager.shared.playAction()
             }
         }
     }
@@ -571,7 +728,7 @@ struct SettingsModalView: View {
                     Text(badge)
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(isSelected ? Color.black.opacity(0.7) : Color.white.opacity(0.5))
-                        .padding(.horizontal, 5)
+                        .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(isSelected ? Color.black.opacity(0.1) : Color.white.opacity(0.08), in: Capsule())
                 }
@@ -579,51 +736,68 @@ struct SettingsModalView: View {
             .padding(12)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(isSelected ? Color.white : Color.white.opacity(0.05))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.12), lineWidth: 1)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
     }
 
-    private func settingLabel(icon: String, title: String, subtitle: String) -> some View {
-        HStack(spacing: 9) {
-            Image(systemName: icon)
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.7))
-                .frame(width: 16)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white)
-                Text(subtitle)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.5))
-            }
-        }
-    }
-
-    // MARK: - 2. Appearance Settings Tab (Show Not Tell Gallery)
+    // MARK: - 2. Appearance Settings Tab
     private var appearanceSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // Visual Theme (Show Not Tell - 2x2 Interactive Gallery Cards)
-            settingsCard(title: "Visual Theme", icon: "sparkles") {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+            // Header
+            settingsSectionHeader(
+                icon: "paintpalette.fill",
+                title: "Appearance",
+                accentColor: Color(red: 0.65, green: 0.35, blue: 1.0)
+            ) {
+                pillBadge(
+                    text: themeManager.currentTheme.rawValue,
+                    color: Color(red: 0.65, green: 0.35, blue: 1.0)
+                )
+            }
+
+            // Visual Theme Gallery
+            settingsGroupBox {
+                settingsRow(
+                    icon: "sparkles",
+                    iconColor: Color(red: 0.65, green: 0.35, blue: 1.0),
+                    title: "Visual Theme",
+                    subtitle: "PBR glass materials, metallic finishes, and contrast profiles"
+                ) {
+                    EmptyView()
+                }
+
+                settingsDivider
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                     ForEach(AppVisualTheme.allCases) { theme in
                         themeVisualTile(theme: theme)
                     }
                 }
+                .padding(10)
             }
 
-            // Presentation Style (Show Not Tell - Icon Only vs Channel Card)
-            settingsCard(title: "App Presentation", icon: "app.badge.fill") {
-                HStack(spacing: 12) {
+            // App Presentation
+            settingsGroupBox {
+                settingsRow(
+                    icon: "app.badge.fill",
+                    iconColor: Color(red: 0.05, green: 0.52, blue: 1.0),
+                    title: "App Presentation",
+                    subtitle: "Minimalist app icon or framed 3DS channel card"
+                ) {
+                    EmptyView()
+                }
+
+                settingsDivider
+
+                HStack(spacing: 10) {
                     let currentStyle = AppDisplayStyle(rawValue: appDisplayStyleRaw) ?? .iconOnly
 
                     // Style 1: Icon Only
@@ -632,7 +806,6 @@ struct SettingsModalView: View {
                         title: "App Icon Only",
                         badge: "Minimalist"
                     ) { isSel in
-                        // Mini Icon Floating Graphic
                         VStack(spacing: 4) {
                             Image(systemName: "app.fill")
                                 .font(.system(size: 22))
@@ -657,7 +830,6 @@ struct SettingsModalView: View {
                         title: "Channel Cards",
                         badge: "Framed Card"
                     ) { isSel in
-                        // Mini Card Graphic
                         VStack(spacing: 3) {
                             HStack {
                                 Circle().fill(Color.cyan).frame(width: 4, height: 4)
@@ -684,91 +856,106 @@ struct SettingsModalView: View {
                         SoundEffectsManager.shared.playAction()
                     }
                 }
+                .padding(10)
             }
 
-            // Default Layout Mode (Show Not Tell - 3 Interactive Diagrams)
-            settingsCard(title: "Default Layout (⌘V to cycle)", icon: "square.grid.2x2.fill") {
-                VStack(spacing: 10) {
-                    HStack(spacing: 10) {
-                        let currentMode = MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow
+            // Default Layout Mode & Flat Grid Rows
+            settingsGroupBox {
+                settingsRow(
+                    icon: "square.grid.2x2.fill",
+                    iconColor: Color(red: 0.2, green: 0.8, blue: 0.4),
+                    title: "Default Layout Mode",
+                    subtitle: "Primary 3D presentation style (cycle anytime with ⌘V)"
+                ) {
+                    EmptyView()
+                }
 
-                        // 1. Flat Grid
-                        visualChoiceButton(
-                            isSelected: currentMode == .flatGrid,
-                            title: "Flat Grid",
-                            badge: "Paged"
-                        ) { isSel in
-                            LazyVGrid(columns: [GridItem(.fixed(10)), GridItem(.fixed(10)), GridItem(.fixed(10))], spacing: 3) {
-                                ForEach(0..<6) { _ in
-                                    RoundedRectangle(cornerRadius: 2)
-                                        .fill(isSel ? Color.black.opacity(0.6) : Color.white.opacity(0.4))
-                                        .frame(width: 10, height: 10)
-                                }
-                            }
-                            .frame(height: 32)
-                        } onSelect: {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                                layoutModeRaw = MainLayoutViewMode.flatGrid.rawValue
-                            }
-                            SoundEffectsManager.shared.playAction()
-                        }
+                settingsDivider
 
-                        // 2. Cover Flow
-                        visualChoiceButton(
-                            isSelected: currentMode == .coverFlow,
-                            title: "Cover Flow",
-                            badge: "3D Stack"
-                        ) { isSel in
-                            HStack(spacing: -3) {
+                HStack(spacing: 10) {
+                    let currentMode = MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow
+
+                    // 1. Flat Grid
+                    visualChoiceButton(
+                        isSelected: currentMode == .flatGrid,
+                        title: "Flat Grid",
+                        badge: "Paged"
+                    ) { isSel in
+                        LazyVGrid(columns: [GridItem(.fixed(10)), GridItem(.fixed(10)), GridItem(.fixed(10))], spacing: 3) {
+                            ForEach(0..<6) { _ in
                                 RoundedRectangle(cornerRadius: 2)
-                                    .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
-                                    .frame(width: 10, height: 18)
-                                    .rotationEffect(.degrees(10))
-
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(isSel ? Color.black : Color.white)
-                                    .frame(width: 16, height: 24)
-
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
-                                    .frame(width: 10, height: 18)
-                                    .rotationEffect(.degrees(-10))
+                                    .fill(isSel ? Color.black.opacity(0.6) : Color.white.opacity(0.4))
+                                    .frame(width: 10, height: 10)
                             }
-                            .frame(height: 32)
-                        } onSelect: {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                                layoutModeRaw = MainLayoutViewMode.coverFlow.rawValue
-                            }
-                            SoundEffectsManager.shared.playAction()
                         }
-
-                        // 3. Curved Wall Grid
-                        visualChoiceButton(
-                            isSelected: currentMode == .gridWall,
-                            title: "Curved Wall",
-                            badge: "Cylindrical"
-                        ) { isSel in
-                            HStack(spacing: 3) {
-                                ForEach(0..<4) { idx in
-                                    miniWallBarPreview(index: idx, isSelected: isSel)
-                                }
-                            }
-                            .frame(height: 32)
-                        } onSelect: {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                                layoutModeRaw = MainLayoutViewMode.gridWall.rawValue
-                            }
-                            SoundEffectsManager.shared.playAction()
+                        .frame(height: 32)
+                    } onSelect: {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            layoutModeRaw = MainLayoutViewMode.flatGrid.rawValue
                         }
+                        SoundEffectsManager.shared.playAction()
                     }
 
-                    // Flat Grid Rows Stepper (if Flat Grid active)
-                    if (MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow) == .flatGrid {
-                        HStack(spacing: 8) {
-                            Text("Rows:")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.white.opacity(0.7))
+                    // 2. Cover Flow
+                    visualChoiceButton(
+                        isSelected: currentMode == .coverFlow,
+                        title: "Cover Flow",
+                        badge: "3D Stack"
+                    ) { isSel in
+                        HStack(spacing: -3) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
+                                .frame(width: 10, height: 18)
+                                .rotationEffect(.degrees(10))
 
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(isSel ? Color.black : Color.white)
+                                .frame(width: 16, height: 24)
+
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
+                                .frame(width: 10, height: 18)
+                                .rotationEffect(.degrees(-10))
+                        }
+                        .frame(height: 32)
+                    } onSelect: {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            layoutModeRaw = MainLayoutViewMode.coverFlow.rawValue
+                        }
+                        SoundEffectsManager.shared.playAction()
+                    }
+
+                    // 3. Curved Wall
+                    visualChoiceButton(
+                        isSelected: currentMode == .gridWall,
+                        title: "Curved Wall",
+                        badge: "Cylindrical"
+                    ) { isSel in
+                        HStack(spacing: 3) {
+                            ForEach(0..<4) { idx in
+                                miniWallBarPreview(index: idx, isSelected: isSel)
+                            }
+                        }
+                        .frame(height: 32)
+                    } onSelect: {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            layoutModeRaw = MainLayoutViewMode.gridWall.rawValue
+                        }
+                        SoundEffectsManager.shared.playAction()
+                    }
+                }
+                .padding(10)
+
+                if (MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow) == .flatGrid {
+                    settingsDivider
+
+                    settingsRow(
+                        icon: "square.grid.3x3.fill",
+                        iconColor: Color(red: 0.2, green: 0.8, blue: 0.4),
+                        title: "Flat Grid Rows",
+                        subtitle: "Number of rows displayed per screen"
+                    ) {
+                        HStack(spacing: 6) {
                             ForEach(1...5, id: \.self) { count in
                                 let isSelected = threeDSGridRows == count
                                 Button(action: {
@@ -779,32 +966,48 @@ struct SettingsModalView: View {
                                 }) {
                                     Text("\(count)")
                                         .font(.system(size: 11, weight: isSelected ? .bold : .medium))
-                                        .frame(width: 28, height: 22)
-                                        .background(isSelected ? Color.white : Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                                        .frame(width: 26, height: 22)
+                                        .background(isSelected ? Color.white : Color.white.opacity(0.08))
                                         .foregroundStyle(isSelected ? Color.black : Color.white)
+                                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
                             }
-                            Spacer()
                         }
-                        .padding(.top, 2)
                     }
                 }
             }
 
             // Desktop Dimming
-            settingsCard(title: "Desktop Dimming", icon: "circle.lefthalf.filled") {
-                HStack(spacing: 12) {
-                    Slider(value: $dimmingIntensity, in: 0.05...0.45)
-                        .tint(.white)
+            settingsGroupBox {
+                settingsRow(
+                    icon: "circle.lefthalf.filled",
+                    iconColor: Color(red: 1.0, green: 0.75, blue: 0.0),
+                    title: "Desktop Dimming",
+                    subtitle: "Background dimming intensity when launcher is active"
+                ) {
+                    HStack(spacing: 10) {
+                        Slider(value: $dimmingIntensity, in: 0.05...0.45)
+                            .tint(Color(red: 1.0, green: 0.75, blue: 0.0))
+                            .frame(width: 120)
 
-                    Text("\(Int(dimmingIntensity * 100))%")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
-                        .frame(width: 38)
-                        .padding(.vertical, 3)
-                        .background(Color.white.opacity(0.12), in: Capsule())
+                        pillBadge(text: "\(Int(dimmingIntensity * 100))%")
+                    }
                 }
+            }
+
+            // Footer
+            settingsFooter(
+                text: "Themes, materials, and 3D presentation options",
+                actionTitle: "Reset to Defaults",
+                accentColor: Color(red: 0.65, green: 0.35, blue: 1.0)
+            ) {
+                themeManager.setTheme(.liquidGlass)
+                appDisplayStyleRaw = AppDisplayStyle.iconOnly.rawValue
+                layoutModeRaw = MainLayoutViewMode.coverFlow.rawValue
+                threeDSGridRows = 3
+                dimmingIntensity = 0.15
+                SoundEffectsManager.shared.playAction()
             }
         }
     }
@@ -818,7 +1021,6 @@ struct SettingsModalView: View {
             SoundEffectsManager.shared.playAction()
         }) {
             HStack(spacing: 10) {
-                // Mini Card Mockup with actual gradient and border
                 ZStack {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(theme.cardBackgroundGradient)
@@ -843,7 +1045,7 @@ struct SettingsModalView: View {
                         if isSelected {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 10))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color(red: 0.65, green: 0.35, blue: 1.0))
                         }
                     }
 
@@ -856,14 +1058,14 @@ struct SettingsModalView: View {
             }
             .padding(10)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(isSelected ? Color.white.opacity(0.12) : Color.white.opacity(0.04))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(isSelected ? Color.white.opacity(0.6) : Color.white.opacity(0.1), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(isSelected ? Color(red: 0.65, green: 0.35, blue: 1.0).opacity(0.8) : Color.white.opacity(0.1), lineWidth: 1)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -894,14 +1096,14 @@ struct SettingsModalView: View {
             .padding(10)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(isSelected ? Color.white : Color.white.opacity(0.05))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.1), lineWidth: 1)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -993,396 +1195,421 @@ struct SettingsModalView: View {
             .frame(width: 8, height: barHeight)
     }
 
-    // MARK: - 3. Shortcuts Settings Tab (Show Not Tell)
+    // MARK: - 3. Shortcuts Settings Tab
     private var shortcutSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // Global Hotkey (Tactile Keycap Display)
-            settingsCard(title: "Global Shortcut", icon: "keyboard.fill") {
-                VStack(spacing: 10) {
-                    HStack(spacing: 12) {
-                        // Tactile Keycap Badge
+            // Header
+            settingsSectionHeader(
+                icon: "keyboard.fill",
+                title: "Shortcuts",
+                accentColor: Color(red: 1.0, green: 0.55, blue: 0.0)
+            ) {
+                pillBadge(
+                    text: hotKeyManager.currentShortcutLabel,
+                    color: Color(red: 1.0, green: 0.55, blue: 0.0)
+                )
+            }
+
+            // Global Hotkey Box
+            settingsGroupBox {
+                settingsRow(
+                    icon: "keyboard.fill",
+                    iconColor: Color(red: 1.0, green: 0.55, blue: 0.0),
+                    title: "Global Shortcut",
+                    subtitle: "Summons AppsChannel floating launcher or channel window from anywhere"
+                ) {
+                    if isRecordingShortcut {
                         HStack(spacing: 6) {
-                            if isRecordingShortcut {
-                                HStack(spacing: 5) {
-                                    Circle().fill(Color.red).frame(width: 8, height: 8)
-                                    Text("Press key combination...")
-                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.white)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
-                                .background(Color.red.opacity(0.2), in: Capsule())
-                            } else {
-                                keycapPill(label: hotKeyManager.currentShortcutLabel)
+                            Circle().fill(Color.red).frame(width: 7, height: 7)
+                            Text("Press key combination...")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.white)
+
+                            Button(action: stopRecordingShortcut) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.white.opacity(0.6))
                             }
+                            .buttonStyle(.plain)
                         }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.red.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(Color.red.opacity(0.4), lineWidth: 1)
+                        )
+                    } else {
+                        HStack(spacing: 8) {
+                            keycapPill(label: hotKeyManager.currentShortcutLabel)
 
-                        Spacer()
-
-                        Button(action: toggleRecordingShortcut) {
-                            HStack(spacing: 5) {
-                                Image(systemName: isRecordingShortcut ? "xmark.circle.fill" : "record.circle")
-                                    .foregroundStyle(isRecordingShortcut ? .red : .black)
-                                Text(isRecordingShortcut ? "Cancel" : "Record Shortcut")
+                            Button(action: toggleRecordingShortcut) {
+                                Text("Record")
                                     .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 4)
+                                    .background(Color(red: 1.0, green: 0.55, blue: 0.0))
+                                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                             }
-                            .padding(.horizontal, 11)
-                            .padding(.vertical, 6)
-                            .background(Color.white, in: Capsule())
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                }
 
-                    // Presets Grid (Uniform Size & Scale)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Presets")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.55))
+                settingsDivider
 
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                HStack(spacing: 8) {
+                    Text("Quick Presets:")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
                             ForEach(hotKeyManager.presets) { preset in
                                 let isSelected = hotKeyManager.currentShortcutLabel == preset.label
-                                Button(action: {
+                                CategoryPill(title: preset.label, isSelected: isSelected) {
                                     stopRecordingShortcut()
                                     hotKeyManager.applyPreset(preset)
                                     SoundEffectsManager.shared.playAction()
-                                }) {
-                                    Text(preset.label)
-                                        .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .monospaced))
-                                        .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.85))
-                                        .frame(maxWidth: .infinity, minHeight: 28)
-                                        .background(isSelected ? Color.white : Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.12), lineWidth: 1)
-                                        )
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
 
-            // Category Group Shortcuts (Compact 2-Column Grid)
-            settingsCard(title: "Category Shortcuts (⌘1 – ⌘8)", icon: "square.grid.3x1.folder.badge.plus") {
-                VStack(spacing: 8) {
+            // Category Group Shortcuts (⌘1 – ⌘8)
+            settingsGroupBox {
+                settingsRow(
+                    icon: "square.grid.3x1.folder.badge.plus",
+                    iconColor: Color(red: 0.0, green: 0.75, blue: 0.85),
+                    title: "Category Shortcuts (⌘1 – ⌘8)",
+                    subtitle: "Jump instantly to application categories"
+                ) {
                     if !shortcutManager.customGroupShortcuts.isEmpty {
-                        HStack {
-                            Spacer()
-                            Button(action: {
-                                shortcutManager.resetGroupShortcuts()
-                                SoundEffectsManager.shared.playAction()
-                            }) {
-                                Text("Reset Defaults")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.75))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(Color.white.opacity(0.08), in: Capsule())
-                            }
-                            .buttonStyle(.plain)
+                        Button("Reset Defaults") {
+                            shortcutManager.resetGroupShortcuts()
+                            SoundEffectsManager.shared.playAction()
                         }
-                    }
-
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
-                        ForEach(1...8, id: \.self) { slot in
-                            let currentAssigned = shortcutManager.category(forSlot: slot, availableCategories: availableCategories) ?? "ALL"
-                            let isCustomized = shortcutManager.customGroupShortcuts[slot] != nil
-
-                            HStack(spacing: 8) {
-                                Text("⌘\(slot)")
-                                    .font(.system(size: 10.5, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(.black)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
-                                    .background(Color.white, in: RoundedRectangle(cornerRadius: 5))
-
-                                Picker("", selection: Binding<String>(
-                                    get: { currentAssigned },
-                                    set: { newCat in
-                                        shortcutManager.setGroupShortcut(category: newCat, forSlot: slot)
-                                        SoundEffectsManager.shared.playAction()
-                                    }
-                                )) {
-                                    ForEach(availableCategories, id: \.self) { cat in
-                                        Text(cat).tag(cat)
-                                    }
-                                }
-                                .labelsHidden()
-                                .pickerStyle(.menu)
-                                .tint(.white)
-
-                                Spacer(minLength: 0)
-
-                                if isCustomized {
-                                    Button(action: {
-                                        shortcutManager.setGroupShortcut(category: nil, forSlot: slot)
-                                        SoundEffectsManager.shared.playAction()
-                                    }) {
-                                        Image(systemName: "arrow.counterclockwise")
-                                            .font(.system(size: 9))
-                                            .foregroundStyle(.white.opacity(0.5))
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
-                            .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .strokeBorder(isCustomized ? Color.white.opacity(0.25) : Color.white.opacity(0.06), lineWidth: 1)
-                            )
-                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color(red: 0.0, green: 0.75, blue: 0.85))
                     }
                 }
-            }
 
-            // Direct App Launch Slots (Compact 3-Column Grid)
-            settingsCard(title: "Direct Launch Slots (⌥1 – ⌥9)", icon: "target") {
-                VStack(spacing: 8) {
-                    if !shortcutManager.customChannelSlots.isEmpty {
-                        HStack {
-                            Spacer()
-                            Button(action: {
-                                shortcutManager.resetChannelSlots()
-                                SoundEffectsManager.shared.playAction()
-                            }) {
-                                Text("Reset All")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.75))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(Color.white.opacity(0.08), in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+                settingsDivider
 
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
-                        ForEach(1...9, id: \.self) { slot in
-                            let assignedPath = shortcutManager.assignedAppPath(forSlot: slot)
-                            let assignedApp = shortcutManager.assignedApp(forSlot: slot, in: discoveryService.allDiscoveredApps)
-                            let isCustomized = assignedPath != nil
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                    ForEach(1...8, id: \.self) { slot in
+                        let currentAssigned = shortcutManager.category(forSlot: slot, availableCategories: availableCategories) ?? "ALL"
+                        let isCustomized = shortcutManager.customGroupShortcuts[slot] != nil
 
-                            HStack(spacing: 6) {
-                                Text("⌥\(slot)")
-                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(.black)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(Color.white, in: RoundedRectangle(cornerRadius: 4))
+                        HStack(spacing: 8) {
+                            Text("⌘\(slot)")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                        .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+                                )
 
-                                if let app = assignedApp {
-                                    Image(nsImage: app.icon)
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fit)
-                                        .frame(width: 14, height: 14)
-
-                                    Text(app.name)
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundStyle(.white)
-                                        .lineLimit(1)
-                                } else {
-                                    Text("Auto")
-                                        .font(.system(size: 9.5))
-                                        .foregroundStyle(.white.opacity(0.45))
+                            Picker("", selection: Binding<String>(
+                                get: { currentAssigned },
+                                set: { newCat in
+                                    shortcutManager.setGroupShortcut(category: newCat, forSlot: slot)
+                                    SoundEffectsManager.shared.playAction()
                                 }
+                            )) {
+                                ForEach(availableCategories, id: \.self) { cat in
+                                    Text(cat).tag(cat)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .tint(.white)
 
-                                Spacer(minLength: 0)
+                            Spacer(minLength: 0)
 
-                                Menu {
-                                    Button("Automatic (Grid \(slot))") {
-                                        shortcutManager.setChannelSlot(appPath: nil, forSlot: slot)
-                                        SoundEffectsManager.shared.playAction()
-                                    }
-                                    Divider()
-                                    ForEach(discoveryService.allDiscoveredApps) { app in
-                                        Button(app.name) {
-                                            shortcutManager.setChannelSlot(appPath: app.url.path, forSlot: slot)
-                                            SoundEffectsManager.shared.playAction()
-                                        }
-                                    }
-                                } label: {
-                                    Image(systemName: "ellipsis")
+                            if isCustomized {
+                                Button(action: {
+                                    shortcutManager.setGroupShortcut(category: nil, forSlot: slot)
+                                    SoundEffectsManager.shared.playAction()
+                                }) {
+                                    Image(systemName: "arrow.counterclockwise")
                                         .font(.system(size: 9))
-                                        .foregroundStyle(.white.opacity(0.6))
+                                        .foregroundStyle(.white.opacity(0.5))
                                 }
                                 .buttonStyle(.plain)
                             }
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 5)
-                            .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 7))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 7)
-                                    .strokeBorder(isCustomized ? Color.white.opacity(0.22) : Color.white.opacity(0.06), lineWidth: 1)
-                            )
                         }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.04))
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .strokeBorder(isCustomized ? Color(red: 0.0, green: 0.75, blue: 0.85).opacity(0.4) : Color.white.opacity(0.06), lineWidth: 1)
+                        )
                     }
                 }
+                .padding(10)
+            }
+
+            // Direct App Launch Slots (⌥1 – ⌥9)
+            settingsGroupBox {
+                settingsRow(
+                    icon: "target",
+                    iconColor: Color(red: 1.0, green: 0.3, blue: 0.3),
+                    title: "Direct Launch Slots (⌥1 – ⌥9)",
+                    subtitle: "Directly trigger assigned applications bypassing navigation"
+                ) {
+                    if !shortcutManager.customChannelSlots.isEmpty {
+                        Button("Reset All") {
+                            shortcutManager.resetChannelSlots()
+                            SoundEffectsManager.shared.playAction()
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color(red: 1.0, green: 0.3, blue: 0.3))
+                    }
+                }
+
+                settingsDivider
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                    ForEach(1...9, id: \.self) { slot in
+                        let assignedPath = shortcutManager.assignedAppPath(forSlot: slot)
+                        let assignedApp = shortcutManager.assignedApp(forSlot: slot, in: discoveryService.allDiscoveredApps)
+                        let isCustomized = assignedPath != nil
+
+                        HStack(spacing: 6) {
+                            Text("⌥\(slot)")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                        .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+                                )
+
+                            if let app = assignedApp {
+                                Image(nsImage: app.icon)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 14, height: 14)
+
+                                Text(app.name)
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                            } else {
+                                Text("Auto")
+                                    .font(.system(size: 9.5))
+                                    .foregroundStyle(.white.opacity(0.45))
+                            }
+
+                            Spacer(minLength: 0)
+
+                            Menu {
+                                Button("Automatic (Grid \(slot))") {
+                                    shortcutManager.setChannelSlot(appPath: nil, forSlot: slot)
+                                    SoundEffectsManager.shared.playAction()
+                                }
+                                Divider()
+                                ForEach(discoveryService.allDiscoveredApps) { app in
+                                    Button(app.name) {
+                                        shortcutManager.setChannelSlot(appPath: app.url.path, forSlot: slot)
+                                        SoundEffectsManager.shared.playAction()
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.white.opacity(0.6))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.04))
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .strokeBorder(isCustomized ? Color(red: 1.0, green: 0.3, blue: 0.3).opacity(0.4) : Color.white.opacity(0.06), lineWidth: 1)
+                        )
+                    }
+                }
+                .padding(10)
             }
 
             // Keyboard Modifiers & Contextual Power Actions
-            settingsCard(title: "Keyboard Modifiers & Power Actions", icon: "command") {
-                VStack(spacing: 8) {
-                    HStack(spacing: 8) {
-                        modifierHintRow(keys: "↵", label: "Launch Focused Application", icon: "arrow.up.forward.app.fill")
-                        modifierHintRow(keys: "⌘↵", label: "Reveal in macOS Finder", icon: "folder.fill")
-                    }
-                    HStack(spacing: 8) {
-                        modifierHintRow(keys: "⌥↵", label: "Open Recent Documents Sub-Deck", icon: "clock.arrow.circlepath")
-                        modifierHintRow(keys: "⇧↵", label: "Copy Bundle Path or Web URL", icon: "doc.on.doc.fill")
-                    }
+            settingsGroupBox {
+                settingsRow(
+                    icon: "command",
+                    iconColor: Color(red: 1.0, green: 0.82, blue: 0.2),
+                    title: "Keyboard Modifiers & Power Actions",
+                    subtitle: "Hold modifier keys while pressing Return (↵) on any focused app"
+                ) {
+                    EmptyView()
                 }
+
+                settingsDivider
+
+                modifierHintRow(keys: "↵", label: "Launch Focused Application", icon: "arrow.up.forward.app.fill")
+                settingsDivider
+                modifierHintRow(keys: "⌘↵", label: "Reveal in macOS Finder", icon: "folder.fill")
+                settingsDivider
+                modifierHintRow(keys: "⌥↵", label: "Open Recent Documents Sub-Deck", icon: "clock.arrow.circlepath")
+                settingsDivider
+                modifierHintRow(keys: "⇧↵", label: "Copy Bundle Path or Web URL", icon: "doc.on.doc.fill")
             }
 
             // Quick System Actions Settings
-            settingsCard(title: "Quick System Actions", icon: "bolt.badge.automatic.fill") {
-                VStack(spacing: 10) {
-                    Toggle(isOn: $enableSystemActions) {
-                        settingLabel(
-                            icon: "power.circle.fill",
-                            title: "Enable Quick System Actions",
-                            subtitle: "Include Lock Screen, Sleep, Restart, Trash, Dark Mode, and Mute in search and grid"
-                        )
-                    }
-                    .toggleStyle(.switch)
-                    .tint(.white)
-                    .onChange(of: enableSystemActions) { _, _ in
-                        AppDiscoveryService.shared.reloadAfterCustomChannelChange()
-                    }
-
-                    if enableSystemActions {
-                        Divider().background(Color.white.opacity(0.08))
-
-                        Toggle(isOn: $confirmDestructiveActions) {
-                            settingLabel(
-                                icon: "exclamationmark.triangle.fill",
-                                title: "Confirm Destructive Actions",
-                                subtitle: "Require confirmation modal before executing Restart and Shut Down"
-                            )
-                        }
+            settingsGroupBox {
+                settingsRow(
+                    icon: "bolt.badge.automatic.fill",
+                    iconColor: Color(red: 0.2, green: 0.8, blue: 0.4),
+                    title: "Quick System Actions",
+                    subtitle: "Include Lock Screen, Sleep, Restart, Trash, Dark Mode, and Mute in search and grid"
+                ) {
+                    Toggle("", isOn: $enableSystemActions)
+                        .labelsHidden()
                         .toggleStyle(.switch)
-                        .tint(.white)
+                        .tint(Color(red: 0.2, green: 0.8, blue: 0.4))
+                        .onChange(of: enableSystemActions) { _, _ in
+                            AppDiscoveryService.shared.reloadAfterCustomChannelChange()
+                        }
+                }
+
+                if enableSystemActions {
+                    settingsDivider
+
+                    settingsRow(
+                        icon: "exclamationmark.triangle.fill",
+                        iconColor: Color(red: 1.0, green: 0.75, blue: 0.0),
+                        title: "Confirm Destructive Actions",
+                        subtitle: "Require confirmation modal before executing Restart and Shut Down"
+                    ) {
+                        Toggle("", isOn: $confirmDestructiveActions)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .tint(Color(red: 1.0, green: 0.75, blue: 0.0))
                     }
                 }
             }
 
             // System Integration Links
-            settingsCard(title: "macOS System Shortcuts", icon: "applelogo") {
-                HStack(spacing: 12) {
-                    quickActionCard(
-                        icon: "bolt.fill",
-                        title: "Shortcuts App",
-                        desc: "Cold start trigger via system daemon",
-                        actionTitle: "Open Shortcuts"
-                    ) {
+            settingsGroupBox {
+                settingsRow(
+                    icon: "bolt.fill",
+                    iconColor: Color(red: 0.05, green: 0.52, blue: 1.0),
+                    title: "macOS Shortcuts App",
+                    subtitle: "Cold start trigger via macOS system daemon"
+                ) {
+                    Button(action: {
                         NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Shortcuts.app"))
+                    }) {
+                        Text("Open Shortcuts")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
+                    .buttonStyle(.plain)
+                }
 
-                    quickActionCard(
-                        icon: "gearshape.fill",
-                        title: "System Settings",
-                        desc: "macOS native Keyboard Shortcuts",
-                        actionTitle: "Open Settings"
-                    ) {
+                settingsDivider
+
+                settingsRow(
+                    icon: "gearshape.fill",
+                    iconColor: Color.gray,
+                    title: "System Settings",
+                    subtitle: "macOS native Keyboard Shortcuts"
+                ) {
+                    Button(action: {
                         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.keyboard") {
                             NSWorkspace.shared.open(url)
                         }
+                    }) {
+                        Text("Open Settings")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
+                    .buttonStyle(.plain)
                 }
+            }
+
+            // Footer
+            settingsFooter(
+                text: "Global triggers, direct launch slots, and power modifiers",
+                actionTitle: "Reset All Shortcuts",
+                accentColor: Color(red: 1.0, green: 0.55, blue: 0.0)
+            ) {
+                hotKeyManager.applyPreset(hotKeyManager.presets[0])
+                shortcutManager.resetGroupShortcuts()
+                shortcutManager.resetChannelSlots()
+                SoundEffectsManager.shared.playAction()
             }
         }
     }
 
     private func modifierHintRow(keys: String, label: String, icon: String) -> some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 12) {
             Text(keys)
                 .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(.black)
-                .padding(.horizontal, 6)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 5))
+                .background(Color.white.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+                )
 
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(.white.opacity(0.75))
 
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.85))
-                .lineLimit(1)
 
-            Spacer(minLength: 0)
+            Spacer()
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity)
-        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-        )
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
     }
 
     private func keycapPill(label: String) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: "keyboard")
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.7))
-
-            Text(label)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
-        )
-    }
-
-    private func quickActionCard(
-        icon: String,
-        title: String,
-        desc: String,
-        actionTitle: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.85))
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                Text(desc)
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(.white.opacity(0.5))
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 0)
-
-            Button(action: action) {
-                Text(actionTitle)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 5))
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity)
-        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 9))
+        Text(label)
+            .font(.system(size: 12, weight: .medium, design: .monospaced))
+            .foregroundStyle(.white.opacity(0.9))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+            )
     }
 
     private func toggleRecordingShortcut() {
@@ -1433,120 +1660,126 @@ struct SettingsModalView: View {
     // MARK: - 4. Channels Settings Tab
     private var customChannelsSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // Pinned Channels
-            settingsCard(title: "Custom Channels", icon: "plus.rectangle.on.rectangle.fill") {
-                VStack(spacing: 10) {
-                    HStack {
-                        Text("\(customChannelManager.channels.count) Pinned Channels")
-                            .font(.system(size: 11, weight: .medium))
+            // Header
+            settingsSectionHeader(
+                icon: "plus.rectangle.on.rectangle.fill",
+                title: "Channels",
+                accentColor: Color(red: 0.1, green: 0.75, blue: 0.5)
+            ) {
+                Button(action: {
+                    isShowingAddChannelSheet = true
+                }) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "plus")
+                        Text("Add Channel")
+                    }
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color(red: 0.1, green: 0.75, blue: 0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Pinned Custom Channels Box
+            settingsGroupBox {
+                settingsRow(
+                    icon: "star.fill",
+                    iconColor: Color(red: 0.1, green: 0.75, blue: 0.5),
+                    title: "Pinned Custom Channels",
+                    subtitle: "\(customChannelManager.channels.count) custom web apps, shortcuts, or scripts pinned to grid"
+                ) {
+                    pillBadge(text: "\(customChannelManager.channels.count) Pinned")
+                }
+
+                settingsDivider
+
+                if customChannelManager.channels.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "plus.square.dashed")
+                            .font(.system(size: 26))
+                            .foregroundStyle(.white.opacity(0.3))
+                        Text("No custom channels created yet")
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.white.opacity(0.6))
-
-                        Spacer()
-
-                        Button {
+                        Button("Add Custom Channel") {
                             isShowingAddChannelSheet = true
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "plus")
-                                Text("Add Channel")
-                            }
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 4.5)
-                            .background(Color.white, in: Capsule())
                         }
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.1, green: 0.75, blue: 0.5))
                         .buttonStyle(.plain)
                     }
-
-                    if customChannelManager.channels.isEmpty {
-                        HStack {
-                            Spacer()
-                            VStack(spacing: 6) {
-                                Image(systemName: "plus.square.dashed")
-                                    .font(.system(size: 24))
-                                    .foregroundStyle(.white.opacity(0.3))
-                                Text("No custom channels yet")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(.white.opacity(0.5))
-                            }
-                            .padding(.vertical, 16)
-                            Spacer()
-                        }
-                    } else {
-                        VStack(spacing: 6) {
-                            ForEach(customChannelManager.channels) { record in
-                                customChannelRow(channel: record)
-                            }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                } else {
+                    ForEach(customChannelManager.channels) { record in
+                        customChannelRow(channel: record)
+                        if record != customChannelManager.channels.last {
+                            settingsDivider
                         }
                     }
                 }
             }
 
-            // Command-Line Companion
-            settingsCard(title: "CLI Companion (appschannel)", icon: "terminal.fill") {
-                VStack(spacing: 10) {
-                    HStack {
+            // CLI Companion (appschannel) Box
+            settingsGroupBox {
+                settingsRow(
+                    icon: "terminal.fill",
+                    iconColor: Color(red: 0.65, green: 0.35, blue: 1.0),
+                    title: "CLI Companion (appschannel)",
+                    subtitle: cliManager.isInstalled ? (cliManager.installedPath ?? "Installed in system PATH") : "Script AppsChannel from Terminal or Raycast"
+                ) {
+                    HStack(spacing: 6) {
                         if cliManager.isInstalled {
-                            HStack(spacing: 5) {
-                                Circle().fill(Color.green).frame(width: 6, height: 6)
-                                Text("Installed")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.green)
+                            pillBadge(text: "Installed", color: .green, bgOpacity: 0.15)
+
+                            Button("Reinstall") {
+                                cliManager.installCLI()
                             }
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(Color.green.opacity(0.12), in: Capsule())
-                        } else {
-                            HStack(spacing: 5) {
-                                Circle().fill(Color.orange).frame(width: 6, height: 6)
-                                Text("Not in PATH")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.orange)
-                            }
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(Color.orange.opacity(0.12), in: Capsule())
-                        }
+                            .padding(.vertical, 3.5)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .buttonStyle(.plain)
 
-                        if let path = cliManager.installedPath {
-                            Text(path)
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.5))
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-
-                        Spacer()
-
-                        Button {
-                            cliManager.installCLI()
-                        } label: {
-                            Text(cliManager.isInstalled ? "Reinstall" : "Install CLI")
-                                .font(.system(size: 10.5, weight: .semibold))
-                                .foregroundStyle(.black)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.white, in: RoundedRectangle(cornerRadius: 5))
-                        }
-                        .buttonStyle(.plain)
-
-                        if cliManager.isInstalled {
-                            Button(role: .destructive) {
+                            Button("Uninstall") {
                                 cliManager.uninstallCLI()
-                            } label: {
-                                Text("Uninstall")
-                                    .font(.system(size: 10.5))
-                                    .foregroundStyle(.red.opacity(0.85))
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 4)
-                                    .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 5))
                             }
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.red.opacity(0.9))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3.5)
+                            .background(Color.red.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .buttonStyle(.plain)
+                        } else {
+                            pillBadge(text: "Not in PATH", color: .orange, bgOpacity: 0.15)
+
+                            Button("Install CLI") {
+                                cliManager.installCLI()
+                            }
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(red: 0.65, green: 0.35, blue: 1.0))
+                            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                             .buttonStyle(.plain)
                         }
                     }
+                }
 
-                    // Click to Copy Command Chips
+                settingsDivider
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Quick Commands (Click to copy)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.45))
+
                     HStack(spacing: 6) {
                         cliCommandChip(command: "appschannel toggle")
                         cliCommandChip(command: "appschannel launch Safari")
@@ -1554,7 +1787,15 @@ struct SettingsModalView: View {
                         Spacer()
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
+
+            // Footer
+            settingsFooter(
+                text: "\(customChannelManager.channels.count) custom channels configured",
+                accentColor: Color(red: 0.1, green: 0.75, blue: 0.5)
+            )
         }
     }
 
@@ -1573,56 +1814,69 @@ struct SettingsModalView: View {
                 }
             }
         }) {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                    .font(.system(size: 9))
+                    .font(.system(size: 9, weight: .bold))
                 Text(isCopied ? "Copied" : command)
-                    .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
             }
-            .foregroundStyle(isCopied ? Color.green : Color.white.opacity(0.8))
-            .padding(.horizontal, 7)
+            .foregroundStyle(isCopied ? Color.green : Color.white.opacity(0.85))
+            .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(isCopied ? Color.green.opacity(0.15) : Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 5))
+            .background(isCopied ? Color.green.opacity(0.15) : Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(isCopied ? Color.green.opacity(0.3) : Color.white.opacity(0.12), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
     }
 
     private func customChannelRow(channel: CustomChannelRecord) -> some View {
-        HStack(spacing: 9) {
-            Circle()
-                .fill(Color(hex: channel.accentHex) ?? .blue)
-                .frame(width: 8, height: 8)
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color(hex: channel.accentHex) ?? Color(red: 0.1, green: 0.75, blue: 0.5))
+                    .frame(width: 24, height: 24)
 
-            Image(systemName: channel.kind == .web ? "globe" : (channel.kind == .shortcut ? "bolt.fill" : "terminal.fill"))
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.8))
+                Image(systemName: channel.kind == .web ? "globe" : (channel.kind == .shortcut ? "bolt.fill" : "terminal.fill"))
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+            }
 
-            Text(channel.name)
-                .font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(channel.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
 
-            Text(channel.target)
-                .font(.system(size: 9.5, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.45))
-                .lineLimit(1)
-                .truncationMode(.middle)
+                Text(channel.target)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
 
             Spacer()
+
+            pillBadge(text: channel.kind.rawValue.capitalized, color: .white.opacity(0.7), bgOpacity: 0.05)
 
             Button(role: .destructive) {
                 customChannelManager.removeChannel(id: channel.id)
                 SoundEffectsManager.shared.playAction()
             } label: {
                 Image(systemName: "trash")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.red.opacity(0.8))
-                    .padding(4)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.red.opacity(0.85))
+                    .padding(5)
             }
             .buttonStyle(.plain)
+            .help("Delete custom channel")
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 6)
-        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
 
     // MARK: - 5. Hidden Apps Tab
@@ -1661,162 +1915,180 @@ struct SettingsModalView: View {
 
     private var hiddenAppsSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
-            settingsCard(title: "Application Visibility", icon: "eye.slash.fill") {
-                VStack(spacing: 10) {
-                    // Search & Batch Bar
-                    HStack(spacing: 8) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.5))
-
-                            TextField("Search applications...", text: $hiddenAppsSearchText)
-                                .textFieldStyle(.plain)
-                                .font(.system(size: 11))
-                                .foregroundStyle(.white)
-
-                            if !hiddenAppsSearchText.isEmpty {
-                                Button(action: { hiddenAppsSearchText = "" }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(.white.opacity(0.5))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(Color.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 7))
-
-                        Spacer()
-
-                        // Counters
-                        HStack(spacing: 5) {
-                            Text("\(categoryVisibleCount) Visible")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(.green.opacity(0.9))
-
-                            Text("•")
-                                .foregroundStyle(.white.opacity(0.3))
-
-                            Text("\(categoryHiddenCount) Hidden")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(categoryHiddenCount > 0 ? .orange : .white.opacity(0.4))
-                        }
-
-                        // Batch Toggle
-                        Button(action: {
-                            withAnimation(.spring(response: 0.22, dampingFraction: 0.8)) {
-                                if categoryVisibleCount > 0 {
-                                    discoveryService.hideGroup(category: hiddenAppsCategoryFilter)
-                                } else {
-                                    discoveryService.unhideGroup(category: hiddenAppsCategoryFilter)
-                                }
-                                SoundEffectsManager.shared.playAction()
-                            }
-                        }) {
-                            Text(categoryVisibleCount > 0 ? "Hide All" : "Unhide All")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(.black)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.white, in: RoundedRectangle(cornerRadius: 5))
-                        }
-                        .buttonStyle(.plain)
+            // Header
+            settingsSectionHeader(
+                icon: "eye.slash.fill",
+                title: "Application Visibility",
+                accentColor: Color(red: 1.0, green: 0.65, blue: 0.1)
+            ) {
+                HStack(spacing: 6) {
+                    pillBadge(text: "\(categoryVisibleCount) Visible")
+                    if categoryHiddenCount > 0 {
+                        pillBadge(
+                            text: "\(categoryHiddenCount) Hidden",
+                            color: Color(red: 1.0, green: 0.65, blue: 0.1),
+                            bgOpacity: 0.15
+                        )
                     }
+                }
+            }
 
-                    // Category Filter Strip
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 5) {
-                            ForEach(allCategories, id: \.self) { cat in
-                                let isSelected = hiddenAppsCategoryFilter == cat
-                                let appsInCat = discoveryService.allDiscoveredApps.filter { cat == "ALL" || $0.category == cat }
-                                let hiddenInCat = appsInCat.filter { discoveryService.isHidden(app: $0) }.count
+            // Search Bar & Category Filter Pills
+            HStack(spacing: 8) {
+                // Search Field
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.4))
 
-                                Button(action: {
-                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
-                                        hiddenAppsCategoryFilter = cat
-                                    }
-                                    SoundEffectsManager.shared.playAction()
-                                }) {
-                                    HStack(spacing: 4) {
-                                        Text(cat)
-                                            .font(.system(size: 9.5, weight: isSelected ? .bold : .medium))
+                    TextField("Search applications...", text: $hiddenAppsSearchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white)
 
-                                        if hiddenInCat > 0 {
-                                            Text("\(hiddenInCat)")
-                                                .font(.system(size: 8, weight: .bold))
-                                                .padding(.horizontal, 3)
-                                                .background(isSelected ? Color.black.opacity(0.2) : Color.orange.opacity(0.3), in: Capsule())
-                                        }
-                                    }
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(isSelected ? Color.white : Color.white.opacity(0.06), in: Capsule())
-                                    .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.8))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-
-                    // App Rows
-                    if filteredManagerApps.isEmpty {
-                        Text("No apps match filter")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.4))
-                            .padding(.vertical, 12)
-                    } else {
-                        LazyVStack(spacing: 4) {
-                            ForEach(filteredManagerApps) { app in
-                                appManagerCompactRow(app: app)
-                            }
-                        }
-                    }
-
-                    if !discoveryService.hiddenAppPaths.isEmpty {
-                        Divider().background(Color.white.opacity(0.06))
-
-                        Button(action: {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                                discoveryService.unhideAllApps()
-                                SoundEffectsManager.shared.playAction()
-                            }
-                        }) {
-                            HStack(spacing: 5) {
-                                Image(systemName: "arrow.counterclockwise")
-                                Text("Unhide All Applications (\(discoveryService.hiddenAppPaths.count))")
-                            }
-                            .font(.system(size: 10.5, weight: .semibold))
-                            .foregroundStyle(.orange)
+                    if !hiddenAppsSearchText.isEmpty {
+                        Button(action: { hiddenAppsSearchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.white.opacity(0.4))
                         }
                         .buttonStyle(.plain)
                     }
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                )
+
+                // Category Filter Pills ScrollView
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(allCategories, id: \.self) { cat in
+                            let isSelected = hiddenAppsCategoryFilter == cat
+                            let appsInCat = discoveryService.allDiscoveredApps.filter { cat == "ALL" || $0.category == cat }
+                            let hiddenInCat = appsInCat.filter { discoveryService.isHidden(app: $0) }.count
+                            CategoryPill(
+                                title: cat,
+                                count: hiddenInCat > 0 ? hiddenInCat : nil,
+                                isSelected: isSelected
+                            ) {
+                                withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                                    hiddenAppsCategoryFilter = cat
+                                }
+                                SoundEffectsManager.shared.playAction()
+                            }
+                        }
+                    }
+                }
             }
+
+            // Sub-bar: Count & Batch Toggle
+            HStack {
+                Text("\(filteredManagerApps.count) applications" + (hiddenAppsCategoryFilter == "ALL" ? "" : " in \(hiddenAppsCategoryFilter)"))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.4))
+
+                Spacer()
+
+                Button(action: {
+                    withAnimation(.spring(response: 0.22, dampingFraction: 0.8)) {
+                        if categoryVisibleCount > 0 {
+                            discoveryService.hideGroup(category: hiddenAppsCategoryFilter)
+                        } else {
+                            discoveryService.unhideGroup(category: hiddenAppsCategoryFilter)
+                        }
+                        SoundEffectsManager.shared.playAction()
+                    }
+                }) {
+                    HStack(spacing: 5) {
+                        Image(systemName: categoryVisibleCount > 0 ? "eye.slash" : "eye")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(categoryVisibleCount > 0 ? "Hide All in \(hiddenAppsCategoryFilter)" : "Unhide All in \(hiddenAppsCategoryFilter)")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(.white.opacity(0.85))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 4)
+
+            // Application Rows Table
+            if filteredManagerApps.isEmpty {
+                settingsGroupBox {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 6) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 22))
+                                .foregroundStyle(.white.opacity(0.25))
+                            Text("No applications match your filter")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.white.opacity(0.4))
+                        }
+                        .padding(.vertical, 28)
+                        Spacer()
+                    }
+                }
+            } else {
+                settingsGroupBox {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(filteredManagerApps.enumerated()), id: \.element.id) { index, app in
+                            if index > 0 {
+                                settingsDivider
+                            }
+                            appManagerCompactRow(app: app)
+                        }
+                    }
+                }
+            }
+
+            // Footer
+            settingsFooter(
+                text: "\(discoveryService.hiddenAppPaths.count) of \(discoveryService.allDiscoveredApps.count) apps hidden from launcher",
+                actionTitle: discoveryService.hiddenAppPaths.isEmpty ? nil : "Unhide All (\(discoveryService.hiddenAppPaths.count))",
+                accentColor: Color(red: 1.0, green: 0.65, blue: 0.1),
+                action: discoveryService.hiddenAppPaths.isEmpty ? nil : {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        discoveryService.unhideAllApps()
+                        SoundEffectsManager.shared.playAction()
+                    }
+                }
+            )
         }
     }
 
     private func appManagerCompactRow(app: DiscoveredApp) -> some View {
         let isHidden = discoveryService.isHidden(app: app)
-        return HStack(spacing: 8) {
+        return HStack(spacing: 12) {
             Image(nsImage: app.icon)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 20, height: 20)
-                .opacity(isHidden ? 0.4 : 1.0)
+                .frame(width: 24, height: 24)
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .opacity(isHidden ? 0.35 : 1.0)
 
-            Text(app.name)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(isHidden ? .white.opacity(0.4) : .white)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(app.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(isHidden ? .white.opacity(0.45) : .white)
+                    .lineLimit(1)
 
-            Text(app.category.uppercased())
-                .font(.system(size: 8, weight: .bold, design: .monospaced))
-                .foregroundStyle(isHidden ? .white.opacity(0.25) : .white.opacity(0.55))
-                .padding(.horizontal, 4)
-                .padding(.vertical, 1)
-                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 3))
+                Text(app.category.uppercased())
+                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                    .foregroundStyle(isHidden ? .white.opacity(0.25) : .white.opacity(0.45))
+            }
 
             Spacer()
 
@@ -1826,126 +2098,193 @@ struct SettingsModalView: View {
                 }
                 SoundEffectsManager.shared.playAction()
             }) {
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     Image(systemName: isHidden ? "eye.slash.fill" : "eye.fill")
-                        .font(.system(size: 9))
+                        .font(.system(size: 10, weight: .semibold))
                     Text(isHidden ? "Hidden" : "Visible")
-                        .font(.system(size: 9.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                 }
-                .foregroundStyle(isHidden ? Color.orange : Color.white)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3.5)
-                .background(isHidden ? Color.orange.opacity(0.18) : Color.white.opacity(0.1), in: Capsule())
+                .foregroundStyle(isHidden ? Color(red: 1.0, green: 0.65, blue: 0.1) : Color.white.opacity(0.85))
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(
+                    isHidden ? Color(red: 1.0, green: 0.65, blue: 0.1).opacity(0.18) : Color.white.opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(
+                            isHidden ? Color(red: 1.0, green: 0.65, blue: 0.1).opacity(0.3) : Color.white.opacity(0.12),
+                            lineWidth: 1
+                        )
+                )
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(Color.white.opacity(isHidden ? 0.015 : 0.04), in: RoundedRectangle(cornerRadius: 6))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .contentShape(Rectangle())
     }
 
     // MARK: - 6. About Settings Tab (Hero & Actions)
     private var aboutSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
-            settingsCard(title: "AppsChannel", icon: "info.circle.fill") {
-                VStack(spacing: 14) {
-                    // Hero
-                    HStack(spacing: 14) {
-                        Image(nsImage: NSApp.applicationIconImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 50, height: 50)
-                            .shadow(color: .white.opacity(0.2), radius: 8)
+            // Header
+            settingsSectionHeader(
+                icon: "info.circle.fill",
+                title: "About AppsChannel",
+                accentColor: Color(red: 0.05, green: 0.52, blue: 1.0)
+            ) {
+                pillBadge(text: appVersionString)
+            }
 
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 7) {
-                                Text("AppsChannel")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.white)
+            // Hero Branding Box
+            settingsGroupBox {
+                HStack(spacing: 16) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 54, height: 54)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .shadow(color: .white.opacity(0.15), radius: 8, y: 2)
 
-                                Text(appVersionString)
-                                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(.black)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.white, in: Capsule())
-                            }
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 8) {
+                            Text("AppsChannel")
+                                .font(.system(size: 17, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
 
-                            Text("Cover Flow meets the Channel Grid for macOS")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.6))
+                            pillBadge(text: appVersionString, color: .white, bgOpacity: 0.15)
                         }
-                        Spacer()
+
+                        Text("Cover Flow meets the Channel Grid for macOS")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.65))
+
+                        HStack(spacing: 6) {
+                            pillBadge(text: "Offline First", color: .white.opacity(0.7), bgOpacity: 0.06)
+                            pillBadge(text: "Zero Telemetry", color: .white.opacity(0.7), bgOpacity: 0.06)
+                            pillBadge(text: "MIT License", color: .white.opacity(0.7), bgOpacity: 0.06)
+                        }
+                        .padding(.top, 2)
                     }
 
-                    Divider().background(Color.white.opacity(0.08))
+                    Spacer()
+                }
+                .padding(14)
+            }
 
-                    // Action Buttons Grid
-                    HStack(spacing: 8) {
-                        #if !APP_STORE
-                        aboutActionButton(
-                            icon: "arrow.triangle.2.circlepath",
-                            title: "Check Updates"
-                        ) {
-                            UpdateManager.shared.checkForUpdates()
+            // Actions & Links Box
+            settingsGroupBox {
+                #if !APP_STORE
+                settingsRow(
+                    icon: "arrow.triangle.2.circlepath",
+                    iconColor: Color(red: 0.05, green: 0.52, blue: 1.0),
+                    title: "Check for Updates",
+                    subtitle: "Sparkle automatic updater"
+                ) {
+                    Button(action: {
+                        UpdateManager.shared.checkForUpdates()
+                    }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("Check Now")
+                                .font(.system(size: 11, weight: .medium))
                         }
-                        #endif
-
-                        aboutActionButton(
-                            icon: "link",
-                            title: "GitHub"
-                        ) {
-                            if let url = URL(string: "https://github.com/micah1crandell/AppsChannel") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-
-                        aboutActionButton(
-                            icon: "cup.and.saucer.fill",
-                            title: "Tip Jar"
-                        ) {
-                            if let url = URL(string: "https://www.buymeacoffee.com/micahcrandell") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                        )
                     }
+                    .buttonStyle(.plain)
+                }
 
-                    Divider().background(Color.white.opacity(0.08))
+                settingsDivider
+                #endif
 
-                    // Footer
-                    HStack {
-                        Text("MIT License • Offline First • Zero Telemetry")
-                            .font(.system(size: 9.5))
-                            .foregroundStyle(.white.opacity(0.45))
-                        Spacer()
-                        Text("macOS 14.0+")
-                            .font(.system(size: 9.5))
-                            .foregroundStyle(.white.opacity(0.45))
+                settingsRow(
+                    icon: "link",
+                    iconColor: Color(red: 0.58, green: 0.35, blue: 0.95),
+                    title: "Source Code & Issues",
+                    subtitle: "github.com/micah1crandell/AppsChannel"
+                ) {
+                    Button(action: {
+                        if let url = URL(string: "https://github.com/micah1crandell/AppsChannel") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        HStack(spacing: 5) {
+                            Text("Open GitHub")
+                                .font(.system(size: 11, weight: .medium))
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 9, weight: .bold))
+                        }
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                        )
                     }
+                    .buttonStyle(.plain)
+                }
+
+                settingsDivider
+
+                settingsRow(
+                    icon: "cup.and.saucer.fill",
+                    iconColor: Color(red: 1.0, green: 0.65, blue: 0.1),
+                    title: "Support the Project",
+                    subtitle: "buymeacoffee.com/micahcrandell"
+                ) {
+                    Button(action: {
+                        if let url = URL(string: "https://www.buymeacoffee.com/micahcrandell") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.pink)
+                            Text("Tip Jar")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                settingsDivider
+
+                settingsRow(
+                    icon: "laptopcomputer",
+                    iconColor: Color(white: 0.4),
+                    title: "macOS Compatibility",
+                    subtitle: "Designed for macOS Sonoma (14.0) and Sequoia (15.0+)"
+                ) {
+                    pillBadge(text: "macOS 14.0+")
                 }
             }
-        }
-    }
 
-    private func aboutActionButton(
-        icon: String,
-        title: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .semibold))
-                Text(title)
-                    .font(.system(size: 10.5, weight: .semibold))
-            }
-            .foregroundStyle(.white.opacity(0.9))
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity)
-            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+            // Footer
+            settingsFooter(text: "AppsChannel • Crafted with Swift & SwiftUI")
         }
-        .buttonStyle(.plain)
     }
 }

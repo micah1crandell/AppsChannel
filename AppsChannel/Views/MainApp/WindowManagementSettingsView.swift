@@ -499,26 +499,47 @@ struct WindowManagementSettingsView: View {
 }
 
 // MARK: - Category Pill
-private struct CategoryPill: View {
+struct CategoryPill: View {
     let title: String
+    var count: Int? = nil
     let isSelected: Bool
     let action: () -> Void
 
+    init(title: String, count: Int? = nil, isSelected: Bool, action: @escaping () -> Void) {
+        self.title = title
+        self.count = count
+        self.isSelected = isSelected
+        self.action = action
+    }
+
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
-                .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.7))
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(isSelected ? Color.white : Color.white.opacity(0.08))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.12), lineWidth: 1)
-                )
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
+
+                if let count = count, count > 0 {
+                    Text("\(count)")
+                        .font(.system(size: 9, weight: .bold))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(
+                            isSelected ? Color.black.opacity(0.2) : Color.white.opacity(0.15),
+                            in: Capsule()
+                        )
+                }
+            }
+            .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.7))
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isSelected ? Color.white : Color.white.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.12), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
     }
