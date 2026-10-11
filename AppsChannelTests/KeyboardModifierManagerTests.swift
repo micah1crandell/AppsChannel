@@ -53,10 +53,7 @@ final class KeyboardModifierManagerTests: XCTestCase {
         XCTAssertEqual(manager.activeModifierSymbol, "⌥")
 
         let hint = manager.primaryActionHint
-        XCTAssertNotNil(hint)
-        XCTAssertEqual(hint?.label, "Recent Documents")
-        XCTAssertEqual(hint?.key, "⌥↵")
-        XCTAssertEqual(hint?.icon, "clock.arrow.circlepath")
+        XCTAssertNil(hint)
     }
 
     func testShiftModifierDetection() {

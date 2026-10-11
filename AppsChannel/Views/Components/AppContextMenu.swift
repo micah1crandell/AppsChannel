@@ -71,14 +71,6 @@ struct AppCardContextMenu: ViewModifier {
                     Label(discoveryService.isRunning(app: app) ? "Switch to Application" : "Launch Application", systemImage: "arrow.up.right.square")
                 }
 
-                if RecentDocumentsService.hasDocumentTypes(forAppAt: app.url) {
-                    Button {
-                        NotificationCenter.default.post(name: .toggleRecentDocuments, object: app)
-                    } label: {
-                        Label("Show Recent Documents (⌘↓)", systemImage: "clock.arrow.circlepath")
-                    }
-                }
-
                 Divider()
 
                 Button {
@@ -212,8 +204,4 @@ extension View {
     func appContextMenu(for app: DiscoveredApp, onLaunch: @escaping () -> Void) -> some View {
         self.modifier(AppCardContextMenu(app: app, onLaunch: onLaunch))
     }
-}
-
-extension Notification.Name {
-    static let toggleRecentDocuments = Notification.Name("toggleRecentDocuments")
 }

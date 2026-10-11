@@ -17,7 +17,6 @@ struct RetroHUDView: View {
     var onOpenSettings: (() -> Void)? = nil
     var onToggleOrganize: (() -> Void)? = nil
     var isOrganizeMode: Bool = false
-    var onToggleRecentDocuments: (() -> Void)? = nil
     var onAddCustomChannel: (() -> Void)? = nil
 
     @FocusState private var isSearchFocused: Bool
@@ -390,28 +389,6 @@ struct RetroHUDView: View {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                     )
-
-                    if !app.isSeparator, let onToggleRecent = onToggleRecentDocuments {
-                        let contextKind = AppContextSubDeckService.shared.detectContext(for: app)
-                        Button(action: onToggleRecent) {
-                            HStack(spacing: 5) {
-                                Image(systemName: contextKind.systemIcon)
-                                    .font(.system(size: 11, weight: .bold))
-                                Text(contextKind.buttonLabel)
-                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
-                            .background(Color(white: 0.08).opacity(0.88), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .help("Show \(contextKind.title) for this app (⌘↓)")
-                    }
                 }
             }
 
@@ -451,8 +428,6 @@ struct RetroHUDView: View {
 
                     if modifierManager.isCommandPressed {
                         keyboardShortcutBadge(key: "⌘↵", label: "Finder", isHighlighted: true)
-                    } else if modifierManager.isOptionPressed {
-                        keyboardShortcutBadge(key: "⌥↵", label: "Recent Docs", isHighlighted: true)
                     } else if modifierManager.isShiftPressed {
                         keyboardShortcutBadge(key: "⇧↵", label: "Copy Path", isHighlighted: true)
                     } else {
@@ -519,9 +494,6 @@ struct RetroHUDView: View {
         }
         if modifierManager.isCommandPressed {
             return Color(red: 0.08, green: 0.52, blue: 1.0)
-        }
-        if modifierManager.isOptionPressed {
-            return Color(red: 1.0, green: 0.58, blue: 0.0)
         }
         if modifierManager.isShiftPressed {
             return Color(red: 0.68, green: 0.32, blue: 0.88)

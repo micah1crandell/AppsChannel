@@ -52,8 +52,6 @@ final class KeyboardModifierManager: ObservableObject {
     var primaryActionHint: (label: String, key: String, icon: String)? {
         if isCommandPressed {
             return ("Reveal in Finder", "⌘↵", "folder.fill")
-        } else if isOptionPressed {
-            return ("Recent Documents", "⌥↵", "clock.arrow.circlepath")
         } else if isShiftPressed {
             return ("Copy Path", "⇧↵", "doc.on.doc.fill")
         }
