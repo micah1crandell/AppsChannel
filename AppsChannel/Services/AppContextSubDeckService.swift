@@ -139,6 +139,34 @@ struct BrowserDownloadItem: Identifiable, Hashable, @unchecked Sendable {
     }
 }
 
+struct BrowserURLItem: Identifiable, Hashable, @unchecked Sendable {
+    let id: UUID
+    let title: String
+    let url: URL
+    let domain: String
+    let iconName: String
+    let isPinned: Bool
+
+    init(id: UUID = UUID(), title: String, url: URL, domain: String? = nil, iconName: String = "globe", isPinned: Bool = false) {
+        self.id = id
+        self.url = url
+        let resolvedDomain = domain ?? (url.host?.replacingOccurrences(of: "www.", with: "") ?? "web")
+        self.domain = resolvedDomain
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.title = cleanTitle.isEmpty ? resolvedDomain : cleanTitle
+        self.iconName = iconName
+        self.isPinned = isPinned
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(url)
+    }
+
+    static func == (lhs: BrowserURLItem, rhs: BrowserURLItem) -> Bool {
+        lhs.url == rhs.url
+    }
+}
+
 struct NowPlayingMediaInfo: Sendable {
     let trackName: String
     let artistName: String
@@ -161,6 +189,7 @@ final class AppContextSubDeckService: ObservableObject {
     @Published private(set) var recentPhotos: [PhotoDeckItem] = []
     @Published private(set) var recentDevProjects: [DevProjectItem] = []
     @Published private(set) var recentDownloads: [BrowserDownloadItem] = []
+    @Published private(set) var recentURLs: [BrowserURLItem] = []
     @Published private(set) var appGlanceInfo: AppGlanceInfo? = nil
     @Published private(set) var nowPlayingInfo: NowPlayingMediaInfo? = nil
 
@@ -235,12 +264,17 @@ final class AppContextSubDeckService: ObservableObject {
 
         case .browser:
             self.isLoading = true
-            let downloads = await Task.detached(priority: .userInitiated) { () -> [BrowserDownloadItem] in
-                return Self.fetchRecentDownloads()
+            let appBundleId = app.bundleIdentifier
+            let appURL = app.url
+            let (downloads, urls) = await Task.detached(priority: .userInitiated) { () -> ([BrowserDownloadItem], [BrowserURLItem]) in
+                let dl = Self.fetchRecentDownloads()
+                let u = Self.fetchRecentBrowserURLs(forBundleId: appBundleId, appURL: appURL)
+                return (dl, u)
             }.value
 
             if self.activeApp?.id == app.id {
                 self.recentDownloads = downloads
+                self.recentURLs = urls
                 self.isLoading = false
             }
 
@@ -346,6 +380,20 @@ final class AppContextSubDeckService: ObservableObject {
             ? URL(string: "https://www.google.com")!
             : URL(string: "https://www.google.com/search?q=\(encoded)")!
         NSWorkspace.shared.open(searchURL)
+    }
+
+    func openURLInBrowser(_ url: URL, browserApp: DiscoveredApp) {
+        if browserApp.url.isFileURL {
+            let config = NSWorkspace.OpenConfiguration()
+            config.createsNewApplicationInstance = false
+            NSWorkspace.shared.open([url], withApplicationAt: browserApp.url, configuration: config) { _, _ in }
+        } else {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    nonisolated func classifyAppKind(for app: DiscoveredApp) -> AppContextKind {
+        detectContext(for: app)
     }
 
     // MARK: - Now Playing Controls
@@ -823,6 +871,187 @@ final class AppContextSubDeckService: ObservableObject {
 
         let sorted = items.sorted { ($0.lastUsedDate ?? .distantPast) > ($1.lastUsedDate ?? .distantPast) }
         return Array(sorted.prefix(6))
+    }
+
+    // MARK: - Browser Recent URLs & Bookmarks Fetcher
+    nonisolated static func fetchRecentBrowserURLs(forBundleId bundleId: String?, appURL: URL) -> [BrowserURLItem] {
+        var items: [BrowserURLItem] = []
+        var seenURLs = Set<String>()
+
+        let addURL: @Sendable (String, String, String, Bool) -> Void = { title, urlString, iconName, isPinned in
+            let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let url = URL(string: trimmed),
+                  let scheme = url.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https",
+                  !seenURLs.contains(trimmed) else {
+                return
+            }
+            seenURLs.insert(trimmed)
+            let domain = url.host?.replacingOccurrences(of: "www.", with: "") ?? "web"
+            let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? domain : title
+            items.append(BrowserURLItem(
+                title: cleanTitle,
+                url: url,
+                domain: domain,
+                iconName: iconName,
+                isPinned: isPinned
+            ))
+        }
+
+        let lowerBundle = bundleId?.lowercased() ?? ""
+        let appName = appURL.deletingPathExtension().lastPathComponent.lowercased()
+
+        // 1. Arc Browser: parse StorableSidebar.json
+        if lowerBundle.contains("arc") || appName.contains("arc") {
+            let arcPath = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Application Support/Arc/StorableSidebar.json")
+            if let data = try? Data(contentsOf: arcPath),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let sidebar = json["sidebar"] as? [String: Any],
+               let containers = sidebar["containers"] as? [[String: Any]] {
+                for container in containers {
+                    if let containerItems = container["items"] as? [[String: Any]] {
+                        for itemDict in containerItems {
+                            if let dataDict = itemDict["data"] as? [String: Any],
+                               let tabDict = dataDict["tab"] as? [String: Any] {
+                                let urlStr = (tabDict["savedURL"] as? String) ?? (tabDict["url"] as? String) ?? ""
+                                let titleStr = (tabDict["savedTitle"] as? String) ?? (tabDict["title"] as? String) ?? ""
+                                if !urlStr.isEmpty {
+                                    addURL(titleStr, urlStr, "bookmark.fill", true)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Chromium Browsers (Google Chrome, Brave, Edge, Vivaldi)
+        let chromiumPaths: [String] = [
+            "Library/Application Support/Google/Chrome",
+            "Library/Application Support/BraveSoftware/Brave-Browser",
+            "Library/Application Support/Microsoft Edge",
+            "Library/Application Support/Vivaldi"
+        ]
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        for relPath in chromiumPaths {
+            let baseDir = home.appendingPathComponent(relPath)
+            if FileManager.default.fileExists(atPath: baseDir.path) {
+                if let subdirs = try? FileManager.default.contentsOfDirectory(atPath: baseDir.path) {
+                    for sub in subdirs where sub == "Default" || sub.hasPrefix("Profile ") {
+                        let bookmarksFile = baseDir.appendingPathComponent(sub).appendingPathComponent("Bookmarks")
+                        if let bData = try? Data(contentsOf: bookmarksFile),
+                           let bJson = try? JSONSerialization.jsonObject(with: bData) as? [String: Any],
+                           let roots = bJson["roots"] as? [String: Any] {
+                            for rootKey in ["bookmark_bar", "other", "synced"] {
+                                if let rootDict = roots[rootKey] as? [String: Any],
+                                   let children = rootDict["children"] as? [[String: Any]] {
+                                    parseChromiumBookmarkNodes(children, addURL: addURL)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Safari Running Tabs via AppleScript
+        if lowerBundle.contains("safari") || appName.contains("safari") {
+            let isSafariRunning = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first != nil
+            if isSafariRunning {
+                let script = """
+                tell application "Safari"
+                    set res to {}
+                    repeat with w in windows
+                        repeat with t in tabs of w
+                            set u to URL of t
+                            set n to name of t
+                            if u is not missing value and u is not "" then
+                                set end of res to (n & "|||" & u)
+                            end if
+                        end repeat
+                    end repeat
+                    return res
+                end tell
+                """
+                if let appleScript = NSAppleScript(source: script) {
+                    var error: NSDictionary?
+                    let desc = appleScript.executeAndReturnError(&error)
+                    if error == nil {
+                        for i in 1...desc.numberOfItems {
+                            if let itemStr = desc.atIndex(i)?.stringValue {
+                                let parts = itemStr.components(separatedBy: "|||")
+                                if parts.count == 2 {
+                                    addURL(parts[0], parts[1], "safari.fill", false)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Spotlight Internet Location (.webloc) files
+        let weblocQuery = "kMDItemContentTypeTree == 'com.apple.web-internet-location' && (kMDItemLastUsedDate >= $time.today(-60) || kMDItemContentModificationDate >= $time.today(-60))"
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/mdfind")
+        proc.arguments = ["-onlyin", home.path, weblocQuery]
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        if (try? proc.run()) != nil {
+            proc.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                let lines = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
+                for p in lines.prefix(10) {
+                    let fileURL = URL(fileURLWithPath: p)
+                    if let dict = NSDictionary(contentsOf: fileURL) as? [String: Any],
+                       let uStr = dict["URL"] as? String {
+                        let name = fileURL.deletingPathExtension().lastPathComponent
+                        addURL(name, uStr, "link", false)
+                    }
+                }
+            }
+        }
+
+        // 5. Custom Web Channels from AppsChannel
+        if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            let customFile = appSupport.appendingPathComponent("AppsChannel/custom_channels.json")
+            if let data = try? Data(contentsOf: customFile),
+               let records = try? JSONDecoder().decode([CustomChannelRecord].self, from: data) {
+                for rec in records where rec.kind == .web {
+                    addURL(rec.name, rec.target, "star.fill", true)
+                }
+            }
+        }
+
+        // 6. Curated Fallback Destinations if empty
+        if items.isEmpty {
+            let defaults: [(String, String)] = [
+                ("Google", "https://google.com"),
+                ("ChatGPT", "https://chatgpt.com"),
+                ("GitHub", "https://github.com"),
+                ("Wikipedia", "https://wikipedia.org"),
+                ("Apple", "https://apple.com")
+            ]
+            for (title, url) in defaults {
+                addURL(title, url, "globe", false)
+            }
+        }
+
+        return Array(items.prefix(12))
+    }
+
+    nonisolated private static func parseChromiumBookmarkNodes(_ nodes: [[String: Any]], addURL: (String, String, String, Bool) -> Void) {
+        for node in nodes {
+            if let type = node["type"] as? String, type == "url",
+               let urlStr = node["url"] as? String {
+                let name = (node["name"] as? String) ?? ""
+                addURL(name, urlStr, "bookmark.fill", true)
+            } else if let children = node["children"] as? [[String: Any]] {
+                parseChromiumBookmarkNodes(children, addURL: addURL)
+            }
+        }
     }
 
     // MARK: - Now Playing Query (Music & Spotify)

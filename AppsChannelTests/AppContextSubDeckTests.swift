@@ -240,4 +240,46 @@ final class AppContextSubDeckTests: XCTestCase {
         XCTAssertNotNil(service.appGlanceInfo)
         XCTAssertFalse(service.isLoading)
     }
+
+    func testBrowserURLItemModelAndDomainExtraction() {
+        let item1 = BrowserURLItem(
+            title: "Apple Developer",
+            url: URL(string: "https://developer.apple.com/documentation/swiftui")!,
+            isPinned: true
+        )
+        XCTAssertEqual(item1.title, "Apple Developer")
+        XCTAssertEqual(item1.domain, "developer.apple.com")
+        XCTAssertTrue(item1.isPinned)
+
+        let item2 = BrowserURLItem(
+            title: "",
+            url: URL(string: "https://www.github.com/apple/swift")!
+        )
+        XCTAssertEqual(item2.domain, "github.com")
+        XCTAssertEqual(item2.title, "github.com")
+        XCTAssertFalse(item2.isPinned)
+    }
+
+    @MainActor
+    func testLoadContextForBrowserPopulatesURLs() async {
+        let service = AppContextSubDeckService.shared
+        let arcApp = DiscoveredApp(
+            name: "Arc",
+            url: URL(fileURLWithPath: "/Applications/Arc.app"),
+            bundleIdentifier: "company.thebrowser.Browser",
+            icon: NSImage(),
+            category: "WEB",
+            tagBadge: "WEB",
+            sizeString: "120 MB",
+            accentColor: .pink
+        )
+
+        await service.loadContext(for: arcApp)
+        XCTAssertEqual(service.contextKind, .browser)
+        XCTAssertFalse(service.isLoading)
+        // Check that either URLs were discovered from Arc sidebar or fallbacks were provided
+        XCTAssertFalse(service.recentURLs.isEmpty)
+        XCTAssertTrue(service.recentURLs.first?.url.scheme == "https" || service.recentURLs.first?.url.scheme == "http")
+    }
 }
+

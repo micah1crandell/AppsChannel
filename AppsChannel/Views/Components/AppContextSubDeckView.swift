@@ -4,6 +4,7 @@ import AppKit
 struct AppContextSubDeckView: View {
     let app: DiscoveredApp
     let onClose: () -> Void
+    var onActionExecuted: (() -> Void)? = nil
 
     @ObservedObject private var service = AppContextSubDeckService.shared
     @ObservedObject private var clipboardService = ClipboardMonitorService.shared
@@ -111,7 +112,7 @@ struct AppContextSubDeckView: View {
         let count: Int = {
             switch service.contextKind {
             case .clipboard: return clipboardService.items.count
-            case .browser: return service.recentDownloads.count
+            case .browser: return service.recentURLs.count > 0 ? service.recentURLs.count : service.recentDownloads.count
             case .photos: return service.recentPhotos.count
             case .media: return service.recentDocuments.count
             case .developer: return service.recentDevProjects.count
@@ -165,7 +166,7 @@ struct AppContextSubDeckView: View {
                                 onPaste: {
                                     clipboardService.pasteToFrontmostApp(item)
                                     SoundEffectsManager.shared.playLaunch()
-                                    onClose()
+                                    (onActionExecuted ?? onClose)()
                                 },
                                 onCopy: {
                                     clipboardService.copyToPasteboard(item)
@@ -191,7 +192,7 @@ struct AppContextSubDeckView: View {
                 Button {
                     service.launchBrowserNewWindow(app: app)
                     SoundEffectsManager.shared.playLaunch()
-                    onClose()
+                    (onActionExecuted ?? onClose)()
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "plus.rectangle.on.rectangle")
@@ -208,7 +209,7 @@ struct AppContextSubDeckView: View {
                 Button {
                     service.launchBrowserPrivateWindow(app: app)
                     SoundEffectsManager.shared.playLaunch()
-                    onClose()
+                    (onActionExecuted ?? onClose)()
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "eye.slash.fill")
@@ -225,7 +226,7 @@ struct AppContextSubDeckView: View {
                 Button {
                     service.launchWebSearch()
                     SoundEffectsManager.shared.playLaunch()
-                    onClose()
+                    (onActionExecuted ?? onClose)()
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "magnifyingglass")
@@ -240,6 +241,41 @@ struct AppContextSubDeckView: View {
                 .buttonStyle(.plain)
 
                 Spacer()
+            }
+
+            // Recent URLs & Bookmarks
+            if !service.recentURLs.isEmpty {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text("Recent Web Pages & Bookmarks")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.5))
+                        Spacer()
+                        Text("\(service.recentURLs.count) items")
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.35))
+                    }
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(service.recentURLs) { item in
+                                BrowserURLTile(
+                                    item: item,
+                                    isHovered: hoveredItemId == item.id,
+                                    onOpen: {
+                                        service.openURLInBrowser(item.url, browserApp: app)
+                                        SoundEffectsManager.shared.playLaunch()
+                                        (onActionExecuted ?? onClose)()
+                                    }
+                                )
+                                .onHover { isHovered in
+                                    hoveredItemId = isHovered ? item.id : nil
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
             }
 
             // Recent Downloads
@@ -258,7 +294,7 @@ struct AppContextSubDeckView: View {
                                     onOpen: {
                                         NSWorkspace.shared.open(download.url)
                                         SoundEffectsManager.shared.playLaunch()
-                                        onClose()
+                                        (onActionExecuted ?? onClose)()
                                     }
                                 )
                                 .onHover { isHovered in
@@ -560,7 +596,7 @@ struct AppContextSubDeckView: View {
             NSWorkspace.shared.open(fileURL)
         }
         SoundEffectsManager.shared.playLaunch()
-        onClose()
+        (onActionExecuted ?? onClose)()
     }
 }
 
@@ -834,3 +870,61 @@ private struct RecentDocumentTile: View {
         .buttonStyle(.plain)
     }
 }
+
+private struct BrowserURLTile: View {
+    let item: BrowserURLItem
+    let isHovered: Bool
+    let onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color.white.opacity(isHovered ? 0.22 : 0.12))
+                        .frame(width: 30, height: 30)
+
+                    Image(systemName: item.iconName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(item.isPinned ? Color.blue : Color.white.opacity(0.85))
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+
+                    Text(item.domain)
+                        .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 4)
+
+                if item.isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(width: 185, height: 46)
+            .background(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(Color.white.opacity(isHovered ? 0.18 : 0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .strokeBorder(isHovered ? Color.white.opacity(0.4) : Color.white.opacity(0.12), lineWidth: 1)
+            )
+            .scaleEffect(isHovered ? 1.02 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHovered)
+        }
+        .buttonStyle(.plain)
+        .help("\(item.title) — \(item.url.absoluteString)")
+    }
+}
+

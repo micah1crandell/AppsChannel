@@ -32,6 +32,8 @@ struct MainAppView: View {
     @State private var showRecentDocs: Bool = false
     @State private var isShowingAddChannelSheet: Bool = false
     @State private var toastMessage: String? = nil
+    @State private var isQuickLauncherActive: Bool = false
+    @State private var frozenIndex: Int? = nil
     @ObservedObject private var modifierManager = KeyboardModifierManager.shared
     @ObservedObject private var themeManager = ThemeManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -115,6 +117,9 @@ struct MainAppView: View {
 
     private var activeIndex: Int {
         guard !filteredApps.isEmpty else { return 0 }
+        if isQuickLauncherActive, let frozen = frozenIndex {
+            return min(max(0, frozen), filteredApps.count - 1)
+        }
         return min(max(0, discoveryService.selectedIndex), filteredApps.count - 1)
     }
 
@@ -198,7 +203,9 @@ struct MainAppView: View {
                 }
                 Spacer()
             }
-            .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
+            .opacity(isQuickLauncherActive ? 0.0 : 1.0)
+            .animation(.easeInOut(duration: 0.22), value: isQuickLauncherActive)
+            .allowsHitTesting(!isQuickLauncherActive && !appState.isShowingSettings && !appState.isShowingWalkthrough)
 
             // Channel Arranger Deck (Apple Liquid Glass)
             if isOrganizeMode {
@@ -207,7 +214,9 @@ struct MainAppView: View {
                     channelArrangerDeck
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
+                .opacity(isQuickLauncherActive ? 0.0 : 1.0)
+                .animation(.easeInOut(duration: 0.22), value: isQuickLauncherActive)
+                .allowsHitTesting(!isQuickLauncherActive && !appState.isShowingSettings && !appState.isShowingWalkthrough)
             }
 
             // Dynamic App Context Floating Sub-Deck Overlay (Apple Liquid Glass)
@@ -225,7 +234,9 @@ struct MainAppView: View {
                     .padding(.bottom, 78)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
+                .opacity(isQuickLauncherActive ? 0.0 : 1.0)
+                .animation(.easeInOut(duration: 0.22), value: isQuickLauncherActive)
+                .allowsHitTesting(!isQuickLauncherActive && !appState.isShowingSettings && !appState.isShowingWalkthrough)
             }
 
             // Full Screen Liquid Glass HUD
@@ -274,7 +285,9 @@ struct MainAppView: View {
                     isShowingAddChannelSheet = true
                 }
             )
-            .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
+            .opacity(isQuickLauncherActive ? 0.0 : 1.0)
+            .animation(.easeInOut(duration: 0.22), value: isQuickLauncherActive)
+            .allowsHitTesting(!isQuickLauncherActive && !appState.isShowingSettings && !appState.isShowingWalkthrough)
 
             // Settings & Account Modal Sheet
             if appState.isShowingSettings {
@@ -385,12 +398,31 @@ struct MainAppView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { notification in
             if let mode = notification.object as? LauncherMode, mode == .fullScreen {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isQuickLauncherActive = false
+                    frozenIndex = nil
+                }
                 searchText = ""
                 selectedCategory = "ALL"
                 discoveryService.selectedIndex = filteredApps.count / 2
                 setupEventMonitor()
+            } else if let mode = notification.object as? LauncherMode, mode == .quickLauncher {
+                frozenIndex = discoveryService.selectedIndex
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isQuickLauncherActive = true
+                }
+                removeEventMonitor()
             } else {
                 removeEventMonitor()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quickLauncherDidDismiss)) { _ in
+            withAnimation(.easeInOut(duration: 0.22)) {
+                isQuickLauncherActive = false
+                frozenIndex = nil
+            }
+            if PanelController.shared.isMainAppVisible {
+                setupEventMonitor()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("AppsChannelOpenPreferences"))) { _ in
