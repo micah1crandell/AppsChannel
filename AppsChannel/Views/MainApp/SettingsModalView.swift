@@ -15,6 +15,8 @@ struct SettingsModalView: View {
     @AppStorage("dimmingIntensity") private var dimmingIntensity: Double = 0.15
     @AppStorage("showInMenuBar") private var showInMenuBar: Bool = true
     @AppStorage("showInDock") private var showInDock: Bool = false
+    @AppStorage("enableSystemActions") private var enableSystemActions: Bool = true
+    @AppStorage("confirmDestructiveActions") private var confirmDestructiveActions: Bool = true
 
     @StateObject private var hotKeyManager = HotKeyManager.shared
     @State private var isRecordingShortcut: Bool = false
@@ -1218,6 +1220,52 @@ struct SettingsModalView: View {
                 }
             }
 
+            // Keyboard Modifiers & Contextual Power Actions
+            settingsCard(title: "Keyboard Modifiers & Power Actions", icon: "command") {
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        modifierHintRow(keys: "↵", label: "Launch Focused Application", icon: "arrow.up.forward.app.fill")
+                        modifierHintRow(keys: "⌘↵", label: "Reveal in macOS Finder", icon: "folder.fill")
+                    }
+                    HStack(spacing: 8) {
+                        modifierHintRow(keys: "⌥↵", label: "Open Recent Documents Sub-Deck", icon: "clock.arrow.circlepath")
+                        modifierHintRow(keys: "⇧↵", label: "Copy Bundle Path or Web URL", icon: "doc.on.doc.fill")
+                    }
+                }
+            }
+
+            // Quick System Actions Settings
+            settingsCard(title: "Quick System Actions", icon: "bolt.badge.automatic.fill") {
+                VStack(spacing: 10) {
+                    Toggle(isOn: $enableSystemActions) {
+                        settingLabel(
+                            icon: "power.circle.fill",
+                            title: "Enable Quick System Actions",
+                            subtitle: "Include Lock Screen, Sleep, Restart, Trash, Dark Mode, and Mute in search and grid"
+                        )
+                    }
+                    .toggleStyle(.switch)
+                    .tint(.white)
+                    .onChange(of: enableSystemActions) { _, _ in
+                        AppDiscoveryService.shared.reloadAfterCustomChannelChange()
+                    }
+
+                    if enableSystemActions {
+                        Divider().background(Color.white.opacity(0.08))
+
+                        Toggle(isOn: $confirmDestructiveActions) {
+                            settingLabel(
+                                icon: "exclamationmark.triangle.fill",
+                                title: "Confirm Destructive Actions",
+                                subtitle: "Require confirmation modal before executing Restart and Shut Down"
+                            )
+                        }
+                        .toggleStyle(.switch)
+                        .tint(.white)
+                    }
+                }
+            }
+
             // System Integration Links
             settingsCard(title: "macOS System Shortcuts", icon: "applelogo") {
                 HStack(spacing: 12) {
@@ -1243,6 +1291,36 @@ struct SettingsModalView: View {
                 }
             }
         }
+    }
+
+    private func modifierHintRow(keys: String, label: String, icon: String) -> some View {
+        HStack(spacing: 7) {
+            Text(keys)
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 5))
+
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.75))
+
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.white.opacity(0.85))
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+        )
     }
 
     private func keycapPill(label: String) -> some View {

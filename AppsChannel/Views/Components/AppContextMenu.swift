@@ -50,6 +50,20 @@ struct AppCardContextMenu: ViewModifier {
                 } label: {
                     Label("Delete Custom Channel", systemImage: "trash")
                 }
+            } else if let action = app.systemAction {
+                Button {
+                    onLaunch()
+                } label: {
+                    Label("Execute Action", systemImage: action.iconSymbolName)
+                }
+
+                Divider()
+
+                Button {
+                    copyToClipboard(app.name)
+                } label: {
+                    Label("Copy Action Name", systemImage: "doc.on.doc")
+                }
             } else if !app.isAppsChannelApp && !app.isSeparator {
                 Button {
                     onLaunch()
@@ -68,7 +82,13 @@ struct AppCardContextMenu: ViewModifier {
                 Divider()
 
                 Button {
-                    NSWorkspace.shared.activateFileViewerSelecting([app.url])
+                    let path = app.url.path
+                    if !NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "") {
+                        let task = Process()
+                        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                        task.arguments = ["-R", path]
+                        try? task.run()
+                    }
                 } label: {
                     Label("Reveal in Finder", systemImage: "folder")
                 }

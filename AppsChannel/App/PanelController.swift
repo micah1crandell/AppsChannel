@@ -104,6 +104,7 @@ final class PanelController {
 
             QuickLauncherView(
                 onExpandToFullScreen: {
+                    self.hideQuickLauncher()
                     self.showMainApp()
                 },
                 onDismiss: {
@@ -195,7 +196,7 @@ final class PanelController {
     }
 
     func hideQuickLauncher() {
-        guard let panel = quickLauncherPanel, panel.isVisible else { return }
+        guard let panel = quickLauncherPanel else { return }
         panel.orderOut(nil)
         NotificationCenter.default.post(name: .quickLauncherDidDismiss, object: nil)
         AppDiscoveryService.shared.selectedIndex = AppDiscoveryService.shared.apps.count / 2

@@ -22,6 +22,7 @@ struct RetroHUDView: View {
 
     @FocusState private var isSearchFocused: Bool
     @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
+    @ObservedObject private var modifierManager = KeyboardModifierManager.shared
 
     private var topPadding: CGFloat { 20 }
 
@@ -375,7 +376,7 @@ struct RetroHUDView: View {
                                 }
                             }
 
-                            Text(app.channelType != nil ? app.url.absoluteString : app.url.path)
+                            Text(app.systemAction != nil ? "macOS System Command" : (app.channelType != nil ? app.url.absoluteString : app.url.path))
                                 .font(.system(size: 10, design: .monospaced))
                                 .foregroundStyle(.white.opacity(0.5))
                                 .lineLimit(1)
@@ -390,7 +391,7 @@ struct RetroHUDView: View {
                             .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                     )
 
-                    if app.channelType == nil && !app.isSeparator && !app.isAppsChannelApp && RecentDocumentsService.hasDocumentTypes(forAppAt: app.url),
+                    if app.channelType == nil && !app.isSeparator && !app.isAppsChannelApp && app.systemAction == nil && app.url.isFileURL && RecentDocumentsService.hasDocumentTypes(forAppAt: app.url),
                        let onToggleRecent = onToggleRecentDocuments {
                         Button(action: onToggleRecent) {
                             HStack(spacing: 5) {
@@ -448,11 +449,19 @@ struct RetroHUDView: View {
                         .buttonStyle(.plain)
                     }
 
-                    keyboardShortcutBadge(key: "⌘1-8", label: "Groups")
-                    keyboardShortcutBadge(key: "⌥1-9", label: "Quick Launch")
-                    keyboardShortcutBadge(key: "⌘V", label: "View")
-                    keyboardShortcutBadge(key: "↵", label: "Open")
-                    keyboardShortcutBadge(key: "⎋", label: "Close")
+                    if modifierManager.isCommandPressed {
+                        keyboardShortcutBadge(key: "⌘↵", label: "Finder", isHighlighted: true)
+                    } else if modifierManager.isOptionPressed {
+                        keyboardShortcutBadge(key: "⌥↵", label: "Recent Docs", isHighlighted: true)
+                    } else if modifierManager.isShiftPressed {
+                        keyboardShortcutBadge(key: "⇧↵", label: "Copy Path", isHighlighted: true)
+                    } else {
+                        keyboardShortcutBadge(key: "⌘1-8", label: "Groups")
+                        keyboardShortcutBadge(key: "⌥1-9", label: "Quick Launch")
+                        keyboardShortcutBadge(key: "⌘V", label: "View")
+                        keyboardShortcutBadge(key: "↵", label: "Open")
+                        keyboardShortcutBadge(key: "⎋", label: "Close")
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -463,10 +472,15 @@ struct RetroHUDView: View {
                     .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
             )
 
-            // Primary Launch / Next Button
+            // Primary Launch / Contextual Modifier Action Button
             Button(action: onLaunch) {
                 HStack(spacing: 8) {
-                    if selectedApp?.isSeparator == true {
+                    if let hint = modifierManager.primaryActionHint, selectedApp?.isSeparator != true {
+                        Image(systemName: hint.icon)
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(hint.label)
+                            .font(.system(size: 13, weight: .bold))
+                    } else if selectedApp?.isSeparator == true {
                         Image(systemName: "arrow.right.circle.fill")
                             .font(.system(size: 13, weight: .semibold))
                         Text("Next App")
@@ -478,32 +492,55 @@ struct RetroHUDView: View {
                             .font(.system(size: 13, weight: .bold))
                     }
                 }
-                .foregroundStyle(.black)
+                .foregroundStyle(primaryButtonForeground)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 10)
-                .background(selectedApp?.isSeparator == true ? Color.orange : Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(primaryButtonBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(selectedApp?.isSeparator == true ? Color.orange : Color.white, lineWidth: 1)
+                        .strokeBorder(primaryButtonBackground, lineWidth: 1)
                 )
-                .shadow(color: (selectedApp?.isSeparator == true ? Color.orange : Color.white).opacity(0.25), radius: 8, x: 0, y: 2)
+                .shadow(color: primaryButtonBackground.opacity(0.35), radius: 8, x: 0, y: 2)
             }
             .buttonStyle(.plain)
         }
     }
 
-    private func keyboardShortcutBadge(key: String, label: String) -> some View {
+    private var primaryButtonForeground: Color {
+        if modifierManager.isCommandPressed || modifierManager.isShiftPressed {
+            return .white
+        }
+        return .black
+    }
+
+    private var primaryButtonBackground: Color {
+        if selectedApp?.isSeparator == true {
+            return .orange
+        }
+        if modifierManager.isCommandPressed {
+            return Color(red: 0.08, green: 0.52, blue: 1.0)
+        }
+        if modifierManager.isOptionPressed {
+            return Color(red: 1.0, green: 0.58, blue: 0.0)
+        }
+        if modifierManager.isShiftPressed {
+            return Color(red: 0.68, green: 0.32, blue: 0.88)
+        }
+        return .white
+    }
+
+    private func keyboardShortcutBadge(key: String, label: String, isHighlighted: Bool = false) -> some View {
         HStack(spacing: 4) {
             Text(key)
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
-                .background(Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                .foregroundStyle(.white)
+                .background(isHighlighted ? Color.white : Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .foregroundStyle(isHighlighted ? Color.black : Color.white)
 
             Text(label)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
+                .font(.system(size: 10, weight: isHighlighted ? .bold : .medium))
+                .foregroundStyle(isHighlighted ? Color.white : Color.white.opacity(0.7))
         }
     }
 

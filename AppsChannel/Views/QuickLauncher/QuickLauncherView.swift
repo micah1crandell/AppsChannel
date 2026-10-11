@@ -7,6 +7,8 @@ struct QuickLauncherView: View {
     @State private var searchText: String = ""
     @State private var scrollAccumulator: CGFloat = 0.0
     @State private var eventMonitor: Any? = nil
+    @State private var toastMessage: String? = nil
+    @ObservedObject private var modifierManager = KeyboardModifierManager.shared
 
     let onExpandToFullScreen: () -> Void
     let onDismiss: () -> Void
@@ -239,8 +241,30 @@ struct QuickLauncherView: View {
                         .transition(.scale(scale: 0.9).combined(with: .opacity).combined(with: .move(edge: .top)))
                 }
                 Spacer()
+
+                // Toast Overlay
+                if let toast = toastMessage {
+                    HStack(spacing: 7) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.green)
+                        Text(toast)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Color(white: 0.08).opacity(0.92), in: Capsule())
+                    .overlay(
+                        Capsule().strokeBorder(Color.white.opacity(0.24), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.4), radius: 10, x: 0, y: 5)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity).combined(with: .move(edge: .bottom)))
+                }
             }
             .padding(.top, 16)
+            .padding(.bottom, 18)
         }
         .frame(width: 1100, height: 500)
         .onChange(of: searchText) { _, newText in
@@ -315,6 +339,7 @@ struct QuickLauncherView: View {
         .onDisappear {
             searchText = ""
             removeEventMonitor()
+            KeyboardModifierManager.shared.reset()
         }
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.28, dampingFraction: 0.8)), value: searchText.isEmpty)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: layoutMode)
@@ -323,11 +348,16 @@ struct QuickLauncherView: View {
     // MARK: - Direct Key & Scroll Handling
     private func setupEventMonitor() {
         guard eventMonitor == nil else { return }
-        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown]) { [self] event in
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown, .flagsChanged]) { [self] event in
             // Only process events when QuickLauncher is visible and event belongs to its panel
             guard PanelController.shared.isQuickLauncherVisible,
                   let window = event.window ?? NSApp.keyWindow,
                   window is AppsChannelPanel else {
+                return event
+            }
+
+            if event.type == .flagsChanged {
+                KeyboardModifierManager.shared.update(from: event.modifierFlags)
                 return event
             }
 
@@ -362,16 +392,22 @@ struct QuickLauncherView: View {
 
                 // Command+Shift+R: Reveal selected app in Finder
                 if event.modifierFlags.contains(.command) && (event.charactersIgnoringModifiers == "r" || event.charactersIgnoringModifiers == "R") {
-                    if let selectedApp = currentApp, !selectedApp.isAppsChannelApp {
+                    if let selectedApp = currentApp, selectedApp.url.isFileURL, !selectedApp.isAppsChannelApp {
                         SoundEffectsManager.shared.playAction()
-                        NSWorkspace.shared.activateFileViewerSelecting([selectedApp.url])
+                        let path = selectedApp.url.path
+                        if !NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "") {
+                            let task = Process()
+                            task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                            task.arguments = ["-R", path]
+                            try? task.run()
+                        }
                         return nil
                     }
                 }
 
                 // Command+I: Get Info on focused application
                 if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "i" {
-                    if let selectedApp = currentApp, !selectedApp.isAppsChannelApp {
+                    if let selectedApp = currentApp, selectedApp.url.isFileURL, !selectedApp.isAppsChannelApp {
                         SoundEffectsManager.shared.playAction()
                         let escapedPath = selectedApp.url.path
                             .replacingOccurrences(of: "\\", with: "\\\\")
@@ -482,6 +518,18 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 36, 76: // Return key or Keypad Enter -> Launch app
+                    if let app = currentApp {
+                        if event.modifierFlags.contains(.command) {
+                            revealAppInFinder(app: app)
+                            return nil
+                        } else if event.modifierFlags.contains(.option) {
+                            openRecentDocs(app: app)
+                            return nil
+                        } else if event.modifierFlags.contains(.shift) {
+                            copyAppPathOrURL(app: app)
+                            return nil
+                        }
+                    }
                     launchSelectedApp()
                     return nil
 
@@ -532,6 +580,7 @@ struct QuickLauncherView: View {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
         }
+        KeyboardModifierManager.shared.reset()
     }
 
     private func handleScrollEvent(_ event: NSEvent) {
@@ -601,6 +650,20 @@ struct QuickLauncherView: View {
             onExpandToFullScreen()
             return
         }
+
+        if modifierManager.isCommandPressed {
+            revealAppInFinder(app: app)
+            return
+        }
+        if modifierManager.isOptionPressed {
+            openRecentDocs(app: app)
+            return
+        }
+        if modifierManager.isShiftPressed {
+            copyAppPathOrURL(app: app)
+            return
+        }
+
         let query = searchText
         searchText = ""
         let center = discoveryService.apps.count / 2
@@ -609,6 +672,66 @@ struct QuickLauncherView: View {
         SoundEffectsManager.shared.playLaunch()
         discoveryService.launch(app: app, query: query)
         onDismiss()
+    }
+
+    private func revealAppInFinder(app: DiscoveredApp) {
+        guard !app.isSeparator, app.systemAction == nil, app.url.isFileURL, app.url.path != Self.openMainAppCard.url.path else {
+            SoundEffectsManager.shared.playAction()
+            return
+        }
+        SoundEffectsManager.shared.playAction()
+        let path = app.url.path
+        if !NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "") {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            task.arguments = ["-R", path]
+            try? task.run()
+        }
+        onDismiss()
+    }
+
+    private func openRecentDocs(app: DiscoveredApp) {
+        guard !app.isSeparator, app.channelType == nil, app.systemAction == nil, app.url.path != Self.openMainAppCard.url.path else {
+            SoundEffectsManager.shared.playAction()
+            return
+        }
+        SoundEffectsManager.shared.playAction()
+        removeEventMonitor()
+        KeyboardModifierManager.shared.reset()
+        onDismiss()
+        onExpandToFullScreen()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            NotificationCenter.default.post(name: .toggleRecentDocuments, object: nil)
+        }
+    }
+
+    private func copyAppPathOrURL(app: DiscoveredApp) {
+        guard !app.isSeparator, app.url.path != Self.openMainAppCard.url.path else { return }
+        let textToCopy: String
+        if let systemAction = app.systemAction {
+            textToCopy = systemAction.title
+        } else if app.channelType != nil {
+            textToCopy = app.url.absoluteString
+        } else {
+            textToCopy = app.url.path
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(textToCopy, forType: .string)
+        SoundEffectsManager.shared.playAction()
+        showToast(message: "Copied: \(textToCopy)")
+    }
+
+    private func showToast(message: String) {
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            toastMessage = message
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                if toastMessage == message {
+                    toastMessage = nil
+                }
+            }
+        }
     }
 
     // MARK: - Floating Search & Category Status Badge

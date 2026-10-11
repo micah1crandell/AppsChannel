@@ -17,6 +17,7 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     var isSeparator: Bool = false
     var channelType: CustomChannelKind? = nil
     var customChannelId: UUID? = nil
+    var systemAction: SystemActionType? = nil
 
     nonisolated init(
         id: UUID = UUID(),
@@ -31,7 +32,8 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
         isHiddenApp: Bool = false,
         isSeparator: Bool = false,
         channelType: CustomChannelKind? = nil,
-        customChannelId: UUID? = nil
+        customChannelId: UUID? = nil,
+        systemAction: SystemActionType? = nil
     ) {
         self.id = id
         self.name = name
@@ -46,6 +48,7 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
         self.isSeparator = isSeparator
         self.channelType = channelType
         self.customChannelId = customChannelId
+        self.systemAction = systemAction
     }
 
     static let hiddenAppsSeparator: DiscoveredApp = {
@@ -76,6 +79,9 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     }()
 
     var isAppsChannelApp: Bool {
+        if systemAction != nil {
+            return false
+        }
         if isSeparator {
             return true
         }
@@ -93,7 +99,9 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     }
 
     func hash(into hasher: inout Hasher) {
-        if let customId = customChannelId {
+        if let action = systemAction {
+            hasher.combine(action.rawValue)
+        } else if let customId = customChannelId {
             hasher.combine(customId)
         } else {
             hasher.combine(url)
@@ -101,6 +109,9 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     }
 
     static func == (lhs: DiscoveredApp, rhs: DiscoveredApp) -> Bool {
+        if let lAction = lhs.systemAction, let rAction = rhs.systemAction {
+            return lAction == rAction
+        }
         if let lId = lhs.customChannelId, let rId = rhs.customChannelId {
             return lId == rId
         }
@@ -334,6 +345,9 @@ final class AppDiscoveryService: ObservableObject {
 
     func saveOrder() {
         let order = apps.map { app -> String in
+            if app.systemAction != nil {
+                return app.url.absoluteString
+            }
             if let customId = app.customChannelId {
                 return "custom://\(customId.uuidString)"
             }
@@ -362,11 +376,29 @@ final class AppDiscoveryService: ObservableObject {
             }
         }
 
+        let includeSystemActions = UserDefaults.standard.object(forKey: "enableSystemActions") as? Bool ?? true
+        if includeSystemActions {
+            let systemActionApps = SystemActionService.shared.allActionApps
+            for actionApp in systemActionApps {
+                let key = actionApp.url.absoluteString
+                if !hidden.contains(key) && !combined.contains(where: { $0.id == actionApp.id }) {
+                    combined.append(actionApp)
+                }
+            }
+        }
+
         let saved = loadSavedOrder()
         if !saved.isEmpty {
             var appMap = [String: DiscoveredApp]()
             for app in combined {
-                let key = app.customChannelId != nil ? "custom://\(app.id.uuidString)" : app.url.path
+                let key: String
+                if app.systemAction != nil {
+                    key = app.url.absoluteString
+                } else if let customId = app.customChannelId {
+                    key = "custom://\(customId.uuidString)"
+                } else {
+                    key = app.url.path
+                }
                 appMap[key] = app
             }
 
@@ -381,7 +413,14 @@ final class AppDiscoveryService: ObservableObject {
             }
 
             for app in combined {
-                let key = app.customChannelId != nil ? "custom://\(app.id.uuidString)" : app.url.path
+                let key: String
+                if app.systemAction != nil {
+                    key = app.url.absoluteString
+                } else if let customId = app.customChannelId {
+                    key = "custom://\(customId.uuidString)"
+                } else {
+                    key = app.url.path
+                }
                 if !placedKeys.contains(key) {
                     ordered.append(app)
                 }
@@ -529,6 +568,12 @@ final class AppDiscoveryService: ObservableObject {
 
     func launch(app: DiscoveredApp, query: String? = nil) {
         guard !app.isSeparator else { return }
+
+        // Execute System Action if applicable
+        if let action = app.systemAction {
+            SystemActionService.shared.execute(action)
+            return
+        }
 
         // Record launch count, recency timestamp, and search query association
         AppUsageTracker.shared.recordLaunch(app: app, query: query)
@@ -813,6 +858,7 @@ final class AppDiscoveryService: ObservableObject {
 
     // MARK: - Universal Single App Builder
     nonisolated static func buildApp(at url: URL) -> DiscoveredApp? {
+        guard url.isFileURL else { return nil }
         let name = url.deletingPathExtension().lastPathComponent
         guard name.localizedCaseInsensitiveCompare("AppsChannel") != .orderedSame else { return nil }
         guard !url.path.lowercased().contains("/appschannel.app") else { return nil }
@@ -987,6 +1033,7 @@ final class AppDiscoveryService: ObservableObject {
 
     // MARK: - Instant Approximate Size Lookup (No deep recursive traversal!)
     nonisolated private static func fastCalculateSize(of url: URL) -> String {
+        guard url.isFileURL else { return "--" }
         let fm = FileManager.default
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file

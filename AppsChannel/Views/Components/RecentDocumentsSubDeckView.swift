@@ -162,7 +162,13 @@ private struct RecentDocumentTile: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button {
-                NSWorkspace.shared.activateFileViewerSelecting([doc.url])
+                let path = doc.url.path
+                if !NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "") {
+                    let task = Process()
+                    task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                    task.arguments = ["-R", path]
+                    try? task.run()
+                }
             } label: {
                 Label("Reveal in Finder", systemImage: "folder")
             }

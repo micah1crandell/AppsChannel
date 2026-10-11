@@ -15,6 +15,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>AppsChannel uses system automation to toggle dark mode, empty trash, and execute quick system actions.</string>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/micah1crandell/AppsChannel/main/appcast.xml</string>
 	<key>SUEnableAutomaticChecks</key>

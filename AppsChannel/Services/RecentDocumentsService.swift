@@ -37,7 +37,7 @@ final class RecentDocumentsService: ObservableObject {
     private init() {}
 
     func fetchRecentDocuments(for app: DiscoveredApp) async {
-        guard app.channelType == nil, !app.isSeparator, !app.isAppsChannelApp else {
+        guard app.channelType == nil, app.systemAction == nil, app.url.isFileURL, !app.isSeparator, !app.isAppsChannelApp else {
             self.activeRecentDocuments = []
             self.currentAppURL = app.url
             return
@@ -98,12 +98,14 @@ final class RecentDocumentsService: ObservableObject {
     ]
 
     nonisolated static func hasDocumentTypes(forAppAt url: URL) -> Bool {
+        guard url.isFileURL else { return false }
         let (types, exts) = extractDocumentTypes(forAppAt: url)
         return !types.isEmpty || !exts.isEmpty
     }
 
     nonisolated static func extractDocumentTypes(forAppAt url: URL) -> (contentTypes: [String], extensions: [String]) {
-        guard let bundle = Bundle(url: url),
+        guard url.isFileURL,
+              let bundle = Bundle(url: url),
               let docTypes = bundle.infoDictionary?["CFBundleDocumentTypes"] as? [[String: Any]] else {
             return ([], [])
         }
@@ -139,6 +141,7 @@ final class RecentDocumentsService: ObservableObject {
     }
 
     nonisolated static func querySpotlightRecentDocuments(forAppAt url: URL) -> [RecentDocumentItem] {
+        guard url.isFileURL else { return [] }
         let (types, exts) = extractDocumentTypes(forAppAt: url)
         guard !types.isEmpty || !exts.isEmpty else {
             return []

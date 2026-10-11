@@ -177,8 +177,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if rawTheme == nil && path.hasPrefix("/theme/") {
                 rawTheme = String(path.dropFirst("/theme/".count)).removingPercentEncoding
             }
-            if let targetTheme = rawTheme, let theme = AppVisualTheme.from(string: targetTheme) {
-                ThemeManager.shared.setTheme(theme)
+        } else if host == "system" || path.hasPrefix("/system") {
+            var rawAction = queryParams["action"] ?? queryParams["name"] ?? queryParams["a"]
+            if (rawAction == nil || rawAction?.isEmpty == true) && path.hasPrefix("/system/") {
+                rawAction = String(path.dropFirst("/system/".count)).removingPercentEncoding
+            }
+            if let actStr = rawAction, let act = SystemActionType(rawValue: actStr) ?? SystemActionType.allCases.first(where: { $0.keywords.contains(actStr.lowercased()) }) {
+                DispatchQueue.main.async {
+                    SystemActionService.shared.execute(act)
+                }
             }
         } else if host == "launch" || path.hasPrefix("/launch") {
             var targetQuery = queryParams["query"] ?? queryParams["name"] ?? queryParams["q"]

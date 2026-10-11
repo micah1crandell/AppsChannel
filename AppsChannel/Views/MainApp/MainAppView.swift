@@ -31,6 +31,8 @@ struct MainAppView: View {
     @State private var isOrganizeMode: Bool = false
     @State private var showRecentDocs: Bool = false
     @State private var isShowingAddChannelSheet: Bool = false
+    @State private var toastMessage: String? = nil
+    @ObservedObject private var modifierManager = KeyboardModifierManager.shared
     @ObservedObject private var themeManager = ThemeManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -306,6 +308,32 @@ struct MainAppView: View {
                 )
                 .transition(.scale(scale: 0.95).combined(with: .opacity))
             }
+
+            // Real-Time Floating Action Toast
+            if let toast = toastMessage {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.green)
+                        Text(toast)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
+                    .background(Color(white: 0.08).opacity(0.92), in: Capsule())
+                    .overlay(
+                        Capsule().strokeBorder(Color.white.opacity(0.24), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.4), radius: 12, x: 0, y: 6)
+                    .padding(.bottom, 82)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity).combined(with: .move(edge: .bottom)))
+                }
+                .allowsHitTesting(false)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -396,6 +424,7 @@ struct MainAppView: View {
         }
         .onDisappear {
             removeEventMonitor()
+            KeyboardModifierManager.shared.reset()
         }
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.3, dampingFraction: 0.8)), value: appState.isShowingSettings)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: appState.isShowingWalkthrough)
@@ -470,11 +499,16 @@ struct MainAppView: View {
     // MARK: - Fast Event Interception
     private func setupEventMonitor() {
         guard appState.eventMonitor == nil else { return }
-        appState.eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown]) { event in
+        appState.eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown, .flagsChanged]) { event in
             // Only process events when Main App window is visible and key
             guard PanelController.shared.isMainAppVisible,
                   let window = event.window ?? NSApp.keyWindow,
                   !(window is AppsChannelPanel) else {
+                return event
+            }
+
+            if event.type == .flagsChanged {
+                KeyboardModifierManager.shared.update(from: event.modifierFlags)
                 return event
             }
 
@@ -583,9 +617,17 @@ struct MainAppView: View {
                 if event.modifierFlags.contains(.command) && (event.charactersIgnoringModifiers == "r" || event.charactersIgnoringModifiers == "R") {
                     if discoveryService.selectedIndex < filteredApps.count {
                         let selectedApp = filteredApps[discoveryService.selectedIndex]
-                        SoundEffectsManager.shared.playAction()
-                        NSWorkspace.shared.activateFileViewerSelecting([selectedApp.url])
-                        return nil
+                        if selectedApp.url.isFileURL && !selectedApp.isAppsChannelApp {
+                            SoundEffectsManager.shared.playAction()
+                            let path = selectedApp.url.path
+                            if !NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "") {
+                                let task = Process()
+                                task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                                task.arguments = ["-R", path]
+                                try? task.run()
+                            }
+                            return nil
+                        }
                     }
                 }
 
@@ -593,8 +635,9 @@ struct MainAppView: View {
                 if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "i" {
                     if discoveryService.selectedIndex < filteredApps.count {
                         let selectedApp = filteredApps[discoveryService.selectedIndex]
-                        SoundEffectsManager.shared.playAction()
-                        let escapedPath = selectedApp.url.path
+                        if selectedApp.url.isFileURL && !selectedApp.isAppsChannelApp {
+                            SoundEffectsManager.shared.playAction()
+                            let escapedPath = selectedApp.url.path
                             .replacingOccurrences(of: "\\", with: "\\\\")
                             .replacingOccurrences(of: "\"", with: "\\\"")
                         let script = """
@@ -610,6 +653,7 @@ struct MainAppView: View {
                         return nil
                     }
                 }
+            }
 
                 // Command + 1..8: Instant Category Group Switch (Customizable in Settings)
                 if event.modifierFlags.contains(.command),
@@ -703,6 +747,18 @@ struct MainAppView: View {
                     return nil
 
                 case 36, 76: // Return or Keypad Enter
+                    if let app = currentApp {
+                        if event.modifierFlags.contains(.command) {
+                            revealAppInFinder(app: app)
+                            return nil
+                        } else if event.modifierFlags.contains(.option) {
+                            toggleRecentDocs(app: app)
+                            return nil
+                        } else if event.modifierFlags.contains(.shift) {
+                            copyAppPathOrURL(app: app)
+                            return nil
+                        }
+                    }
                     launchSelectedApp()
                     return nil
 
@@ -782,11 +838,80 @@ struct MainAppView: View {
             navigate(by: 1)
             return
         }
+        if modifierManager.isCommandPressed {
+            revealAppInFinder(app: app)
+            return
+        }
+        if modifierManager.isOptionPressed {
+            toggleRecentDocs(app: app)
+            return
+        }
+        if modifierManager.isShiftPressed {
+            copyAppPathOrURL(app: app)
+            return
+        }
+
         SoundEffectsManager.shared.playLaunch()
         let query = searchText
         searchText = ""
         discoveryService.launch(app: app, query: query)
         onDismiss()
+    }
+
+    private func revealAppInFinder(app: DiscoveredApp) {
+        guard !app.isSeparator, app.systemAction == nil, app.url.isFileURL else {
+            SoundEffectsManager.shared.playAction()
+            return
+        }
+        SoundEffectsManager.shared.playAction()
+        let path = app.url.path
+        if !NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "") {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            task.arguments = ["-R", path]
+            try? task.run()
+        }
+        onDismiss()
+    }
+
+    private func toggleRecentDocs(app: DiscoveredApp) {
+        guard !app.isSeparator, app.channelType == nil, app.systemAction == nil else {
+            SoundEffectsManager.shared.playAction()
+            return
+        }
+        SoundEffectsManager.shared.playAction()
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            showRecentDocs.toggle()
+        }
+    }
+
+    private func copyAppPathOrURL(app: DiscoveredApp) {
+        guard !app.isSeparator else { return }
+        let textToCopy: String
+        if let systemAction = app.systemAction {
+            textToCopy = systemAction.title
+        } else if app.channelType != nil {
+            textToCopy = app.url.absoluteString
+        } else {
+            textToCopy = app.url.path
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(textToCopy, forType: .string)
+        SoundEffectsManager.shared.playAction()
+        showToast(message: "Copied: \(textToCopy)")
+    }
+
+    private func showToast(message: String) {
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            toastMessage = message
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                if toastMessage == message {
+                    toastMessage = nil
+                }
+            }
+        }
     }
 
     private func moveCurrentAppLeft() {
