@@ -128,6 +128,7 @@ final class MenuBarManager: NSObject {
         prefsItem.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
         menu.addItem(prefsItem)
 
+#if !APP_STORE
         let updateItem = NSMenuItem(
             title: "Check for Updates...",
             action: #selector(checkForUpdates),
@@ -136,6 +137,7 @@ final class MenuBarManager: NSObject {
         updateItem.target = self
         updateItem.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)
         menu.addItem(updateItem)
+#endif
 
         menu.addItem(NSMenuItem.separator())
 

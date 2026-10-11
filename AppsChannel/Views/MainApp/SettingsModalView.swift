@@ -1800,12 +1800,14 @@ struct SettingsModalView: View {
 
                     // Action Buttons Grid
                     HStack(spacing: 8) {
+                        #if !APP_STORE
                         aboutActionButton(
                             icon: "arrow.triangle.2.circlepath",
                             title: "Check Updates"
                         ) {
                             UpdateManager.shared.checkForUpdates()
                         }
+                        #endif
 
                         aboutActionButton(
                             icon: "link",
