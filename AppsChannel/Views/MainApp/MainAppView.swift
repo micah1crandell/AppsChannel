@@ -807,7 +807,10 @@ struct MainAppView: View {
                     launchSelectedApp()
                     return nil
 
-                case 51: // Backspace / Delete
+                case 51, 117: // Backspace / Forward Delete
+                    if let responder = event.window?.firstResponder, responder is NSText || responder is NSTextView {
+                        return event
+                    }
                     if !searchText.isEmpty {
                         searchText.removeLast()
                         return nil

@@ -335,5 +335,39 @@ final class AppDiscoveryServiceTests: XCTestCase {
         // Clean up
         PanelController.shared.hideQuickLauncher()
     }
+
+    @MainActor
+    func testQuickLauncherStateResetAndSelectionHandling() {
+        let state = QuickLauncherState.shared
+
+        // Set state as if user typed and selected all text
+        state.searchText = "safari"
+        state.isSearchTextSelected = true
+        state.selectedCategory = "INTERNET"
+
+        XCTAssertEqual(state.searchText, "safari")
+        XCTAssertTrue(state.isSearchTextSelected)
+        XCTAssertEqual(state.selectedCategory, "INTERNET")
+
+        // Reset must clear search text, selection, and category
+        state.reset()
+        XCTAssertEqual(state.searchText, "")
+        XCTAssertFalse(state.isSearchTextSelected)
+        XCTAssertEqual(state.selectedCategory, "ALL")
+
+        // Test selection clearing and replacement
+        state.searchText = "terminal"
+        state.isSearchTextSelected = true
+        XCTAssertTrue(state.isSearchTextSelected)
+
+        // Simulating backspace on selected text
+        if state.isSearchTextSelected {
+            state.searchText = ""
+            state.isSearchTextSelected = false
+            state.updateFilteredApps()
+        }
+        XCTAssertEqual(state.searchText, "")
+        XCTAssertFalse(state.isSearchTextSelected)
+    }
 }
 
