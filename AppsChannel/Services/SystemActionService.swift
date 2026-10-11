@@ -14,6 +14,7 @@ enum SystemActionType: String, CaseIterable, Codable, Sendable {
     case toggleMute = "toggle_mute"
     case toggleWifi = "toggle_wifi"
     case bluetoothSettings = "bluetooth_settings"
+    case clipboardHistory = "clipboard_history"
 
     var title: String {
         switch self {
@@ -26,6 +27,7 @@ enum SystemActionType: String, CaseIterable, Codable, Sendable {
         case .toggleMute: return "Toggle Mute"
         case .toggleWifi: return "Toggle Wi-Fi"
         case .bluetoothSettings: return "Bluetooth Settings"
+        case .clipboardHistory: return "Clipboard History"
         }
     }
 
@@ -40,6 +42,7 @@ enum SystemActionType: String, CaseIterable, Codable, Sendable {
         case .toggleMute: return "Mute or unmute system audio"
         case .toggleWifi: return "Turn Wi-Fi power on or off"
         case .bluetoothSettings: return "Open macOS Bluetooth preferences"
+        case .clipboardHistory: return "Open clipboard manager & clippings"
         }
     }
 
@@ -54,6 +57,7 @@ enum SystemActionType: String, CaseIterable, Codable, Sendable {
         case .toggleMute: return "speaker.slash.fill"
         case .toggleWifi: return "wifi"
         case .bluetoothSettings: return "antenna.radiowaves.left.and.right"
+        case .clipboardHistory: return "doc.on.clipboard.fill"
         }
     }
 
@@ -68,6 +72,7 @@ enum SystemActionType: String, CaseIterable, Codable, Sendable {
         case .toggleMute: return .cyan
         case .toggleWifi: return .blue
         case .bluetoothSettings: return .blue
+        case .clipboardHistory: return Color(red: 0.1, green: 0.75, blue: 0.5)
         }
     }
 
@@ -89,6 +94,7 @@ enum SystemActionType: String, CaseIterable, Codable, Sendable {
         case .toggleMute: return ["mute", "unmute", "volume", "sound", "audio", "speaker"]
         case .toggleWifi: return ["wifi", "wi-fi", "wireless", "airport", "network", "internet"]
         case .bluetoothSettings: return ["bluetooth", "bt", "devices", "pair"]
+        case .clipboardHistory: return ["clipboard", "clip", "copy", "paste", "history", "clippings", "snippets"]
         }
     }
 
@@ -103,6 +109,7 @@ enum SystemActionType: String, CaseIterable, Codable, Sendable {
         case .toggleMute: return UUID(uuidString: "10000000-0000-0000-0000-000000000007")!
         case .toggleWifi: return UUID(uuidString: "10000000-0000-0000-0000-000000000008")!
         case .bluetoothSettings: return UUID(uuidString: "10000000-0000-0000-0000-000000000009")!
+        case .clipboardHistory: return UUID(uuidString: "10000000-0000-0000-0000-000000000010")!
         }
     }
 
@@ -180,6 +187,9 @@ final class SystemActionService: ObservableObject {
 
         case .bluetoothSettings:
             openBluetoothSettings()
+
+        case .clipboardHistory:
+            PanelController.shared.showClipboardHistory()
         }
     }
 

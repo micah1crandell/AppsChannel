@@ -7,12 +7,18 @@ import HotKey
 final class HotKeyManager: ObservableObject {
     static let shared = HotKeyManager()
     private var hotKey: HotKey?
+    private var clipboardHotKey: HotKey?
 
     @Published var currentShortcutLabel: String = "⌥ + L"
+    @Published var currentClipboardShortcutLabel: String = "⌥ + C"
 
     private let keyCodeStorageKey = "AppsChannelHotKey_KeyCode"
     private let modCodeStorageKey = "AppsChannelHotKey_ModCode"
     private let labelStorageKey = "AppsChannelHotKey_Label"
+
+    private let clipboardKeyCodeStorageKey = "AppsChannelClipboardHotKey_KeyCode"
+    private let clipboardModCodeStorageKey = "AppsChannelClipboardHotKey_ModCode"
+    private let clipboardLabelStorageKey = "AppsChannelClipboardHotKey_Label"
 
     struct PresetShortcut: Identifiable {
         let id: String
@@ -45,6 +51,25 @@ final class HotKeyManager: ObservableObject {
             let defaultCombo = KeyCombo(key: .l, modifiers: [.option])
             apply(keyCombo: defaultCombo)
         }
+
+        registerClipboardHotKey()
+    }
+
+    func registerClipboardHotKey() {
+        if let label = UserDefaults.standard.string(forKey: clipboardLabelStorageKey) {
+            currentClipboardShortcutLabel = label
+        }
+
+        let savedKey = UserDefaults.standard.object(forKey: clipboardKeyCodeStorageKey) as? UInt32
+        let savedMod = UserDefaults.standard.object(forKey: clipboardModCodeStorageKey) as? UInt32
+
+        if let keyVal = savedKey, let modVal = savedMod {
+            let combo = KeyCombo(carbonKeyCode: keyVal, carbonModifiers: modVal)
+            applyClipboard(keyCombo: combo)
+        } else {
+            let defaultCombo = KeyCombo(key: .c, modifiers: [.option])
+            applyClipboard(keyCombo: defaultCombo)
+        }
     }
 
     func applyPreset(_ preset: PresetShortcut) {
@@ -65,12 +90,31 @@ final class HotKeyManager: ObservableObject {
         apply(keyCombo: combo)
     }
 
+    func applyClipboardCustom(keyCode: UInt32, modifiers: NSEvent.ModifierFlags, label: String) {
+        let combo = KeyCombo(carbonKeyCode: keyCode, carbonModifiers: modifiers.carbonFlags)
+        UserDefaults.standard.set(combo.carbonKeyCode, forKey: clipboardKeyCodeStorageKey)
+        UserDefaults.standard.set(combo.carbonModifiers, forKey: clipboardModCodeStorageKey)
+        UserDefaults.standard.set(label, forKey: clipboardLabelStorageKey)
+        currentClipboardShortcutLabel = label
+        applyClipboard(keyCombo: combo)
+    }
+
     private func apply(keyCombo: KeyCombo) {
         hotKey = nil
         hotKey = HotKey(keyCombo: keyCombo)
         hotKey?.keyDownHandler = {
             DispatchQueue.main.async {
                 PanelController.shared.toggle()
+            }
+        }
+    }
+
+    private func applyClipboard(keyCombo: KeyCombo) {
+        clipboardHotKey = nil
+        clipboardHotKey = HotKey(keyCombo: keyCombo)
+        clipboardHotKey?.keyDownHandler = {
+            DispatchQueue.main.async {
+                PanelController.shared.toggleClipboardHistory()
             }
         }
     }

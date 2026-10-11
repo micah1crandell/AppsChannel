@@ -7,7 +7,7 @@ final class SystemActionServiceTests: XCTestCase {
 
     func testAllSystemActionCasesExistAndAreComplete() {
         let allCases = SystemActionType.allCases
-        XCTAssertEqual(allCases.count, 9)
+        XCTAssertEqual(allCases.count, 10)
 
         let expectedCases: [SystemActionType] = [
             .lockScreen,
@@ -18,7 +18,8 @@ final class SystemActionServiceTests: XCTestCase {
             .toggleDarkMode,
             .toggleMute,
             .toggleWifi,
-            .bluetoothSettings
+            .bluetoothSettings,
+            .clipboardHistory
         ]
 
         for expected in expectedCases {
@@ -47,6 +48,7 @@ final class SystemActionServiceTests: XCTestCase {
         XCTAssertFalse(SystemActionType.toggleMute.isDestructive)
         XCTAssertFalse(SystemActionType.toggleWifi.isDestructive)
         XCTAssertFalse(SystemActionType.bluetoothSettings.isDestructive)
+        XCTAssertFalse(SystemActionType.clipboardHistory.isDestructive)
     }
 
     func testToDiscoveredAppConversion() {
@@ -91,6 +93,6 @@ final class SystemActionServiceTests: XCTestCase {
 
     func testSystemActionServiceSingletonAndApps() {
         let service = SystemActionService.shared
-        XCTAssertEqual(service.allActionApps.count, 9)
+        XCTAssertEqual(service.allActionApps.count, 10)
     }
 }

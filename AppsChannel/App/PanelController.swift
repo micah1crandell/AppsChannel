@@ -18,16 +18,18 @@ final class PanelController {
 
     private var mainAppWindow: NSWindow?
     private var quickLauncherPanel: AppsChannelPanel?
+    private var clipboardPanel: AppsChannelPanel?
     private let windowDelegate = MainAppWindowDelegate()
 
     var isVisible: Bool {
-        (mainAppWindow?.isVisible == true) || (quickLauncherPanel?.isVisible == true)
+        (mainAppWindow?.isVisible == true) || (quickLauncherPanel?.isVisible == true) || (clipboardPanel?.isVisible == true)
     }
 
     private(set) var lastQuickShowTime: Date = .distantPast
 
     func setup() {
         setupQuickLauncherPanel()
+        setupClipboardPanel()
         setupMainAppWindow()
         setupScreenChangeObserver()
     }
@@ -45,6 +47,9 @@ final class PanelController {
     @objc private func handleScreenParametersChanged() {
         let activeScreen = Self.targetScreenForPointer()
         if let panel = quickLauncherPanel {
+            panel.setFrame(activeScreen.frame, display: true)
+        }
+        if let panel = clipboardPanel {
             panel.setFrame(activeScreen.frame, display: true)
         }
         if let window = mainAppWindow, window.isVisible {
@@ -134,6 +139,57 @@ final class PanelController {
         }
     }
 
+    private func setupClipboardPanel() {
+        let screenRect = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+
+        let panel = AppsChannelPanel(
+            contentRect: screenRect,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+
+        panel.level = .floating
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.ignoresMouseEvents = false
+
+        let hostView = ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .ignoresSafeArea()
+                .onTapGesture { [weak self] in
+                    self?.hideClipboardHistory()
+                }
+
+            ClipboardHistoryView(
+                onClose: { [weak self] in
+                    self?.hideClipboardHistory()
+                }
+            )
+        }
+
+        let hostingView = NSHostingView(rootView: hostView)
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        panel.contentView = hostingView
+        self.clipboardPanel = panel
+
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            if Date().timeIntervalSince(self.lastQuickShowTime) < 0.5 {
+                return
+            }
+            self.hideClipboardHistory()
+        }
+    }
+
     private func setupMainAppWindow() {
         let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let defaultWidth = min(1280.0, max(1060.0, screen.width * 0.88))
@@ -187,6 +243,10 @@ final class PanelController {
         quickLauncherPanel?.isVisible == true
     }
 
+    var isClipboardVisible: Bool {
+        clipboardPanel?.isVisible == true
+    }
+
     func toggleMainApp() {
         if isMainAppVisible {
             hideMainApp()
@@ -214,7 +274,46 @@ final class PanelController {
         mainAppWindow?.orderOut(nil)
     }
 
+    func showClipboardHistory() {
+        if let frontApp = NSWorkspace.shared.frontmostApplication,
+           frontApp.bundleIdentifier != Bundle.main.bundleIdentifier {
+            WindowManagementService.shared.lastExternalApp = frontApp
+            ClipboardMonitorService.shared.lastExternalApp = frontApp
+        }
+        hideQuickLauncher()
+        mainAppWindow?.orderOut(nil)
+        guard let panel = clipboardPanel else { return }
+
+        let targetScreen = Self.targetScreenForPointer()
+        panel.setFrame(targetScreen.frame, display: true)
+
+        lastQuickShowTime = Date()
+        panel.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+
+        DispatchQueue.main.async {
+            panel.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    func hideClipboardHistory() {
+        clipboardPanel?.orderOut(nil)
+    }
+
+    func toggleClipboardHistory() {
+        if isClipboardVisible {
+            hideClipboardHistory()
+        } else {
+            showClipboardHistory()
+        }
+    }
+
     func toggle() {
+        if isClipboardVisible {
+            hideClipboardHistory()
+            return
+        }
         if isQuickLauncherVisible {
             hideQuickLauncher()
             return
@@ -240,8 +339,10 @@ final class PanelController {
         if let frontApp = NSWorkspace.shared.frontmostApplication,
            frontApp.bundleIdentifier != Bundle.main.bundleIdentifier {
             WindowManagementService.shared.lastExternalApp = frontApp
+            ClipboardMonitorService.shared.lastExternalApp = frontApp
         }
         hideQuickLauncher()
+        hideClipboardHistory()
         guard let window = mainAppWindow else { return }
 
         // Position on target screen where mouse is currently located
@@ -258,7 +359,9 @@ final class PanelController {
         if let frontApp = NSWorkspace.shared.frontmostApplication,
            frontApp.bundleIdentifier != Bundle.main.bundleIdentifier {
             WindowManagementService.shared.lastExternalApp = frontApp
+            ClipboardMonitorService.shared.lastExternalApp = frontApp
         }
+        hideClipboardHistory()
         mainAppWindow?.orderOut(nil)
         guard let panel = quickLauncherPanel else { return }
 
@@ -292,6 +395,7 @@ final class PanelController {
 
     func hide() {
         hideQuickLauncher()
+        hideClipboardHistory()
         mainAppWindow?.orderOut(nil)
     }
 }

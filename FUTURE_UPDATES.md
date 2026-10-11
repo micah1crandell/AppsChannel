@@ -6,12 +6,12 @@ This document outlines the strategic roadmap and future feature specifications d
 
 ## 📋 Feature Roadmap
 
-### 1. Local Clipboard History
-* **Description**: A 100% on-device, encrypted clipboard history manager accessible via a dedicated shortcut (e.g. `⌥C`) or an expandable sub-deck.
+### 1. Local Clipboard History ✅ *(Completed in v1.2 / Phase 10)*
+* **Description**: A 100% on-device, private clipboard history manager accessible via a dedicated shortcut (`⌥C`), menu bar, and Quick Launcher.
 * **Key Details**: 
-  * Zero-telemetry, private SQLite storage for copied text, URLs, code snippets, and image clippings.
-  * Searchable through the unified search bar with live preview cards.
-  * Configurable history retention rules and automatic exclusion of sensitive data from password managers (via `org.nspasteboard.ConcealedType`).
+  * Zero-telemetry, private on-device storage for copied text, URLs, code snippets, color codes (with live color swatches), file links, and image clippings.
+  * Searchable through a dedicated Raycast-style split modal or unified quick launcher search with simulated Command+V auto-paste.
+  * Configurable retention periods, pause/resume recording, optional password manager exclusion, and masked secret previews (`••••••••`) with click-to-reveal.
 
 ---
 
