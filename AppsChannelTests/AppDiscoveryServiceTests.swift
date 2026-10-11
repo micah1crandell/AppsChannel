@@ -285,5 +285,55 @@ final class AppDiscoveryServiceTests: XCTestCase {
         // Clean up
         PanelController.shared.hideQuickLauncher()
     }
+
+    @MainActor
+    func testQuickLauncherSearchScoringAndRanking() {
+        let tracker = AppUsageTracker.shared
+        let testApp1 = DiscoveredApp(
+            id: UUID(),
+            name: "Safari",
+            url: URL(fileURLWithPath: "/Applications/Safari.app"),
+            bundleIdentifier: "com.apple.Safari",
+            icon: NSImage(),
+            category: "INTERNET",
+            tagBadge: "WEB",
+            sizeString: "50 MB",
+            accentColor: .blue
+        )
+        let testApp2 = DiscoveredApp(
+            id: UUID(),
+            name: "Slack",
+            url: URL(fileURLWithPath: "/Applications/Slack.app"),
+            bundleIdentifier: "com.tinyspeck.slackmacgap",
+            icon: NSImage(),
+            category: "COMMUNICATION",
+            tagBadge: "CHAT",
+            sizeString: "120 MB",
+            accentColor: .purple
+        )
+
+        let safariScore = tracker.searchScore(for: testApp1, query: "saf")
+        let slackScore = tracker.searchScore(for: testApp2, query: "saf")
+
+        XCTAssertGreaterThan(safariScore, slackScore)
+        XCTAssertGreaterThan(safariScore, 50.0)
+    }
+
+    @MainActor
+    func testKeyboardModifierResetOnQuickLauncherPresentation() {
+        let modifierManager = KeyboardModifierManager.shared
+        // Simulate a pressed modifier
+        modifierManager.update(from: [.command, .option])
+        XCTAssertTrue(modifierManager.isCommandPressed)
+        XCTAssertTrue(modifierManager.isOptionPressed)
+
+        // Presenting quick launcher must unconditionally clear modifiers
+        PanelController.shared.showQuickLauncher()
+        XCTAssertFalse(modifierManager.isCommandPressed)
+        XCTAssertFalse(modifierManager.isOptionPressed)
+
+        // Clean up
+        PanelController.shared.hideQuickLauncher()
+    }
 }
 

@@ -79,13 +79,6 @@ struct RetroHUDView: View {
                         .onSubmit {
                             onLaunch()
                         }
-                        .onKeyPress(.delete) {
-                            if !searchText.isEmpty {
-                                searchText.removeLast()
-                                return .handled
-                            }
-                            return .handled
-                        }
                         .onKeyPress(.return) {
                             onLaunch()
                             return .handled

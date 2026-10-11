@@ -173,8 +173,12 @@ final class AppDiscoveryService: ObservableObject {
         let running = NSWorkspace.shared.runningApplications
         let ids = Set(running.compactMap { $0.bundleIdentifier })
         let urls = Set(running.compactMap { $0.bundleURL })
-        self.runningBundleIds = ids
-        self.runningUrls = urls
+        if self.runningBundleIds != ids {
+            self.runningBundleIds = ids
+        }
+        if self.runningUrls != urls {
+            self.runningUrls = urls
+        }
     }
 
     private func setupRunningAppObservers() {

@@ -361,13 +361,9 @@ final class PanelController {
         panel.setFrame(targetScreen.frame, display: true)
 
         lastQuickShowTime = Date()
+        KeyboardModifierManager.shared.reset()
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-
-        DispatchQueue.main.async {
-            panel.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-        }
 
         NotificationCenter.default.post(name: .panelDidShow, object: LauncherMode.quickLauncher)
         AppDiscoveryService.shared.updateRunningApplications()

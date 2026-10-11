@@ -9,6 +9,7 @@ xcuserdata/
 ## Build generated
 build/
 DerivedData/
+.derivedData/
 *.moved-aside
 
 # Swift Package Manager

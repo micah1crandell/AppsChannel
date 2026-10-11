@@ -38,7 +38,9 @@ struct QuickLauncherView: View {
         return list
     }
 
-    private var filteredApps: [DiscoveredApp] {
+    @State private var cachedFilteredApps: [DiscoveredApp] = []
+
+    private func updateFilteredApps() {
         let baseList: [DiscoveredApp]
         if selectedCategory == "ALL" {
             baseList = discoveryService.apps
@@ -49,34 +51,38 @@ struct QuickLauncherView: View {
         let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedSearch.isEmpty {
             if !discoveryService.loadSavedOrder().isEmpty {
-                return baseList
+                cachedFilteredApps = baseList
+                return
             }
             if selectedCategory != "ALL" {
-                let ranked = baseList.sorted { a1, a2 in
-                    let s1 = AppUsageTracker.shared.usageScore(for: a1)
-                    let s2 = AppUsageTracker.shared.usageScore(for: a2)
-                    if s1 != s2 { return s1 > s2 }
-                    return a1.name.localizedCaseInsensitiveCompare(a2.name) == .orderedAscending
-                }
+                let scored = baseList.map { (app: $0, score: AppUsageTracker.shared.usageScore(for: $0)) }
+                let ranked = scored.sorted { s1, s2 in
+                    if s1.score != s2.score { return s1.score > s2.score }
+                    return s1.app.name.localizedCaseInsensitiveCompare(s2.app.name) == .orderedAscending
+                }.map(\.app)
                 let (arranged, _) = AppUsageTracker.shared.arrangeMiddleOut(ranked)
-                return arranged
+                cachedFilteredApps = arranged
+                return
             }
-            return baseList
+            cachedFilteredApps = baseList
+            return
         }
 
-        // Smart search scoring with associative memory and aliases
-        let candidates = baseList.filter { app in
-            app.name.localizedCaseInsensitiveContains(trimmedSearch) ||
-            app.category.localizedCaseInsensitiveContains(trimmedSearch) ||
-            AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch) >= 40.0
+        // High-performance single-pass precomputed scoring (O(N) scoring instead of O(N log N))
+        let scoredCandidates: [(app: DiscoveredApp, score: Double)] = baseList.compactMap { app in
+            let score = AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch)
+            let matchesName = app.name.localizedCaseInsensitiveContains(trimmedSearch)
+            let matchesCategory = app.category.localizedCaseInsensitiveContains(trimmedSearch)
+            if matchesName || matchesCategory || score >= 40.0 {
+                return (app, score)
+            }
+            return nil
         }
 
-        let ranked = candidates.sorted { a1, a2 in
-            let s1 = AppUsageTracker.shared.searchScore(for: a1, query: trimmedSearch)
-            let s2 = AppUsageTracker.shared.searchScore(for: a2, query: trimmedSearch)
-            if s1 != s2 { return s1 > s2 }
-            return a1.name.localizedCaseInsensitiveCompare(a2.name) == .orderedAscending
-        }
+        let ranked = scoredCandidates.sorted { s1, s2 in
+            if s1.score != s2.score { return s1.score > s2.score }
+            return s1.app.name.localizedCaseInsensitiveCompare(s2.app.name) == .orderedAscending
+        }.map(\.app)
 
         // Matching hidden apps section at the far right behind a separator
         var hiddenMatches = discoveryService.matchingHiddenApps(query: trimmedSearch)
@@ -84,14 +90,20 @@ struct QuickLauncherView: View {
             hiddenMatches = hiddenMatches.filter { $0.category == selectedCategory }
         }
 
+        var fullList = ranked
         if !hiddenMatches.isEmpty {
-            var fullList = ranked
             fullList.append(DiscoveredApp.hiddenAppsSeparator)
             fullList.append(contentsOf: hiddenMatches)
-            return fullList
         }
 
-        return ranked
+        // When searching, include "Open AppsChannel" if the search query matches
+        if Self.openMainAppCard.name.localizedCaseInsensitiveContains(trimmedSearch) ||
+           "AppsChannel".localizedCaseInsensitiveContains(trimmedSearch) ||
+           "Settings".localizedCaseInsensitiveContains(trimmedSearch) {
+            fullList.append(Self.openMainAppCard)
+        }
+
+        cachedFilteredApps = fullList
     }
 
     private static let openMainAppCard: DiscoveredApp = {
@@ -120,17 +132,7 @@ struct QuickLauncherView: View {
     }()
 
     private var displayApps: [DiscoveredApp] {
-        var list = filteredApps
-        let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedSearch.isEmpty {
-            // When searching, include "Open AppsChannel" if the search query matches
-            if Self.openMainAppCard.name.localizedCaseInsensitiveContains(trimmedSearch) ||
-               "AppsChannel".localizedCaseInsensitiveContains(trimmedSearch) ||
-               "Settings".localizedCaseInsensitiveContains(trimmedSearch) {
-                list.append(Self.openMainAppCard)
-            }
-        }
-        return list
+        cachedFilteredApps
     }
 
     private var activeIndex: Int {
@@ -235,13 +237,10 @@ struct QuickLauncherView: View {
                 }
             }
 
-            // Floating Search & Category Status Badge (snugly positioned above carousel without moving it)
-            if !searchText.isEmpty || selectedCategory != "ALL" {
-                searchStatusBadge
-                    .offset(y: searchBadgeOffsetY)
-                    .transition(.scale(scale: 0.92).combined(with: .opacity))
-                    .zIndex(100)
-            }
+            // Floating Search & Category Input Bar (always visible above carousel for instant typing)
+            searchStatusBadge
+                .offset(y: searchBadgeOffsetY)
+                .zIndex(100)
 
             // Toast Overlay (positioned cleanly below carousel)
             if let toast = toastMessage {
@@ -253,35 +252,33 @@ struct QuickLauncherView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: searchText) { _, newText in
+            updateFilteredApps()
             let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty {
                 isSearchTextSelected = false
             }
             if !trimmed.isEmpty {
                 let target = (displayApps.first?.isSeparator == true && displayApps.count > 1) ? 1 : 0
-                selectedIndex = target
-                discoveryService.selectedIndex = target
+                selectedIndex = min(target, max(0, displayApps.count - 1))
             } else {
                 let center = displayApps.count / 2
                 selectedIndex = center
-                discoveryService.selectedIndex = center
             }
         }
         .onChange(of: selectedCategory) {
+            updateFilteredApps()
             if !searchText.isEmpty {
                 selectedIndex = 0
-                discoveryService.selectedIndex = 0
             } else {
                 let center = displayApps.count / 2
                 selectedIndex = center
-                discoveryService.selectedIndex = center
             }
         }
         .onChange(of: discoveryService.apps.count) {
+            updateFilteredApps()
             if selectedIndex >= displayApps.count {
                 let center = displayApps.count / 2
                 selectedIndex = center
-                discoveryService.selectedIndex = center
             }
         }
         .onAppear {
@@ -289,9 +286,10 @@ struct QuickLauncherView: View {
             isSearchTextSelected = false
             selectedCategory = "ALL"
             scrollAccumulator = 0.0
+            KeyboardModifierManager.shared.reset()
+            updateFilteredApps()
             let center = displayApps.count / 2
             selectedIndex = center
-            discoveryService.selectedIndex = center
             setupEventMonitor()
         }
         .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { notification in
@@ -301,9 +299,10 @@ struct QuickLauncherView: View {
                     isSearchTextSelected = false
                     selectedCategory = "ALL"
                     scrollAccumulator = 0.0
+                    KeyboardModifierManager.shared.reset()
+                    updateFilteredApps()
                     let center = displayApps.count / 2
                     selectedIndex = center
-                    discoveryService.selectedIndex = center
                     setupEventMonitor()
                 } else {
                     removeEventMonitor()
@@ -313,9 +312,10 @@ struct QuickLauncherView: View {
                 isSearchTextSelected = false
                 selectedCategory = "ALL"
                 scrollAccumulator = 0.0
+                KeyboardModifierManager.shared.reset()
+                updateFilteredApps()
                 let center = displayApps.count / 2
                 selectedIndex = center
-                discoveryService.selectedIndex = center
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .quickLauncherDidDismiss)) { _ in
@@ -323,10 +323,8 @@ struct QuickLauncherView: View {
             isSearchTextSelected = false
             selectedCategory = "ALL"
             scrollAccumulator = 0.0
-            let center = discoveryService.apps.count / 2
-            selectedIndex = center
-            discoveryService.selectedIndex = center
             removeEventMonitor()
+            KeyboardModifierManager.shared.reset()
         }
         .onDisappear {
             searchText = ""
@@ -351,11 +349,6 @@ struct QuickLauncherView: View {
             if event.type == .flagsChanged {
                 KeyboardModifierManager.shared.update(from: event.modifierFlags)
                 return event
-            }
-
-            // Ignore leftover hotkey keyDown/scroll events within 0.25s of presentation
-            if Date().timeIntervalSince(PanelController.shared.lastQuickShowTime) < 0.25 {
-                return nil
             }
 
             if event.type == .scrollWheel {
@@ -406,15 +399,52 @@ struct QuickLauncherView: View {
                     }
                 }
 
-                // Command+Delete or Command+Backspace: Clear search text
-                if isCmd && event.keyCode == 51 {
-                    if !searchText.isEmpty {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            searchText = ""
-                            isSearchTextSelected = false
+                // Check Delete / Backspace keys (ANSI 51, Forward Delete 117, ASCII 127/8)
+                let isDeleteKey = (event.keyCode == 51 || event.keyCode == 117)
+                let isDeleteChar = (event.characters == "\u{7f}" || event.characters == "\u{08}" || event.charactersIgnoringModifiers == "\u{7f}" || event.charactersIgnoringModifiers == "\u{08}")
+
+                if isDeleteKey || isDeleteChar {
+                    if isCmd {
+                        if !searchText.isEmpty {
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                searchText = ""
+                                isSearchTextSelected = false
+                                updateFilteredApps()
+                                let center = cachedFilteredApps.count / 2
+                                selectedIndex = center
+                            }
+                            SoundEffectsManager.shared.playAction()
                         }
                         return nil
                     }
+
+                    if isSearchTextSelected {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                            searchText = ""
+                            isSearchTextSelected = false
+                            updateFilteredApps()
+                            let center = cachedFilteredApps.count / 2
+                            selectedIndex = center
+                        }
+                        SoundEffectsManager.shared.playAction()
+                        return nil
+                    } else if !searchText.isEmpty {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                            searchText = String(searchText.dropLast())
+                            updateFilteredApps()
+                            let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if trimmed.isEmpty {
+                                let center = cachedFilteredApps.count / 2
+                                selectedIndex = center
+                            } else {
+                                let target = (cachedFilteredApps.first?.isSeparator == true && cachedFilteredApps.count > 1) ? 1 : 0
+                                selectedIndex = min(target, max(0, cachedFilteredApps.count - 1))
+                            }
+                        }
+                        SoundEffectsManager.shared.playNavigation()
+                        return nil
+                    }
+                    return nil
                 }
 
                 // Command+Shift+V or Command+V: View Mode Switch vs. Paste
@@ -583,32 +613,27 @@ struct QuickLauncherView: View {
 
                 case 53: // Escape key
                     if isSearchTextSelected {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
                             isSearchTextSelected = false
                         }
                     } else if !searchText.isEmpty {
-                        searchText = ""
-                        let center = displayApps.count / 2
-                        selectedIndex = center
-                        discoveryService.selectedIndex = center
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                            searchText = ""
+                            updateFilteredApps()
+                            let center = cachedFilteredApps.count / 2
+                            selectedIndex = center
+                        }
+                        SoundEffectsManager.shared.playAction()
                     } else if selectedCategory != "ALL" {
-                        selectedCategory = "ALL"
-                        let center = displayApps.count / 2
-                        selectedIndex = center
-                        discoveryService.selectedIndex = center
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                            selectedCategory = "ALL"
+                            updateFilteredApps()
+                            let center = cachedFilteredApps.count / 2
+                            selectedIndex = center
+                        }
+                        SoundEffectsManager.shared.playAction()
                     } else {
                         onDismiss()
-                    }
-                    return nil
-
-                case 51: // Delete / Backspace key
-                    if isSearchTextSelected {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            searchText = ""
-                            isSearchTextSelected = false
-                        }
-                    } else if !searchText.isEmpty {
-                        searchText.removeLast()
                     }
                     return nil
 
@@ -621,12 +646,18 @@ struct QuickLauncherView: View {
                        !event.modifierFlags.contains(.option) {
                         let allowed = CharacterSet.alphanumerics.union(.punctuationCharacters).union(.whitespaces)
                         if characters.unicodeScalars.allSatisfy({ allowed.contains($0) }) {
-                            if isSearchTextSelected {
-                                searchText = characters
-                                isSearchTextSelected = false
-                            } else {
-                                searchText.append(characters)
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                if isSearchTextSelected {
+                                    searchText = characters
+                                    isSearchTextSelected = false
+                                } else {
+                                    searchText.append(characters)
+                                }
+                                updateFilteredApps()
+                                let target = (cachedFilteredApps.first?.isSeparator == true && cachedFilteredApps.count > 1) ? 1 : 0
+                                selectedIndex = min(target, max(0, cachedFilteredApps.count - 1))
                             }
+                            SoundEffectsManager.shared.playNavigation()
                             return nil
                         }
                     }
@@ -796,6 +827,9 @@ struct QuickLauncherView: View {
                 Button(action: {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                         selectedCategory = "ALL"
+                        updateFilteredApps()
+                        let center = cachedFilteredApps.count / 2
+                        selectedIndex = center
                     }
                 }) {
                     Image(systemName: "xmark")
@@ -805,12 +839,16 @@ struct QuickLauncherView: View {
                 .buttonStyle(.plain)
             }
 
-            if !searchText.isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(isSearchTextSelected ? .white : .white.opacity(0.75))
+            HStack(spacing: 7) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(searchText.isEmpty ? .white.opacity(0.5) : (isSearchTextSelected ? .white : .white.opacity(0.85)))
 
+                if searchText.isEmpty {
+                    Text("Search applications...")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.40))
+                } else {
                     Text(searchText)
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
@@ -824,9 +862,12 @@ struct QuickLauncherView: View {
                         )
 
                     Button(action: {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
                             searchText = ""
                             isSearchTextSelected = false
+                            updateFilteredApps()
+                            let center = cachedFilteredApps.count / 2
+                            selectedIndex = center
                         }
                     }) {
                         Image(systemName: "xmark.circle.fill")
@@ -835,8 +876,10 @@ struct QuickLauncherView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .contentShape(Rectangle())
-                .onTapGesture {
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if !searchText.isEmpty {
                     withAnimation(.easeInOut(duration: 0.15)) {
                         isSearchTextSelected.toggle()
                     }
@@ -851,7 +894,7 @@ struct QuickLauncherView: View {
         )
         .overlay(
             Capsule().strokeBorder(
-                isSearchTextSelected ? Color.accentColor.opacity(0.8) : Color.white.opacity(0.22),
+                isSearchTextSelected ? Color.accentColor.opacity(0.8) : (searchText.isEmpty ? Color.white.opacity(0.18) : Color.white.opacity(0.24)),
                 lineWidth: isSearchTextSelected ? 1.5 : 1
             )
         )
