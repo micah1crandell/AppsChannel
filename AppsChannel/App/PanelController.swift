@@ -237,6 +237,10 @@ final class PanelController {
     }
 
     func showMainApp() {
+        if let frontApp = NSWorkspace.shared.frontmostApplication,
+           frontApp.bundleIdentifier != Bundle.main.bundleIdentifier {
+            WindowManagementService.shared.lastExternalApp = frontApp
+        }
         hideQuickLauncher()
         guard let window = mainAppWindow else { return }
 
@@ -251,6 +255,10 @@ final class PanelController {
     }
 
     func showQuickLauncher() {
+        if let frontApp = NSWorkspace.shared.frontmostApplication,
+           frontApp.bundleIdentifier != Bundle.main.bundleIdentifier {
+            WindowManagementService.shared.lastExternalApp = frontApp
+        }
         mainAppWindow?.orderOut(nil)
         guard let panel = quickLauncherPanel else { return }
 

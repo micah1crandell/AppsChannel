@@ -18,6 +18,7 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     var channelType: CustomChannelKind? = nil
     var customChannelId: UUID? = nil
     var systemAction: SystemActionType? = nil
+    var windowAction: WindowSnappingAction? = nil
 
     nonisolated init(
         id: UUID = UUID(),
@@ -33,7 +34,8 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
         isSeparator: Bool = false,
         channelType: CustomChannelKind? = nil,
         customChannelId: UUID? = nil,
-        systemAction: SystemActionType? = nil
+        systemAction: SystemActionType? = nil,
+        windowAction: WindowSnappingAction? = nil
     ) {
         self.id = id
         self.name = name
@@ -49,6 +51,7 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
         self.channelType = channelType
         self.customChannelId = customChannelId
         self.systemAction = systemAction
+        self.windowAction = windowAction
     }
 
     static let hiddenAppsSeparator: DiscoveredApp = {
@@ -387,12 +390,22 @@ final class AppDiscoveryService: ObservableObject {
             }
         }
 
+        if WindowManagementService.shared.isMasterEnabled {
+            let windowActionApps = WindowManagementService.shared.allWindowActionApps()
+            for actionApp in windowActionApps {
+                let key = actionApp.url.absoluteString
+                if !hidden.contains(key) && !combined.contains(where: { $0.id == actionApp.id }) {
+                    combined.append(actionApp)
+                }
+            }
+        }
+
         let saved = loadSavedOrder()
         if !saved.isEmpty {
             var appMap = [String: DiscoveredApp]()
             for app in combined {
                 let key: String
-                if app.systemAction != nil {
+                if app.systemAction != nil || app.windowAction != nil {
                     key = app.url.absoluteString
                 } else if let customId = app.customChannelId {
                     key = "custom://\(customId.uuidString)"
@@ -572,6 +585,12 @@ final class AppDiscoveryService: ObservableObject {
         // Execute System Action if applicable
         if let action = app.systemAction {
             SystemActionService.shared.execute(action)
+            return
+        }
+
+        // Execute Window Management Action if applicable
+        if let action = app.windowAction {
+            WindowManagementService.shared.performAction(action)
             return
         }
 

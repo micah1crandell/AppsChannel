@@ -299,6 +299,28 @@ final class AppUsageTracker: ObservableObject {
             }
         }
 
+        // 4c. Window Snapping Action Keywords & Custom Alias Match
+        if let action = app.windowAction {
+            let conf = WindowManagementService.shared.config(for: action)
+            if !conf.alias.isEmpty {
+                let aliasLower = conf.alias.lowercased()
+                if aliasLower == q {
+                    score += 220.0
+                } else if aliasLower.hasPrefix(q) || q.hasPrefix(aliasLower) {
+                    score += 140.0
+                }
+            }
+            for keyword in action.keywords {
+                if keyword == q {
+                    score += 180.0
+                } else if keyword.hasPrefix(q) || q.hasPrefix(keyword) {
+                    score += 120.0
+                } else if keyword.contains(q) {
+                    score += 80.0
+                }
+            }
+        }
+
         // 5. Category match
         if app.category.lowercased().contains(q) {
             score += 30.0

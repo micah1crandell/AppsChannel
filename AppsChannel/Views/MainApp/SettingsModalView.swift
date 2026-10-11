@@ -53,6 +53,7 @@ struct SettingsModalView: View {
         case general = "General"
         case appearance = "Appearance"
         case shortcuts = "Shortcuts"
+        case windowManagement = "Window Management"
         case channels = "Channels"
         case hiddenApps = "Hidden Apps"
         case about = "About"
@@ -64,6 +65,7 @@ struct SettingsModalView: View {
             case .general: return "gearshape.fill"
             case .appearance: return "paintpalette.fill"
             case .shortcuts: return "keyboard.fill"
+            case .windowManagement: return "macwindow.on.rectangle"
             case .channels: return "plus.rectangle.on.rectangle.fill"
             case .hiddenApps: return "eye.slash.fill"
             case .about: return "info.circle.fill"
@@ -207,6 +209,8 @@ struct SettingsModalView: View {
                             appearanceSettings
                         case .shortcuts:
                             shortcutSettings
+                        case .windowManagement:
+                            WindowManagementSettingsView()
                         case .channels:
                             customChannelsSettings
                         case .hiddenApps:
