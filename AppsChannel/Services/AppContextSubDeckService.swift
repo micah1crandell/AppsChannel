@@ -184,7 +184,7 @@ final class AppContextSubDeckService: ObservableObject {
             return .appGlance
         }
 
-        let bundle = Bundle(url: app.url)
+        let bundle = app.url.isFileURL ? Bundle(url: app.url) : nil
 
         // 2. Browser Detection via URL Scheme Handlers (e.g. http / https)
         if isWebBrowser(bundle: bundle, category: app.category, bundleId: app.bundleIdentifier) {
@@ -223,19 +223,18 @@ final class AppContextSubDeckService: ObservableObject {
         self.activeApp = app
         let kind = detectContext(for: app)
         self.contextKind = kind
-        self.isLoading = true
-
-        let appURL = app.url
 
         // Always compute glance info as high-speed instant metadata
         let glance = Self.extractGlanceInfo(for: app)
         self.appGlanceInfo = glance
 
         switch kind {
-        case .clipboard:
+        case .clipboard, .systemAction, .appGlance:
             self.isLoading = false
+            return
 
         case .browser:
+            self.isLoading = true
             let downloads = await Task.detached(priority: .userInitiated) { () -> [BrowserDownloadItem] in
                 return Self.fetchRecentDownloads()
             }.value
@@ -246,6 +245,12 @@ final class AppContextSubDeckService: ObservableObject {
             }
 
         case .photos:
+            guard app.url.isFileURL else {
+                self.isLoading = false
+                return
+            }
+            self.isLoading = true
+            let appURL = app.url
             let photos = await Task.detached(priority: .userInitiated) { () -> [PhotoDeckItem] in
                 return Self.querySpotlightRecentPhotos(forAppAt: appURL)
             }.value
@@ -256,9 +261,11 @@ final class AppContextSubDeckService: ObservableObject {
             }
 
         case .media:
+            self.isLoading = true
+            let appURL = app.url
             let (nowPlaying, mediaFiles) = await Task.detached(priority: .userInitiated) { () -> (NowPlayingMediaInfo?, [RecentDocumentItem]) in
                 let now = Self.queryNowPlaying()
-                let files = RecentDocumentsService.querySpotlightRecentDocuments(forAppAt: appURL)
+                let files = appURL.isFileURL ? RecentDocumentsService.querySpotlightRecentDocuments(forAppAt: appURL) : []
                 return (now, files)
             }.value
 
@@ -269,6 +276,12 @@ final class AppContextSubDeckService: ObservableObject {
             }
 
         case .developer:
+            guard app.url.isFileURL else {
+                self.isLoading = false
+                return
+            }
+            self.isLoading = true
+            let appURL = app.url
             let devProjects = await Task.detached(priority: .userInitiated) { () -> [DevProjectItem] in
                 return Self.querySpotlightDevProjects(forAppAt: appURL)
             }.value
@@ -279,6 +292,12 @@ final class AppContextSubDeckService: ObservableObject {
             }
 
         case .documents:
+            guard app.url.isFileURL else {
+                self.isLoading = false
+                return
+            }
+            self.isLoading = true
+            let appURL = app.url
             let docs = await Task.detached(priority: .userInitiated) { () -> [RecentDocumentItem] in
                 return RecentDocumentsService.querySpotlightRecentDocuments(forAppAt: appURL)
             }.value
@@ -287,9 +306,6 @@ final class AppContextSubDeckService: ObservableObject {
                 self.recentDocuments = docs
                 self.isLoading = false
             }
-
-        case .systemAction, .appGlance:
-            self.isLoading = false
         }
     }
 
@@ -513,11 +529,17 @@ final class AppContextSubDeckService: ObservableObject {
 
     // MARK: - App Glance Metadata Extractor
     static func extractGlanceInfo(for app: DiscoveredApp) -> AppGlanceInfo {
-        let bundle = Bundle(url: app.url)
+        let bundle: Bundle? = app.url.isFileURL ? Bundle(url: app.url) : nil
         let bundleId = app.bundleIdentifier ?? bundle?.bundleIdentifier ?? "Unknown"
 
         // 1. Architecture Detection (Universal 2, Apple Silicon, Intel)
         let archBadge: String = {
+            if app.windowAction != nil {
+                return "Window Action"
+            }
+            if app.systemAction != nil {
+                return "System Action"
+            }
             if let archs = bundle?.executableArchitectures as? [NSNumber] {
                 let archInts = archs.map { $0.intValue }
                 // NSBundleExecutableArchitectureARM64 = 0x0100000c, NSBundleExecutableArchitectureX86_64 = 0x01000007
@@ -531,6 +553,9 @@ final class AppContextSubDeckService: ObservableObject {
                     return "Intel (x86_64)"
                 }
             }
+            if !app.url.isFileURL {
+                return "System Trigger"
+            }
             return "Universal"
         }()
 
@@ -543,19 +568,29 @@ final class AppContextSubDeckService: ObservableObject {
             } else if let v = shortVersion ?? buildVersion {
                 return "v\(v)"
             }
+            if app.windowAction != nil {
+                return "Window Snapping"
+            }
+            if app.systemAction != nil {
+                return "Native Action"
+            }
             return "Latest"
         }()
 
         // 3. Process Running State & PID
-        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
+        let runningApps = (bundleId != "Unknown" && !bundleId.isEmpty && !bundleId.contains("windowAction") && !bundleId.contains("systemAction"))
+            ? NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
+            : []
         let isRunning = !runningApps.isEmpty
         let pid = runningApps.first?.processIdentifier
 
         // 4. Launch Stats from AppUsageTracker
-        let record = AppUsageTracker.shared.stats.appRecords[app.url.path]
+        let record = app.url.isFileURL ? AppUsageTracker.shared.stats.appRecords[app.url.path] : nil
         let count = record?.launchCount ?? 0
         let lastLaunchedText: String = {
-            guard let date = record?.lastLaunchedAt else { return "Never launched" }
+            guard let date = record?.lastLaunchedAt else {
+                return (app.systemAction != nil || app.windowAction != nil) ? "Always ready" : "Never launched"
+            }
             let formatter = RelativeDateTimeFormatter()
             formatter.unitsStyle = .full
             return formatter.localizedString(for: date, relativeTo: Date())
@@ -570,12 +605,13 @@ final class AppContextSubDeckService: ObservableObject {
             launchCount: count,
             lastLaunchedText: lastLaunchedText,
             bundleIdentifier: bundleId,
-            bundlePath: app.url.path
+            bundlePath: app.url.isFileURL ? app.url.path : app.url.absoluteString
         )
     }
 
     // MARK: - Spotlight Photo Query
     nonisolated static func querySpotlightRecentPhotos(forAppAt url: URL) -> [PhotoDeckItem] {
+        guard url.isFileURL else { return [] }
         let (types, exts) = RecentDocumentsService.extractDocumentTypes(forAppAt: url)
         var subClauses: [String] = []
 
@@ -673,6 +709,7 @@ final class AppContextSubDeckService: ObservableObject {
 
     // MARK: - Spotlight Dev Projects Query
     nonisolated static func querySpotlightDevProjects(forAppAt url: URL) -> [DevProjectItem] {
+        guard url.isFileURL else { return [] }
         let fullQuery = "(kMDItemFSName == '*.xcodeproj' || kMDItemFSName == '*.xcworkspace' || kMDItemFSName == '*.code-workspace') && (kMDItemLastUsedDate >= $time.today(-60) || kMDItemContentModificationDate >= $time.today(-60))"
 
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path

@@ -500,26 +500,29 @@ struct AppContextSubDeckView: View {
             // Quick Actions & Usage Row
             HStack {
                 HStack(spacing: 8) {
-                    Button {
-                        NSWorkspace.shared.activateFileViewerSelecting([app.url])
-                        SoundEffectsManager.shared.playAction()
-                        onClose()
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "folder")
-                            Text("Reveal (⌘↵)")
+                    if app.url.isFileURL {
+                        Button {
+                            NSWorkspace.shared.activateFileViewerSelecting([app.url])
+                            SoundEffectsManager.shared.playAction()
+                            onClose()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "folder")
+                                Text("Reveal (⌘↵)")
+                            }
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                         }
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
 
                     Button {
                         NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(app.url.path, forType: .string)
+                        let path = app.url.isFileURL ? app.url.path : app.url.absoluteString
+                        NSPasteboard.general.setString(path, forType: .string)
                         SoundEffectsManager.shared.playAction()
                     } label: {
                         HStack(spacing: 4) {
@@ -549,9 +552,13 @@ struct AppContextSubDeckView: View {
     }
 
     private func openFileInApp(_ fileURL: URL) {
-        let config = NSWorkspace.OpenConfiguration()
-        config.createsNewApplicationInstance = false
-        NSWorkspace.shared.open([fileURL], withApplicationAt: app.url, configuration: config) { _, _ in }
+        if app.url.isFileURL {
+            let config = NSWorkspace.OpenConfiguration()
+            config.createsNewApplicationInstance = false
+            NSWorkspace.shared.open([fileURL], withApplicationAt: app.url, configuration: config) { _, _ in }
+        } else {
+            NSWorkspace.shared.open(fileURL)
+        }
         SoundEffectsManager.shared.playLaunch()
         onClose()
     }

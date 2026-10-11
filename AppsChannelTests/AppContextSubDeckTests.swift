@@ -184,4 +184,60 @@ final class AppContextSubDeckTests: XCTestCase {
             XCTAssertTrue(kind.buttonLabel.contains("⌘↓"))
         }
     }
+
+    @MainActor
+    func testExtractGlanceInfoNonFileURLDoesNotCrash() {
+        let snapApp = DiscoveredApp(
+            name: "Left Half",
+            url: URL(string: "window-snap://left_half")!,
+            bundleIdentifier: "com.micahcrandell.AppsChannel.windowAction.left_half",
+            icon: NSImage(),
+            category: "Window Management",
+            tagBadge: "Snap",
+            sizeString: "Action",
+            accentColor: .blue,
+            windowAction: .leftHalf
+        )
+
+        let glance = AppContextSubDeckService.extractGlanceInfo(for: snapApp)
+        XCTAssertEqual(glance.architectureBadge, "Window Action")
+        XCTAssertEqual(glance.versionString, "Window Snapping")
+        XCTAssertFalse(glance.bundlePath.isEmpty)
+
+        let webBookmarkApp = DiscoveredApp(
+            name: "GitHub",
+            url: URL(string: "https://github.com")!,
+            bundleIdentifier: nil,
+            icon: NSImage(),
+            category: "Bookmarks",
+            tagBadge: "WEB",
+            sizeString: "Link",
+            accentColor: .purple
+        )
+
+        let bookmarkGlance = AppContextSubDeckService.extractGlanceInfo(for: webBookmarkApp)
+        XCTAssertEqual(bookmarkGlance.architectureBadge, "System Trigger")
+        XCTAssertEqual(bookmarkGlance.bundlePath, "https://github.com")
+    }
+
+    @MainActor
+    func testLoadContextNonFileURLDoesNotCrash() async {
+        let service = AppContextSubDeckService.shared
+        let snapApp = DiscoveredApp(
+            name: "Maximize",
+            url: URL(string: "window-snap://maximize")!,
+            bundleIdentifier: "com.micahcrandell.AppsChannel.windowAction.maximize",
+            icon: NSImage(),
+            category: "Window Management",
+            tagBadge: "Snap",
+            sizeString: "Action",
+            accentColor: .blue,
+            windowAction: .maximize
+        )
+
+        await service.loadContext(for: snapApp)
+        XCTAssertEqual(service.contextKind, .systemAction)
+        XCTAssertNotNil(service.appGlanceInfo)
+        XCTAssertFalse(service.isLoading)
+    }
 }
