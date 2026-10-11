@@ -281,5 +281,100 @@ final class AppContextSubDeckTests: XCTestCase {
         XCTAssertFalse(service.recentURLs.isEmpty)
         XCTAssertTrue(service.recentURLs.first?.url.scheme == "https" || service.recentURLs.first?.url.scheme == "http")
     }
+
+    @MainActor
+    func testSubDeckPresentationAndToggle() {
+        let service = AppContextSubDeckService.shared
+        let dummyApp = DiscoveredApp(
+            name: "Test App",
+            url: URL(fileURLWithPath: "/Applications/Test.app"),
+            bundleIdentifier: "com.test.app",
+            icon: NSImage(),
+            category: "UTILITIES",
+            tagBadge: "TEST",
+            sizeString: "10 MB",
+            accentColor: .blue
+        )
+
+        // Ensure clean initial state
+        service.closeSubDeck()
+        XCTAssertFalse(service.isSubDeckVisible)
+        XCTAssertNil(service.focusedLocation)
+
+        // Open Sub-Deck
+        service.openSubDeck(for: dummyApp)
+        XCTAssertTrue(service.isSubDeckVisible)
+        XCTAssertEqual(service.focusedLocation, SubDeckLocation(row: 0, column: 0))
+
+        // Toggle Sub-Deck (should close)
+        service.toggleSubDeck(for: dummyApp)
+        XCTAssertFalse(service.isSubDeckVisible)
+        XCTAssertNil(service.focusedLocation)
+
+        // Toggle Sub-Deck (should open)
+        service.toggleSubDeck(for: dummyApp)
+        XCTAssertTrue(service.isSubDeckVisible)
+        XCTAssertEqual(service.focusedLocation, SubDeckLocation(row: 0, column: 0))
+
+        // Close Sub-Deck
+        service.closeSubDeck()
+        XCTAssertFalse(service.isSubDeckVisible)
+        XCTAssertNil(service.focusedLocation)
+    }
+
+    @MainActor
+    func testFocusNavigationUpDownLeftRight() {
+        let service = AppContextSubDeckService.shared
+        let dummyApp = DiscoveredApp(
+            name: "Test App",
+            url: URL(fileURLWithPath: "/Applications/Test.app"),
+            bundleIdentifier: "com.test.app",
+            icon: NSImage(),
+            category: "UTILITIES",
+            tagBadge: "TEST",
+            sizeString: "10 MB",
+            accentColor: .blue
+        )
+
+        // Start closed
+        service.closeSubDeck()
+
+        // Move down from carousel opens sub-deck with focus on row 0, col 0
+        service.moveFocusDown(for: dummyApp)
+        XCTAssertTrue(service.isSubDeckVisible)
+        XCTAssertEqual(service.focusedLocation, SubDeckLocation(row: 0, column: 0))
+
+        // Move down again if next row available
+        let rows = service.availableRows(for: dummyApp)
+        if rows.count > 1 {
+            service.moveFocusDown(for: dummyApp)
+            XCTAssertEqual(service.focusedLocation?.row, 1)
+
+            // Move up back to row 0
+            service.moveFocusUp(for: dummyApp)
+            XCTAssertEqual(service.focusedLocation?.row, 0)
+        }
+
+        // From row 0, moveFocusUp returns focus back to carousel tile (focusedLocation = nil)
+        service.moveFocusUp(for: dummyApp)
+        XCTAssertNil(service.focusedLocation)
+        XCTAssertTrue(service.isSubDeckVisible) // Subdeck remains open
+
+        // Move down from carousel re-enters subdeck at row 0
+        service.moveFocusDown(for: dummyApp)
+        XCTAssertEqual(service.focusedLocation, SubDeckLocation(row: 0, column: 0))
+
+        // Horizontal navigation
+        if let maxCols = rows.first, maxCols > 1 {
+            service.moveFocusRight(for: dummyApp)
+            XCTAssertEqual(service.focusedLocation?.column, 1)
+
+            service.moveFocusLeft()
+            XCTAssertEqual(service.focusedLocation?.column, 0)
+        }
+
+        // Clean up
+        service.closeSubDeck()
+    }
 }
 

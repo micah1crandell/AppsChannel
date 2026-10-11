@@ -8,8 +8,7 @@ struct QuickLauncherView: View {
     @State private var scrollAccumulator: CGFloat = 0.0
     @State private var eventMonitor: Any? = nil
     @State private var toastMessage: String? = nil
-    @State private var showSubDeck: Bool = false
-    @State private var subDeckLocation: SubDeckLocation? = nil
+    @ObservedObject private var subDeckService = AppContextSubDeckService.shared
     @ObservedObject private var modifierManager = KeyboardModifierManager.shared
 
     let onExpandToFullScreen: () -> Void
@@ -148,8 +147,8 @@ struct QuickLauncherView: View {
         ZStack {
             // Soft feathered backdrop blur that smoothly expands downwards when subdeck opens
             VisualEffectBackground(material: .underWindowBackground, blendingMode: .behindWindow)
-                .frame(width: 1100, height: showSubDeck ? 740 : 480)
-                .offset(y: showSubDeck ? 120 : 0)
+                .frame(width: 1100, height: subDeckService.isSubDeckVisible ? 740 : 480)
+                .offset(y: subDeckService.isSubDeckVisible ? 120 : 0)
                 .mask(
                     EllipticalGradient(
                         stops: [
@@ -238,19 +237,17 @@ struct QuickLauncherView: View {
             }
 
             // Sub-Deck Content: Positioned snug directly below the carousel tiles and reflection
-            if showSubDeck, let app = currentApp, !app.isSeparator {
+            if subDeckService.isSubDeckVisible, let app = currentApp, !app.isSeparator {
                 AppContextSubDeckView(
                     app: app,
-                    focusedLocation: subDeckLocation,
+                    focusedLocation: subDeckService.focusedLocation,
                     onClose: {
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                            showSubDeck = false
-                            subDeckLocation = nil
+                            subDeckService.closeSubDeck()
                         }
                     },
                     onActionExecuted: {
-                        showSubDeck = false
-                        subDeckLocation = nil
+                        subDeckService.closeSubDeck()
                         onDismiss()
                     }
                 )
@@ -324,8 +321,8 @@ struct QuickLauncherView: View {
             searchText = ""
             selectedCategory = "ALL"
             scrollAccumulator = 0.0
-            showSubDeck = false
-            subDeckLocation = nil
+            subDeckService.isSubDeckVisible = false
+            subDeckService.focusedLocation = nil
             let center = displayApps.count / 2
             selectedIndex = center
             discoveryService.selectedIndex = center
@@ -337,8 +334,8 @@ struct QuickLauncherView: View {
                     searchText = ""
                     selectedCategory = "ALL"
                     scrollAccumulator = 0.0
-                    showSubDeck = false
-                    subDeckLocation = nil
+                    subDeckService.isSubDeckVisible = false
+                    subDeckService.focusedLocation = nil
                     let center = displayApps.count / 2
                     selectedIndex = center
                     discoveryService.selectedIndex = center
@@ -350,8 +347,8 @@ struct QuickLauncherView: View {
                 searchText = ""
                 selectedCategory = "ALL"
                 scrollAccumulator = 0.0
-                showSubDeck = false
-                subDeckLocation = nil
+                subDeckService.isSubDeckVisible = false
+                subDeckService.focusedLocation = nil
                 let center = displayApps.count / 2
                 selectedIndex = center
                 discoveryService.selectedIndex = center
@@ -361,8 +358,8 @@ struct QuickLauncherView: View {
             searchText = ""
             selectedCategory = "ALL"
             scrollAccumulator = 0.0
-            showSubDeck = false
-            subDeckLocation = nil
+            subDeckService.isSubDeckVisible = false
+            subDeckService.focusedLocation = nil
             let center = discoveryService.apps.count / 2
             selectedIndex = center
             discoveryService.selectedIndex = center
@@ -370,25 +367,23 @@ struct QuickLauncherView: View {
         }
         .onDisappear {
             searchText = ""
-            showSubDeck = false
-            subDeckLocation = nil
+            subDeckService.isSubDeckVisible = false
+            subDeckService.focusedLocation = nil
             removeEventMonitor()
             KeyboardModifierManager.shared.reset()
         }
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.28, dampingFraction: 0.8)), value: searchText.isEmpty)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: layoutMode)
-        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: showSubDeck)
-        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: subDeckLocation)
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: subDeckService.isSubDeckVisible)
+        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: subDeckService.focusedLocation)
     }
 
     // MARK: - Direct Key & Scroll Handling
     private func setupEventMonitor() {
         guard eventMonitor == nil else { return }
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown, .flagsChanged]) { [self] event in
-            // Only process events when QuickLauncher is visible and event belongs to its panel
-            guard PanelController.shared.isQuickLauncherVisible,
-                  let window = event.window ?? NSApp.keyWindow,
-                  window is AppsChannelPanel else {
+            // Only process events when QuickLauncher is visible
+            guard PanelController.shared.isQuickLauncherVisible else {
                 return event
             }
 
@@ -406,31 +401,30 @@ struct QuickLauncherView: View {
                 handleScrollEvent(event)
                 return nil
             } else if event.type == .keyDown {
+                KeyboardModifierManager.shared.update(from: event.modifierFlags)
+                let isCmd = event.modifierFlags.contains(.command) || KeyboardModifierManager.shared.isCommandPressed
+
                 // Command+O to expand to full screen
-                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "o" {
+                if isCmd && event.charactersIgnoringModifiers == "o" {
                     onExpandToFullScreen()
                     return nil
                 }
 
                 // Command+Down Arrow: Toggle Context Sub-Deck
-                if event.modifierFlags.contains(.command) && event.keyCode == 125 {
+                if isCmd && event.keyCode == 125 {
                     if let app = currentApp, !app.isSeparator {
-                        SoundEffectsManager.shared.playAction()
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                            showSubDeck.toggle()
-                            subDeckLocation = showSubDeck ? SubDeckLocation(row: 0, column: 0) : nil
+                            subDeckService.toggleSubDeck(for: app)
                         }
                     }
                     return nil
                 }
 
                 // Command+Up Arrow: Dismiss Sub-Deck if open
-                if event.modifierFlags.contains(.command) && event.keyCode == 126 {
-                    if showSubDeck {
-                        SoundEffectsManager.shared.playAction()
+                if isCmd && event.keyCode == 126 {
+                    if subDeckService.isSubDeckVisible {
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                            showSubDeck = false
-                            subDeckLocation = nil
+                            subDeckService.closeSubDeck()
                         }
                         return nil
                     }
@@ -542,21 +536,11 @@ struct QuickLauncherView: View {
 
                 switch event.keyCode {
                 case 126: // Up Arrow
-                    if let loc = subDeckLocation {
-                        if loc.row > 0, let app = currentApp {
-                            let nextRow = loc.row - 1
-                            let rows = AppContextSubDeckService.shared.availableRows(for: app)
-                            let maxCols = rows.indices.contains(nextRow) ? rows[nextRow] : 1
+                    if subDeckService.focusedLocation != nil {
+                        if let app = currentApp {
                             withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                                subDeckLocation = SubDeckLocation(row: nextRow, column: min(loc.column, max(0, maxCols - 1)))
+                                subDeckService.moveFocusUp(for: app)
                             }
-                            SoundEffectsManager.shared.playNavigation()
-                        } else {
-                            // Reached top of sub-deck -> Move focus back UP to highlight the app tile!
-                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                                subDeckLocation = nil
-                            }
-                            SoundEffectsManager.shared.playNavigation()
                         }
                         return nil
                     }
@@ -570,45 +554,26 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 125: // Down Arrow
-                    if subDeckLocation == nil {
+                    if subDeckService.focusedLocation == nil {
                         // From carousel: move down into the sub-deck!
                         if let app = currentApp, !app.isSeparator {
-                            if !showSubDeck {
-                                SoundEffectsManager.shared.playAction()
-                                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                                    showSubDeck = true
-                                    subDeckLocation = SubDeckLocation(row: 0, column: 0)
-                                }
-                            } else {
-                                SoundEffectsManager.shared.playNavigation()
-                                withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                                    subDeckLocation = SubDeckLocation(row: 0, column: 0)
-                                }
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                                subDeckService.moveFocusDown(for: app)
                             }
                         }
                         return nil
-                    } else if let loc = subDeckLocation, let app = currentApp {
-                        // Inside sub-deck: move down to next row if available
-                        let rows = AppContextSubDeckService.shared.availableRows(for: app)
-                        if loc.row < rows.count - 1 {
-                            let nextRow = loc.row + 1
-                            let maxCols = rows.indices.contains(nextRow) ? rows[nextRow] : 1
-                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                                subDeckLocation = SubDeckLocation(row: nextRow, column: min(loc.column, max(0, maxCols - 1)))
-                            }
-                            SoundEffectsManager.shared.playNavigation()
+                    } else if let app = currentApp {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                            subDeckService.moveFocusDown(for: app)
                         }
                         return nil
                     }
                     return nil
 
                 case 123: // Left Arrow
-                    if let loc = subDeckLocation {
-                        if loc.column > 0 {
-                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                                subDeckLocation = SubDeckLocation(row: loc.row, column: loc.column - 1)
-                            }
-                            SoundEffectsManager.shared.playNavigation()
+                    if subDeckService.focusedLocation != nil {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                            subDeckService.moveFocusLeft()
                         }
                         return nil
                     }
@@ -624,15 +589,11 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 124: // Right Arrow
-                    if let loc = subDeckLocation, let app = currentApp {
-                        let rows = AppContextSubDeckService.shared.availableRows(for: app)
-                        let curRow = loc.row
-                        let maxCols = rows.indices.contains(curRow) ? rows[curRow] : 1
-                        if loc.column < maxCols - 1 {
+                    if subDeckService.focusedLocation != nil {
+                        if let app = currentApp {
                             withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                                subDeckLocation = SubDeckLocation(row: loc.row, column: loc.column + 1)
+                                subDeckService.moveFocusRight(for: app)
                             }
-                            SoundEffectsManager.shared.playNavigation()
                         }
                         return nil
                     }
@@ -648,11 +609,10 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 36, 76: // Return key or Keypad Enter
-                    if let loc = subDeckLocation, let app = currentApp {
+                    if let loc = subDeckService.focusedLocation, let app = currentApp {
                         // Execute the focused subdeck item!
-                        AppContextSubDeckService.shared.executeItem(at: loc, app: app, onActionExecuted: {
-                            showSubDeck = false
-                            subDeckLocation = nil
+                        subDeckService.executeItem(at: loc, app: app, onActionExecuted: {
+                            subDeckService.closeSubDeck()
                             onDismiss()
                         })
                         return nil
@@ -675,16 +635,14 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 53: // Escape key
-                    if subDeckLocation != nil {
+                    if subDeckService.focusedLocation != nil {
                         SoundEffectsManager.shared.playAction()
                         withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                            subDeckLocation = nil
+                            subDeckService.focusedLocation = nil
                         }
-                    } else if showSubDeck {
-                        SoundEffectsManager.shared.playAction()
+                    } else if subDeckService.isSubDeckVisible {
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                            showSubDeck = false
-                            subDeckLocation = nil
+                            subDeckService.closeSubDeck()
                         }
                     } else if !searchText.isEmpty {
                         searchText = ""
@@ -716,8 +674,8 @@ struct QuickLauncherView: View {
                        !event.modifierFlags.contains(.option) {
                         let allowed = CharacterSet.alphanumerics.union(.punctuationCharacters).union(.whitespaces)
                         if characters.unicodeScalars.allSatisfy({ allowed.contains($0) }) {
-                            if subDeckLocation != nil {
-                                subDeckLocation = nil
+                            if subDeckService.focusedLocation != nil {
+                                subDeckService.focusedLocation = nil
                             }
                             searchText.append(characters)
                             return nil
@@ -850,10 +808,8 @@ struct QuickLauncherView: View {
             SoundEffectsManager.shared.playAction()
             return
         }
-        SoundEffectsManager.shared.playAction()
         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-            showSubDeck.toggle()
-            subDeckLocation = showSubDeck ? SubDeckLocation(row: 0, column: 0) : nil
+            subDeckService.toggleSubDeck(for: app)
         }
     }
 

@@ -199,7 +199,89 @@ final class AppContextSubDeckService: ObservableObject {
     @Published private(set) var appGlanceInfo: AppGlanceInfo? = nil
     @Published private(set) var nowPlayingInfo: NowPlayingMediaInfo? = nil
 
+    // Sub-Deck Presentation & Focus State (Observed across Quick Launcher and Main App)
+    @Published var isSubDeckVisible: Bool = false
+    @Published var focusedLocation: SubDeckLocation? = nil
+
     private init() {}
+
+    // MARK: - Sub-Deck Presentation & Navigation
+    func openSubDeck(for app: DiscoveredApp) {
+        guard !app.isSeparator else { return }
+        SoundEffectsManager.shared.playAction()
+        isSubDeckVisible = true
+        focusedLocation = SubDeckLocation(row: 0, column: 0)
+    }
+
+    func closeSubDeck() {
+        if isSubDeckVisible || focusedLocation != nil {
+            SoundEffectsManager.shared.playAction()
+            isSubDeckVisible = false
+            focusedLocation = nil
+        }
+    }
+
+    func toggleSubDeck(for app: DiscoveredApp) {
+        if isSubDeckVisible {
+            closeSubDeck()
+        } else {
+            openSubDeck(for: app)
+        }
+    }
+
+    func moveFocusDown(for app: DiscoveredApp) {
+        guard !app.isSeparator else { return }
+        if !isSubDeckVisible {
+            openSubDeck(for: app)
+            return
+        }
+        guard let loc = focusedLocation else {
+            focusedLocation = SubDeckLocation(row: 0, column: 0)
+            SoundEffectsManager.shared.playNavigation()
+            return
+        }
+        let rows = availableRows(for: app)
+        if loc.row < rows.count - 1 {
+            let nextRow = loc.row + 1
+            let maxCols = rows.indices.contains(nextRow) ? rows[nextRow] : 1
+            focusedLocation = SubDeckLocation(row: nextRow, column: min(loc.column, max(0, maxCols - 1)))
+            SoundEffectsManager.shared.playNavigation()
+        }
+    }
+
+    func moveFocusUp(for app: DiscoveredApp) {
+        guard let loc = focusedLocation else { return }
+        if loc.row > 0 {
+            let nextRow = loc.row - 1
+            let rows = availableRows(for: app)
+            let maxCols = rows.indices.contains(nextRow) ? rows[nextRow] : 1
+            focusedLocation = SubDeckLocation(row: nextRow, column: min(loc.column, max(0, maxCols - 1)))
+            SoundEffectsManager.shared.playNavigation()
+        } else {
+            // Reached top row (row 0) -> move focus back UP to highlight the carousel card!
+            focusedLocation = nil
+            SoundEffectsManager.shared.playNavigation()
+        }
+    }
+
+    func moveFocusLeft() {
+        guard let loc = focusedLocation else { return }
+        if loc.column > 0 {
+            focusedLocation = SubDeckLocation(row: loc.row, column: loc.column - 1)
+            SoundEffectsManager.shared.playNavigation()
+        }
+    }
+
+    func moveFocusRight(for app: DiscoveredApp) {
+        guard let loc = focusedLocation else { return }
+        let rows = availableRows(for: app)
+        let curRow = loc.row
+        let maxCols = rows.indices.contains(curRow) ? rows[curRow] : 1
+        if loc.column < maxCols - 1 {
+            focusedLocation = SubDeckLocation(row: loc.row, column: loc.column + 1)
+            SoundEffectsManager.shared.playNavigation()
+        }
+    }
 
     // MARK: - Dynamic Context Detection (Universal, Any App)
     nonisolated func detectContext(for app: DiscoveredApp) -> AppContextKind {

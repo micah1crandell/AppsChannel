@@ -11,6 +11,10 @@ struct AppContextSubDeckView: View {
     @ObservedObject private var clipboardService = ClipboardMonitorService.shared
     @State private var hoveredItemId: UUID? = nil
 
+    private var effectiveLocation: SubDeckLocation? {
+        focusedLocation ?? service.focusedLocation
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // MARK: - Header Bar
@@ -159,7 +163,7 @@ struct AppContextSubDeckView: View {
                             ClipboardDeckTile(
                                 item: item,
                                 isHovered: hoveredItemId == item.id,
-                                isFocused: focusedLocation == SubDeckLocation(row: 0, column: index),
+                                isFocused: effectiveLocation == SubDeckLocation(row: 0, column: index),
                                 onPaste: {
                                     clipboardService.pasteToFrontmostApp(item)
                                     SoundEffectsManager.shared.playLaunch()
@@ -186,7 +190,7 @@ struct AppContextSubDeckView: View {
         VStack(alignment: .leading, spacing: 10) {
             // Quick Browser Action Buttons (Row 0)
             HStack(spacing: 8) {
-                let isNewWinFocused = focusedLocation == SubDeckLocation(row: 0, column: 0)
+                let isNewWinFocused = effectiveLocation == SubDeckLocation(row: 0, column: 0)
                 Button {
                     service.launchBrowserNewWindow(app: app)
                     SoundEffectsManager.shared.playLaunch()
@@ -210,7 +214,7 @@ struct AppContextSubDeckView: View {
                 }
                 .buttonStyle(.plain)
 
-                let isPrivateFocused = focusedLocation == SubDeckLocation(row: 0, column: 1)
+                let isPrivateFocused = effectiveLocation == SubDeckLocation(row: 0, column: 1)
                 Button {
                     service.launchBrowserPrivateWindow(app: app)
                     SoundEffectsManager.shared.playLaunch()
@@ -234,7 +238,7 @@ struct AppContextSubDeckView: View {
                 }
                 .buttonStyle(.plain)
 
-                let isSearchFocused = focusedLocation == SubDeckLocation(row: 0, column: 2)
+                let isSearchFocused = effectiveLocation == SubDeckLocation(row: 0, column: 2)
                 Button {
                     service.launchWebSearch()
                     SoundEffectsManager.shared.playLaunch()
@@ -280,7 +284,7 @@ struct AppContextSubDeckView: View {
                                 BrowserURLTile(
                                     item: item,
                                     isHovered: hoveredItemId == item.id,
-                                    isFocused: focusedLocation == SubDeckLocation(row: 1, column: index),
+                                    isFocused: effectiveLocation == SubDeckLocation(row: 1, column: index),
                                     onOpen: {
                                         service.openURLInBrowser(item.url, browserApp: app)
                                         SoundEffectsManager.shared.playLaunch()
@@ -311,7 +315,7 @@ struct AppContextSubDeckView: View {
                                 BrowserDownloadTile(
                                     download: download,
                                     isHovered: hoveredItemId == download.id,
-                                    isFocused: focusedLocation == SubDeckLocation(row: downloadRow, column: index),
+                                    isFocused: effectiveLocation == SubDeckLocation(row: downloadRow, column: index),
                                     onOpen: {
                                         NSWorkspace.shared.open(download.url)
                                         SoundEffectsManager.shared.playLaunch()
@@ -342,7 +346,7 @@ struct AppContextSubDeckView: View {
                             PhotoDeckTile(
                                 photo: photo,
                                 isHovered: hoveredItemId == photo.id,
-                                isFocused: focusedLocation == SubDeckLocation(row: 0, column: index),
+                                isFocused: effectiveLocation == SubDeckLocation(row: 0, column: index),
                                 onOpen: {
                                     openFileInApp(photo.url)
                                 }
@@ -362,7 +366,7 @@ struct AppContextSubDeckView: View {
     private var mediaContentView: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let nowPlaying = service.nowPlayingInfo {
-                let isPlayFocused = focusedLocation == SubDeckLocation(row: 0, column: 0)
+                let isPlayFocused = effectiveLocation == SubDeckLocation(row: 0, column: 0)
                 HStack(spacing: 12) {
                     Image(systemName: nowPlaying.isPlaying ? "waveform" : "pause.circle.fill")
                         .font(.system(size: 24))
@@ -416,7 +420,7 @@ struct AppContextSubDeckView: View {
                             RecentDocumentTile(
                                 doc: doc,
                                 isHovered: hoveredItemId == doc.id,
-                                isFocused: focusedLocation == SubDeckLocation(row: docRow, column: index),
+                                isFocused: effectiveLocation == SubDeckLocation(row: docRow, column: index),
                                 onOpen: {
                                     openFileInApp(doc.url)
                                 }
@@ -446,7 +450,7 @@ struct AppContextSubDeckView: View {
                             DevProjectDeckTile(
                                 project: project,
                                 isHovered: hoveredItemId == project.id,
-                                isFocused: focusedLocation == SubDeckLocation(row: 0, column: index),
+                                isFocused: effectiveLocation == SubDeckLocation(row: 0, column: index),
                                 onOpen: {
                                     openFileInApp(project.url)
                                 }
@@ -474,7 +478,7 @@ struct AppContextSubDeckView: View {
                             RecentDocumentTile(
                                 doc: doc,
                                 isHovered: hoveredItemId == doc.id,
-                                isFocused: focusedLocation == SubDeckLocation(row: 0, column: index),
+                                isFocused: effectiveLocation == SubDeckLocation(row: 0, column: index),
                                 onOpen: {
                                     openFileInApp(doc.url)
                                 }
@@ -492,7 +496,7 @@ struct AppContextSubDeckView: View {
 
     // MARK: - System Action Deck Content
     private var systemActionContentView: some View {
-        let isExecFocused = focusedLocation == SubDeckLocation(row: 0, column: 0)
+        let isExecFocused = effectiveLocation == SubDeckLocation(row: 0, column: 0)
         return HStack(spacing: 14) {
             Image(systemName: app.systemAction?.iconSymbolName ?? "macwindow.on.rectangle")
                 .font(.system(size: 28, weight: .bold))
@@ -574,7 +578,7 @@ struct AppContextSubDeckView: View {
             HStack {
                 HStack(spacing: 8) {
                     if app.url.isFileURL {
-                        let isRevealFocused = focusedLocation == SubDeckLocation(row: 0, column: 0)
+                        let isRevealFocused = effectiveLocation == SubDeckLocation(row: 0, column: 0)
                         Button {
                             NSWorkspace.shared.activateFileViewerSelecting([app.url])
                             SoundEffectsManager.shared.playAction()
@@ -600,7 +604,7 @@ struct AppContextSubDeckView: View {
                     }
 
                     let copyCol = app.url.isFileURL ? 1 : 0
-                    let isCopyFocused = focusedLocation == SubDeckLocation(row: 0, column: copyCol)
+                    let isCopyFocused = effectiveLocation == SubDeckLocation(row: 0, column: copyCol)
                     Button {
                         NSPasteboard.general.clearContents()
                         let path = app.url.isFileURL ? app.url.path : app.url.absoluteString

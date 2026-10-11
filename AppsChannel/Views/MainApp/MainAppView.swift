@@ -29,7 +29,7 @@ struct MainAppView: View {
     @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
     @State private var layoutMode: MainLayoutViewMode = .gridWall
     @State private var isOrganizeMode: Bool = false
-    @State private var showRecentDocs: Bool = false
+    @ObservedObject private var subDeckService = AppContextSubDeckService.shared
     @State private var isShowingAddChannelSheet: Bool = false
     @State private var toastMessage: String? = nil
     @State private var isQuickLauncherActive: Bool = false
@@ -220,15 +220,22 @@ struct MainAppView: View {
             }
 
             // Dynamic App Context Floating Sub-Deck Overlay (Apple Liquid Glass)
-            if showRecentDocs, let app = currentApp, !app.isSeparator {
+            if subDeckService.isSubDeckVisible, let app = currentApp, !app.isSeparator {
                 VStack {
                     Spacer()
                     AppContextSubDeckView(
                         app: app,
+                        focusedLocation: subDeckService.focusedLocation,
                         onClose: {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                showRecentDocs = false
+                                subDeckService.closeSubDeck()
                             }
+                        },
+                        onActionExecuted: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                subDeckService.closeSubDeck()
+                            }
+                            onDismiss()
                         }
                     )
                     .padding(.bottom, 78)
@@ -277,8 +284,10 @@ struct MainAppView: View {
                 },
                 isOrganizeMode: isOrganizeMode,
                 onToggleRecentDocuments: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        showRecentDocs.toggle()
+                    if let app = currentApp {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            subDeckService.toggleSubDeck(for: app)
+                        }
                     }
                 },
                 onAddCustomChannel: {
@@ -393,6 +402,8 @@ struct MainAppView: View {
             if let mode = MainLayoutViewMode(rawValue: layoutModeRaw) {
                 layoutMode = mode
             }
+            subDeckService.isSubDeckVisible = false
+            subDeckService.focusedLocation = nil
             discoveryService.selectedIndex = filteredApps.count / 2
             setupEventMonitor()
         }
@@ -402,6 +413,8 @@ struct MainAppView: View {
                     isQuickLauncherActive = false
                     frozenIndex = nil
                 }
+                subDeckService.isSubDeckVisible = false
+                subDeckService.focusedLocation = nil
                 searchText = ""
                 selectedCategory = "ALL"
                 discoveryService.selectedIndex = filteredApps.count / 2
@@ -447,14 +460,18 @@ struct MainAppView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleRecentDocuments)) { _ in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                showRecentDocs.toggle()
+            if let app = currentApp {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    subDeckService.toggleSubDeck(for: app)
+                }
             }
         }
         .sheet(isPresented: $isShowingAddChannelSheet) {
             AddCustomChannelSheet()
         }
         .onDisappear {
+            subDeckService.isSubDeckVisible = false
+            subDeckService.focusedLocation = nil
             removeEventMonitor()
             KeyboardModifierManager.shared.reset()
         }
@@ -462,7 +479,8 @@ struct MainAppView: View {
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: appState.isShowingWalkthrough)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.3, dampingFraction: 0.8)), value: isOrganizeMode)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: layoutMode)
-        .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.3, dampingFraction: 0.8)), value: showRecentDocs)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: subDeckService.isSubDeckVisible)
+        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: subDeckService.focusedLocation)
     }
 
     // MARK: - Transparent Floating Backdrop with Behind-Window Desktop Blur
@@ -596,33 +614,36 @@ struct MainAppView: View {
                 handleScrollEvent(event)
                 return nil
             } else if event.type == .keyDown {
+                KeyboardModifierManager.shared.update(from: event.modifierFlags)
+                let isCmd = event.modifierFlags.contains(.command) || KeyboardModifierManager.shared.isCommandPressed
+
                 // Command+W to close window
-                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "w" {
+                if isCmd && event.charactersIgnoringModifiers == "w" {
                     onDismiss()
                     return nil
                 }
 
                 // Command+O to switch to Quick Launcher
-                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "o" {
+                if isCmd && event.charactersIgnoringModifiers == "o" {
                     onSwitchToQuickLauncher()
                     return nil
                 }
 
                 // Command+Down Arrow: Toggle Context Sub-Deck for current app
-                if event.modifierFlags.contains(.command) && event.keyCode == 125 {
+                if isCmd && event.keyCode == 125 {
                     if let app = currentApp, !app.isSeparator {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showRecentDocs.toggle()
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                            subDeckService.toggleSubDeck(for: app)
                         }
                     }
                     return nil
                 }
 
-                // Command+Up Arrow: Dismiss Recent Documents if open
-                if event.modifierFlags.contains(.command) && event.keyCode == 126 {
-                    if showRecentDocs {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showRecentDocs = false
+                // Command+Up Arrow: Dismiss Context Sub-Deck if open
+                if isCmd && event.keyCode == 126 {
+                    if subDeckService.isSubDeckVisible {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                            subDeckService.closeSubDeck()
                         }
                         return nil
                     }
@@ -751,14 +772,43 @@ struct MainAppView: View {
 
                 switch event.keyCode {
                 case 126: // Up Arrow
+                    if subDeckService.focusedLocation != nil {
+                        if let app = currentApp {
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                subDeckService.moveFocusUp(for: app)
+                            }
+                        }
+                        return nil
+                    }
                     navigate(by: -1)
                     return nil
 
                 case 125: // Down Arrow
+                    if subDeckService.focusedLocation != nil {
+                        if let app = currentApp {
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                subDeckService.moveFocusDown(for: app)
+                            }
+                        }
+                        return nil
+                    } else if subDeckService.isSubDeckVisible {
+                        if let app = currentApp {
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                subDeckService.moveFocusDown(for: app)
+                            }
+                        }
+                        return nil
+                    }
                     navigate(by: 1)
                     return nil
 
                 case 123: // Left Arrow
+                    if subDeckService.focusedLocation != nil {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                            subDeckService.moveFocusLeft()
+                        }
+                        return nil
+                    }
                     if layoutMode == .gridWall {
                         navigate(by: -3)
                     } else if layoutMode == .flatGrid {
@@ -769,6 +819,14 @@ struct MainAppView: View {
                     return nil
 
                 case 124: // Right Arrow
+                    if subDeckService.focusedLocation != nil {
+                        if let app = currentApp {
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                subDeckService.moveFocusRight(for: app)
+                            }
+                        }
+                        return nil
+                    }
                     if layoutMode == .gridWall {
                         navigate(by: 3)
                     } else if layoutMode == .flatGrid {
@@ -779,6 +837,13 @@ struct MainAppView: View {
                     return nil
 
                 case 36, 76: // Return or Keypad Enter
+                    if let loc = subDeckService.focusedLocation, let app = currentApp {
+                        subDeckService.executeItem(at: loc, app: app, onActionExecuted: {
+                            subDeckService.closeSubDeck()
+                            onDismiss()
+                        })
+                        return nil
+                    }
                     if let app = currentApp {
                         if event.modifierFlags.contains(.command) {
                             revealAppInFinder(app: app)
@@ -795,9 +860,14 @@ struct MainAppView: View {
                     return nil
 
                 case 53: // Escape
-                    if showRecentDocs {
+                    if subDeckService.focusedLocation != nil {
+                        SoundEffectsManager.shared.playAction()
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                            subDeckService.focusedLocation = nil
+                        }
+                    } else if subDeckService.isSubDeckVisible {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showRecentDocs = false
+                            subDeckService.closeSubDeck()
                         }
                     } else if isOrganizeMode {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -911,9 +981,8 @@ struct MainAppView: View {
             SoundEffectsManager.shared.playAction()
             return
         }
-        SoundEffectsManager.shared.playAction()
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            showRecentDocs.toggle()
+            subDeckService.toggleSubDeck(for: app)
         }
     }
 
