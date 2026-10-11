@@ -669,6 +669,7 @@ struct QuickLauncherView: View {
                 case .coverFlow: return 1
                 case .gridWall: return 3
                 case .flatGrid: return threeDSGridRows
+                case .wiiChannels: return 1
                 }
             }()
             navigate(by: clampedStep * stepMultiplier)
@@ -681,7 +682,8 @@ struct QuickLauncherView: View {
             switch layoutMode {
             case .coverFlow: nextMode = .gridWall
             case .gridWall: nextMode = .flatGrid
-            case .flatGrid: nextMode = .coverFlow
+            case .flatGrid: nextMode = .wiiChannels
+            case .wiiChannels: nextMode = .coverFlow
             }
             layoutModeRaw = nextMode.rawValue
         }
@@ -885,7 +887,7 @@ struct QuickLauncherView: View {
     private var backdropHeight: CGFloat {
         switch layoutMode {
         case .coverFlow: return 480
-        case .gridWall, .flatGrid: return 560
+        case .gridWall, .flatGrid, .wiiChannels: return 560
         }
     }
 
@@ -893,7 +895,7 @@ struct QuickLauncherView: View {
         switch layoutMode {
         case .coverFlow:
             return appDisplayStyle == .iconOnly ? -125 : -155
-        case .gridWall, .flatGrid:
+        case .gridWall, .flatGrid, .wiiChannels:
             return -245
         }
     }
@@ -902,7 +904,7 @@ struct QuickLauncherView: View {
         switch layoutMode {
         case .coverFlow:
             return appDisplayStyle == .iconOnly ? 155 : 200
-        case .gridWall, .flatGrid:
+        case .gridWall, .flatGrid, .wiiChannels:
             return 235
         }
     }

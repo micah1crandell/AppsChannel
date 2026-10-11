@@ -947,6 +947,27 @@ struct SettingsModalView: View {
                         }
                         SoundEffectsManager.shared.playAction()
                     }
+
+                    // 4. Wii Channels
+                    visualChoiceButton(
+                        isSelected: currentMode == .wiiChannels,
+                        title: "Wii Channels",
+                        badge: "4×3 Paged"
+                    ) { isSel in
+                        LazyVGrid(columns: [GridItem(.fixed(6)), GridItem(.fixed(6)), GridItem(.fixed(6)), GridItem(.fixed(6))], spacing: 2) {
+                            ForEach(0..<8) { _ in
+                                RoundedRectangle(cornerRadius: 1.5)
+                                    .fill(isSel ? Color.black.opacity(0.6) : Color.white.opacity(0.4))
+                                    .frame(width: 6, height: 4.5)
+                            }
+                        }
+                        .frame(height: 32)
+                    } onSelect: {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            layoutModeRaw = MainLayoutViewMode.wiiChannels.rawValue
+                        }
+                        SoundEffectsManager.shared.playAction()
+                    }
                 }
                 .padding(10)
 

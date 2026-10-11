@@ -199,6 +199,27 @@ struct MainAppView: View {
                         }
                     )
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
+                } else if layoutMode == .wiiChannels {
+                    WiiChannelGridView(
+                        apps: filteredApps,
+                        activeIndex: activeIndex,
+                        isOrganizeMode: isOrganizeMode,
+                        onSelect: { index in
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
+                                discoveryService.selectedIndex = index
+                            }
+                        },
+                        onLaunch: launchSelectedApp,
+                        onNavigate: { step in
+                            navigate(by: step)
+                        },
+                        onMoveApp: { from, to in
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                discoveryService.moveApp(from: from, to: to)
+                            }
+                        }
+                    )
+                    .transition(.scale(scale: 0.96).combined(with: .opacity))
                 }
                 Spacer()
             }
@@ -233,6 +254,7 @@ struct MainAppView: View {
                     case .coverFlow: navigate(by: -1)
                     case .gridWall: navigate(by: -3)
                     case .flatGrid: navigate(by: -threeDSGridRows)
+                    case .wiiChannels: navigate(by: -1)
                     }
                 },
                 onNext: {
@@ -240,6 +262,7 @@ struct MainAppView: View {
                     case .coverFlow: navigate(by: 1)
                     case .gridWall: navigate(by: 3)
                     case .flatGrid: navigate(by: threeDSGridRows)
+                    case .wiiChannels: navigate(by: 1)
                     }
                 },
                 onNavigateStep: { step in navigate(by: step) },
@@ -321,6 +344,12 @@ struct MainAppView: View {
                 }
                 .allowsHitTesting(false)
             }
+
+            // Isolated High-Performance Cursor Tracking Overlay
+            WiiCursorTrackingOverlay(
+                isWiiMode: layoutMode == .wiiChannels && !isQuickLauncherActive,
+                isGrabbing: isOrganizeMode
+            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -439,24 +468,52 @@ struct MainAppView: View {
             VisualEffectBackground(material: .fullScreenUI, blendingMode: .behindWindow)
                 .ignoresSafeArea()
 
-            // Deep obsidian tinted liquid glass layer
-            Color(red: 0.04, green: 0.04, blue: 0.05).opacity(0.82)
-                .ignoresSafeArea()
+            if layoutMode == .wiiChannels || themeManager.currentTheme == .matteWhite {
+                // Authentic Wii Console Brushed Aluminum & Scanline Backdrop
+                ZStack {
+                    Color(white: 0.94).opacity(0.96)
 
-            // Theme atmospheric backdrop tint
-            Group {
-                switch themeManager.currentTheme {
-                case .liquidGlass:
-                    EmptyView()
-                case .matteWhite:
-                    Color(white: 0.95).opacity(0.12)
-                case .indigoPurple:
-                    Color(red: 0.18, green: 0.14, blue: 0.35).opacity(0.42)
-                case .cyberpunkDark:
-                    Color(red: 0.0, green: 0.06, blue: 0.10).opacity(0.50)
+                    // Fine horizontal scanline texture
+                    WiiScanlineTexture()
+                        .opacity(0.04)
+
+                    // Subtle radial ambient spotlight in the center
+                    RadialGradient(
+                        colors: [Color.white.opacity(0.7), Color.clear],
+                        center: .center,
+                        startRadius: 80,
+                        endRadius: 800
+                    )
+
+                    // Soft cyan ambient corner aura
+                    RadialGradient(
+                        colors: [Color(red: 0.05, green: 0.65, blue: 0.95).opacity(0.08), Color.clear],
+                        center: .bottom,
+                        startRadius: 0,
+                        endRadius: 500
+                    )
                 }
+                .ignoresSafeArea()
+            } else {
+                // Deep obsidian tinted liquid glass layer
+                Color(red: 0.04, green: 0.04, blue: 0.05).opacity(0.82)
+                    .ignoresSafeArea()
+
+                // Theme atmospheric backdrop tint
+                Group {
+                    switch themeManager.currentTheme {
+                    case .liquidGlass:
+                        EmptyView()
+                    case .matteWhite:
+                        Color(white: 0.95).opacity(0.12)
+                    case .indigoPurple:
+                        Color(red: 0.18, green: 0.14, blue: 0.35).opacity(0.42)
+                    case .cyberpunkDark:
+                        Color(red: 0.0, green: 0.06, blue: 0.10).opacity(0.50)
+                    }
+                }
+                .ignoresSafeArea()
             }
-            .ignoresSafeArea()
 
             // Subtle dark specular top sheen
             LinearGradient(
@@ -702,11 +759,19 @@ struct MainAppView: View {
 
                 switch event.keyCode {
                 case 126: // Up Arrow
-                    navigate(by: -1)
+                    if layoutMode == .wiiChannels {
+                        navigate(by: -4)
+                    } else {
+                        navigate(by: -1)
+                    }
                     return nil
 
                 case 125: // Down Arrow
-                    navigate(by: 1)
+                    if layoutMode == .wiiChannels {
+                        navigate(by: 4)
+                    } else {
+                        navigate(by: 1)
+                    }
                     return nil
 
                 case 123: // Left Arrow
@@ -742,6 +807,13 @@ struct MainAppView: View {
                     launchSelectedApp()
                     return nil
 
+                case 51: // Backspace / Delete
+                    if !searchText.isEmpty {
+                        searchText.removeLast()
+                        return nil
+                    }
+                    return nil
+
                 case 53: // Escape
                     if isOrganizeMode {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -753,6 +825,20 @@ struct MainAppView: View {
                     return nil
 
                 default:
+                    // Check if it's a printable character key to search when not already focused in text view
+                    if let characters = event.characters,
+                       !characters.isEmpty,
+                       !event.modifierFlags.contains(.command),
+                       !event.modifierFlags.contains(.control),
+                       !event.modifierFlags.contains(.option) {
+                        let allowed = CharacterSet.alphanumerics.union(.punctuationCharacters).union(.whitespaces)
+                        if characters.unicodeScalars.allSatisfy({ allowed.contains($0) }) {
+                            if let responder = event.window?.firstResponder, !(responder is NSText || responder is NSTextView) {
+                                searchText.append(characters)
+                                return nil
+                            }
+                        }
+                    }
                     return event
                 }
             }
@@ -792,6 +878,7 @@ struct MainAppView: View {
                 case .coverFlow: return 1
                 case .gridWall: return 3
                 case .flatGrid: return threeDSGridRows
+                case .wiiChannels: return 1
                 }
             }()
             navigate(by: clampedStep * stepMultiplier)
@@ -901,7 +988,8 @@ struct MainAppView: View {
             switch layoutMode {
             case .coverFlow: layoutMode = .gridWall
             case .gridWall: layoutMode = .flatGrid
-            case .flatGrid: layoutMode = .coverFlow
+            case .flatGrid: layoutMode = .wiiChannels
+            case .wiiChannels: layoutMode = .coverFlow
             }
         }
     }

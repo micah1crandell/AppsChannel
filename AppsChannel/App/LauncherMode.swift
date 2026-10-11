@@ -11,9 +11,11 @@ enum MainLayoutViewMode: String, CaseIterable, Identifiable {
     case coverFlow = "CoverFlow"
     case gridWall = "Wall Grid"
     case flatGrid = "Flat Grid"
+    case wiiChannels = "Wii Channels"
 
-    // Backward compatibility alias
+    // Backward compatibility aliases
     static let threeDSGrid = MainLayoutViewMode.flatGrid
+    static let consoleGrid = MainLayoutViewMode.wiiChannels
 
     var id: String { rawValue }
 
@@ -22,6 +24,7 @@ enum MainLayoutViewMode: String, CaseIterable, Identifiable {
         case .coverFlow: return "Cover Flow"
         case .gridWall: return "Curved Wall Grid"
         case .flatGrid: return "Flat Grid"
+        case .wiiChannels: return "Wii Channels"
         }
     }
 
@@ -30,6 +33,7 @@ enum MainLayoutViewMode: String, CaseIterable, Identifiable {
         case .coverFlow: return "rectangle.portrait.on.rectangle.portrait.fill"
         case .gridWall: return "square.grid.3x3.fill"
         case .flatGrid: return "square.grid.3x2.fill"
+        case .wiiChannels: return "tv.fill"
         }
     }
 
@@ -41,6 +45,8 @@ enum MainLayoutViewMode: String, CaseIterable, Identifiable {
             self = .gridWall
         case "Flat Grid", "flatGrid", "3DS Grid", "threeDSGrid", "3ds", "threeDS", "3DS Flat Grid":
             self = .flatGrid
+        case "Wii Channels", "wiiChannels", "wiiGrid", "consoleGrid", "pagedConsoleGrid":
+            self = .wiiChannels
         default:
             return nil
         }

@@ -24,16 +24,28 @@ struct RetroHUDView: View {
     @ObservedObject private var modifierManager = KeyboardModifierManager.shared
 
     private var topPadding: CGFloat { 20 }
+    private var isWii: Bool { layoutMode == .wiiChannels }
 
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
             topHUD
+                .padding(.horizontal, 24)
+                .padding(.top, topPadding)
             Spacer()
-            bottomHUD
+            if layoutMode == .wiiChannels {
+                WiiBottomDeckView(
+                    selectedApp: selectedApp,
+                    onLaunch: onLaunch,
+                    onOpenSettings: onOpenSettings,
+                    onAddCustomChannel: onAddCustomChannel,
+                    onSwitchToQuick: onSwitchToQuick
+                )
+            } else {
+                bottomHUD
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 20)
+            }
         }
-        .padding(.horizontal, 24)
-        .padding(.top, topPadding)
-        .padding(.bottom, 20)
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 isSearchFocused = true
@@ -46,26 +58,33 @@ struct RetroHUDView: View {
         }
     }
 
-    // MARK: - Top Modern Liquid Glass Capsule
+    // MARK: - Top Console HUD Capsule
     private var topHUD: some View {
         VStack(spacing: 14) {
             HStack(spacing: 10) {
                 // Reserved space for native macOS Traffic Light controls (Close, Minimize, Zoom)
                 Spacer().frame(width: 54)
 
-                // Liquid Glass Search Field (Automatically Focused)
+                // Search Field (Supports Obsidian Glass & Wii Glossy Plastic)
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(isWii ? Color(red: 0.05, green: 0.62, blue: 0.92) : .white.opacity(0.6))
 
                     TextField("Type to search apps...", text: $searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(isWii ? Color(white: 0.15) : .white)
                         .focused($isSearchFocused)
                         .onSubmit {
                             onLaunch()
+                        }
+                        .onKeyPress(.delete) {
+                            if !searchText.isEmpty {
+                                searchText.removeLast()
+                                return .handled
+                            }
+                            return .handled
                         }
                         .onKeyPress(.return) {
                             onLaunch()
@@ -80,6 +99,7 @@ struct RetroHUDView: View {
                                 case .coverFlow: return -1
                                 case .gridWall: return -3
                                 case .flatGrid: return -threeDSGridRows
+                                case .wiiChannels: return -1
                                 }
                             }()
                             if let onNavigateStep = onNavigateStep {
@@ -98,6 +118,7 @@ struct RetroHUDView: View {
                                 case .coverFlow: return 1
                                 case .gridWall: return 3
                                 case .flatGrid: return threeDSGridRows
+                                case .wiiChannels: return 1
                                 }
                             }()
                             if let onNavigateStep = onNavigateStep {
@@ -136,7 +157,7 @@ struct RetroHUDView: View {
                         Button(action: { searchText = "" }) {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(isWii ? Color(white: 0.45) : .white.opacity(0.6))
                         }
                         .buttonStyle(.plain)
                     }
@@ -144,10 +165,36 @@ struct RetroHUDView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .frame(minWidth: 180, maxWidth: 300)
-                .background(Color(white: 0.08).opacity(0.85), in: Capsule())
+                .background(
+                    Group {
+                        if isWii {
+                            LinearGradient(
+                                colors: [Color.white, Color(white: 0.93)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        } else {
+                            Color(white: 0.08).opacity(0.85)
+                        }
+                    }
+                    .clipShape(Capsule())
+                )
                 .overlay(
                     Capsule()
-                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                        .strokeBorder(
+                            isWii
+                                ? (isSearchFocused ? Color(red: 0.0, green: 0.65, blue: 0.95) : Color(white: 0.78))
+                                : Color.white.opacity(0.22),
+                            lineWidth: (isWii && isSearchFocused) ? 1.6 : 1
+                        )
+                )
+                .shadow(
+                    color: isWii
+                        ? (isSearchFocused ? Color(red: 0.0, green: 0.65, blue: 0.95).opacity(0.35) : Color.black.opacity(0.08))
+                        : .clear,
+                    radius: (isWii && isSearchFocused) ? 4 : 2,
+                    x: 0,
+                    y: 1
                 )
 
                 Spacer()
@@ -157,18 +204,28 @@ struct RetroHUDView: View {
                     Button(action: onOrganize) {
                         Image(systemName: isOrganizeMode ? "checkmark.circle.fill" : "arrow.left.arrow.right.circle")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(isOrganizeMode ? Color.green : Color.white.opacity(0.85))
+                            .foregroundStyle(isOrganizeMode ? Color.green : (isWii ? Color(white: 0.25) : Color.white.opacity(0.85)))
                             .frame(width: 32, height: 32)
-                            .background(isOrganizeMode ? Color.green.opacity(0.25) : Color(white: 0.08).opacity(0.85), in: Circle())
-                            .overlay(
-                                Circle().strokeBorder(isOrganizeMode ? Color.green.opacity(0.6) : Color.white.opacity(0.22), lineWidth: 1)
+                            .background(
+                                Group {
+                                    if isWii {
+                                        LinearGradient(colors: [Color.white, Color(white: 0.90)], startPoint: .top, endPoint: .bottom)
+                                    } else {
+                                        isOrganizeMode ? Color.green.opacity(0.25) : Color(white: 0.08).opacity(0.85)
+                                    }
+                                }
+                                .clipShape(Circle())
                             )
+                            .overlay(
+                                Circle().strokeBorder(isOrganizeMode ? Color.green.opacity(0.6) : (isWii ? Color(white: 0.78) : Color.white.opacity(0.22)), lineWidth: 1)
+                            )
+                            .shadow(color: isWii ? Color.black.opacity(0.08) : .clear, radius: 2, x: 0, y: 1)
                     }
                     .buttonStyle(.plain)
                     .help(isOrganizeMode ? "Done Arranging" : "Rearrange Channels")
                 }
 
-                // Layout View Mode Switcher: Cover Flow vs Wall Grid vs Flat Grid
+                // Layout View Mode Switcher: Cover Flow vs Wall Grid vs Flat Grid vs Wii
                 HStack(spacing: 2) {
                     Button(action: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -177,9 +234,10 @@ struct RetroHUDView: View {
                     }) {
                         Image(systemName: "rectangle.portrait.on.rectangle.portrait.fill")
                             .font(.system(size: 11))
-                            .foregroundStyle(layoutMode == .coverFlow ? Color.black : Color.white.opacity(0.75))
+                            .foregroundStyle(layoutMode == .coverFlow ? Color.black : (isWii ? Color(white: 0.35) : Color.white.opacity(0.75)))
                             .frame(width: 28, height: 26)
                             .background(layoutMode == .coverFlow ? Color.white : Color.clear, in: Capsule())
+                            .shadow(color: (isWii && layoutMode == .coverFlow) ? Color.black.opacity(0.12) : .clear, radius: 1.5, x: 0, y: 1)
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -193,9 +251,10 @@ struct RetroHUDView: View {
                     }) {
                         Image(systemName: "square.grid.3x3.fill")
                             .font(.system(size: 11))
-                            .foregroundStyle(layoutMode == .gridWall ? Color.black : Color.white.opacity(0.75))
+                            .foregroundStyle(layoutMode == .gridWall ? Color.black : (isWii ? Color(white: 0.35) : Color.white.opacity(0.75)))
                             .frame(width: 28, height: 26)
                             .background(layoutMode == .gridWall ? Color.white : Color.clear, in: Capsule())
+                            .shadow(color: (isWii && layoutMode == .gridWall) ? Color.black.opacity(0.12) : .clear, radius: 1.5, x: 0, y: 1)
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -209,30 +268,68 @@ struct RetroHUDView: View {
                     }) {
                         Image(systemName: "square.grid.3x2.fill")
                             .font(.system(size: 11))
-                            .foregroundStyle(layoutMode == .flatGrid ? Color.black : Color.white.opacity(0.75))
+                            .foregroundStyle(layoutMode == .flatGrid ? Color.black : (isWii ? Color(white: 0.35) : Color.white.opacity(0.75)))
                             .frame(width: 28, height: 26)
                             .background(layoutMode == .flatGrid ? Color.white : Color.clear, in: Capsule())
+                            .shadow(color: (isWii && layoutMode == .flatGrid) ? Color.black.opacity(0.12) : .clear, radius: 1.5, x: 0, y: 1)
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
                     .contentShape(Capsule())
                     .help("Flat Grid (⌘V)")
+
+                    Button(action: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            layoutMode = .wiiChannels
+                        }
+                    }) {
+                        Image(systemName: "tv.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(layoutMode == .wiiChannels ? Color.black : (isWii ? Color(white: 0.35) : Color.white.opacity(0.75)))
+                            .frame(width: 28, height: 26)
+                            .background(layoutMode == .wiiChannels ? Color.white : Color.clear, in: Capsule())
+                            .shadow(color: (isWii && layoutMode == .wiiChannels) ? Color.black.opacity(0.12) : .clear, radius: 1.5, x: 0, y: 1)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Capsule())
+                    .help("Wii Channels (⌘V)")
                 }
                 .padding(3)
-                .background(Color(white: 0.08).opacity(0.85), in: Capsule())
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
+                .background(
+                    Group {
+                        if isWii {
+                            LinearGradient(colors: [Color(white: 0.94), Color(white: 0.88)], startPoint: .top, endPoint: .bottom)
+                        } else {
+                            Color(white: 0.08).opacity(0.85)
+                        }
+                    }
+                    .clipShape(Capsule())
+                )
+                .overlay(Capsule().strokeBorder(isWii ? Color(white: 0.76) : Color.white.opacity(0.22), lineWidth: 1))
+                .shadow(color: isWii ? Color.black.opacity(0.08) : .clear, radius: 2, x: 0, y: 1)
 
                 // Switch to Quick Launcher Icon Button
                 if let onSwitch = onSwitchToQuick {
                     Button(action: onSwitch) {
                         Image(systemName: "rectangle.inset.filled.and.cursorarrow")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.85))
+                            .foregroundStyle(isWii ? Color(white: 0.25) : Color.white.opacity(0.85))
                             .frame(width: 32, height: 32)
-                            .background(Color(white: 0.08).opacity(0.85), in: Circle())
-                            .overlay(
-                                Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                            .background(
+                                Group {
+                                    if isWii {
+                                        LinearGradient(colors: [Color.white, Color(white: 0.90)], startPoint: .top, endPoint: .bottom)
+                                    } else {
+                                        Color(white: 0.08).opacity(0.85)
+                                    }
+                                }
+                                .clipShape(Circle())
                             )
+                            .overlay(
+                                Circle().strokeBorder(isWii ? Color(white: 0.78) : Color.white.opacity(0.22), lineWidth: 1)
+                            )
+                            .shadow(color: isWii ? Color.black.opacity(0.08) : .clear, radius: 2, x: 0, y: 1)
                     }
                     .buttonStyle(.plain)
                     .help("Quick Launcher (⌘O)")
@@ -243,12 +340,22 @@ struct RetroHUDView: View {
                     Button(action: onSettings) {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.85))
+                            .foregroundStyle(isWii ? Color(white: 0.25) : .white.opacity(0.85))
                             .frame(width: 32, height: 32)
-                            .background(Color(white: 0.08).opacity(0.85), in: Circle())
-                            .overlay(
-                                Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                            .background(
+                                Group {
+                                    if isWii {
+                                        LinearGradient(colors: [Color.white, Color(white: 0.90)], startPoint: .top, endPoint: .bottom)
+                                    } else {
+                                        Color(white: 0.08).opacity(0.85)
+                                    }
+                                }
+                                .clipShape(Circle())
                             )
+                            .overlay(
+                                Circle().strokeBorder(isWii ? Color(white: 0.78) : Color.white.opacity(0.22), lineWidth: 1)
+                            )
+                            .shadow(color: isWii ? Color.black.opacity(0.08) : .clear, radius: 2, x: 0, y: 1)
                     }
                     .buttonStyle(.plain)
                     .help("Settings")
@@ -258,12 +365,22 @@ struct RetroHUDView: View {
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.8))
+                        .foregroundStyle(isWii ? Color(white: 0.35) : .white.opacity(0.8))
                         .frame(width: 32, height: 32)
-                        .background(Color(white: 0.08).opacity(0.85), in: Circle())
-                        .overlay(
-                            Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                        .background(
+                            Group {
+                                if isWii {
+                                    LinearGradient(colors: [Color.white, Color(white: 0.90)], startPoint: .top, endPoint: .bottom)
+                                } else {
+                                    Color(white: 0.08).opacity(0.85)
+                                }
+                            }
+                            .clipShape(Circle())
                         )
+                        .overlay(
+                            Circle().strokeBorder(isWii ? Color(white: 0.78) : Color.white.opacity(0.22), lineWidth: 1)
+                        )
+                        .shadow(color: isWii ? Color.black.opacity(0.08) : .clear, radius: 2, x: 0, y: 1)
                 }
                 .buttonStyle(.plain)
                 .help("Dismiss (⎋)")
@@ -274,6 +391,7 @@ struct RetroHUDView: View {
                 ForEach(Array(categories.enumerated()), id: \.element) { index, category in
                     let isSelected = selectedCategory == category
                     Button(action: {
+                        SoundEffectsManager.shared.playNavigation()
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                             selectedCategory = category
                         }
@@ -282,34 +400,77 @@ struct RetroHUDView: View {
                             if index < 8 {
                                 Text("⌘\(index + 1)")
                                     .font(.system(size: 7.5, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.85))
+                                    .foregroundStyle(
+                                        isWii
+                                            ? (isSelected ? Color.white : Color(white: 0.25))
+                                            : (isSelected ? Color.black : Color.white.opacity(0.85))
+                                    )
                                     .padding(.horizontal, 3)
                                     .padding(.vertical, 1)
-                                    .background(isSelected ? Color.white.opacity(0.4) : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 2.5))
+                                    .background(
+                                        isWii
+                                            ? (isSelected ? Color.white.opacity(0.28) : Color(white: 0.82))
+                                            : (isSelected ? Color.white.opacity(0.4) : Color.white.opacity(0.12)),
+                                        in: RoundedRectangle(cornerRadius: 2.5)
+                                    )
                             }
 
                             Text(category)
                                 .font(.system(size: 9.5, weight: isSelected ? .bold : .semibold))
-                                .foregroundStyle(isSelected ? Color.black : Color.white.opacity(0.75))
+                                .foregroundStyle(
+                                    isWii
+                                        ? (isSelected ? Color.white : Color(white: 0.30))
+                                        : (isSelected ? Color.black : Color.white.opacity(0.75))
+                                )
                                 .lineLimit(1)
                         }
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3.5)
                         .background(
                             Group {
-                                if isSelected {
-                                    Capsule().fill(Color.white)
+                                if isWii {
+                                    if isSelected {
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.20, green: 0.78, blue: 1.0),
+                                                Color(red: 0.05, green: 0.62, blue: 0.92)
+                                            ],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    } else {
+                                        LinearGradient(
+                                            colors: [Color.white, Color(white: 0.91)],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    }
                                 } else {
-                                    Capsule().fill(Color(white: 0.08).opacity(0.85))
+                                    if isSelected {
+                                        Color.white
+                                    } else {
+                                        Color(white: 0.08).opacity(0.85)
+                                    }
                                 }
                             }
+                            .clipShape(Capsule())
                         )
                         .overlay(
                             Capsule()
                                 .strokeBorder(
-                                    isSelected ? Color.white : Color.white.opacity(0.18),
-                                    lineWidth: 1
+                                    isWii
+                                        ? (isSelected ? Color.white.opacity(0.85) : Color(white: 0.78))
+                                        : (isSelected ? Color.white : Color.white.opacity(0.18)),
+                                    lineWidth: (isWii && isSelected) ? 1.2 : 1
                                 )
+                        )
+                        .shadow(
+                            color: isWii
+                                ? (isSelected ? Color(red: 0.05, green: 0.65, blue: 0.95).opacity(0.40) : Color.black.opacity(0.06))
+                                : .clear,
+                            radius: (isWii && isSelected) ? 4 : 2,
+                            x: 0,
+                            y: 1
                         )
                     }
                     .buttonStyle(.plain)
