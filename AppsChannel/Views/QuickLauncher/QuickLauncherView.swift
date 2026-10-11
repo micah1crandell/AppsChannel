@@ -409,10 +409,10 @@ struct QuickLauncherView: View {
                 if isDeleteKey || isDeleteChar {
                     if isCmd {
                         if !s.searchText.isEmpty {
-                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                                s.searchText = ""
-                                s.isSearchTextSelected = false
-                                s.updateFilteredApps()
+                            s.searchText = ""
+                            s.isSearchTextSelected = false
+                            s.updateFilteredApps()
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.22, dampingFraction: 0.85))) {
                                 let center = s.cachedFilteredApps.count / 2
                                 s.selectedIndex = center
                             }
@@ -423,16 +423,16 @@ struct QuickLauncherView: View {
 
                     if event.modifierFlags.contains(.option) {
                         if !s.searchText.isEmpty {
-                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                                var words = s.searchText.split(separator: " ")
-                                if !words.isEmpty {
-                                    words.removeLast()
-                                    s.searchText = words.isEmpty ? "" : words.joined(separator: " ")
-                                } else {
-                                    s.searchText = ""
-                                }
-                                s.isSearchTextSelected = false
-                                s.updateFilteredApps()
+                            var words = s.searchText.split(separator: " ")
+                            if !words.isEmpty {
+                                words.removeLast()
+                                s.searchText = words.isEmpty ? "" : words.joined(separator: " ")
+                            } else {
+                                s.searchText = ""
+                            }
+                            s.isSearchTextSelected = false
+                            s.updateFilteredApps()
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.22, dampingFraction: 0.85))) {
                                 let center = s.cachedFilteredApps.count / 2
                                 s.selectedIndex = center
                             }
@@ -442,19 +442,19 @@ struct QuickLauncherView: View {
                     }
 
                     if s.isSearchTextSelected {
-                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                            s.searchText = ""
-                            s.isSearchTextSelected = false
-                            s.updateFilteredApps()
+                        s.searchText = ""
+                        s.isSearchTextSelected = false
+                        s.updateFilteredApps()
+                        withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.22, dampingFraction: 0.85))) {
                             let center = s.cachedFilteredApps.count / 2
                             s.selectedIndex = center
                         }
                         SoundEffectsManager.shared.playAction()
                         return nil
                     } else if !s.searchText.isEmpty {
-                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                            s.searchText = String(s.searchText.dropLast())
-                            s.updateFilteredApps()
+                        s.searchText = String(s.searchText.dropLast())
+                        s.updateFilteredApps()
+                        withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.22, dampingFraction: 0.85))) {
                             let trimmed = s.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
                             if trimmed.isEmpty {
                                 let center = s.cachedFilteredApps.count / 2
@@ -660,14 +660,14 @@ struct QuickLauncherView: View {
                        !event.modifierFlags.contains(.option) {
                         let allowed = CharacterSet.alphanumerics.union(.punctuationCharacters).union(.whitespaces)
                         if characters.unicodeScalars.allSatisfy({ allowed.contains($0) }) {
-                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                                if s.isSearchTextSelected {
-                                    s.searchText = characters
-                                    s.isSearchTextSelected = false
-                                } else {
-                                    s.searchText.append(characters)
-                                }
-                                s.updateFilteredApps()
+                            if s.isSearchTextSelected {
+                                s.searchText = characters
+                                s.isSearchTextSelected = false
+                            } else {
+                                s.searchText.append(characters)
+                            }
+                            s.updateFilteredApps()
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.22, dampingFraction: 0.85))) {
                                 let target = (s.cachedFilteredApps.first?.isSeparator == true && s.cachedFilteredApps.count > 1) ? 1 : 0
                                 s.selectedIndex = min(target, max(0, s.cachedFilteredApps.count - 1))
                             }
@@ -845,7 +845,7 @@ struct QuickLauncherView: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(state.isSearchTextSelected ? .white : .white.opacity(0.85))
 
-                    Text(state.searchText)
+                    Text(verbatim: state.searchText)
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
                         .padding(.horizontal, state.isSearchTextSelected ? 5 : 0)
@@ -858,10 +858,10 @@ struct QuickLauncherView: View {
                         )
 
                     Button(action: {
-                        withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
-                            state.searchText = ""
-                            state.isSearchTextSelected = false
-                            state.updateFilteredApps()
+                        state.searchText = ""
+                        state.isSearchTextSelected = false
+                        state.updateFilteredApps()
+                        withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.22, dampingFraction: 0.85))) {
                             let center = state.cachedFilteredApps.count / 2
                             state.selectedIndex = center
                         }

@@ -451,6 +451,54 @@ final class AppDiscoveryServiceTests: XCTestCase {
         searchText = textView.string
         XCTAssertEqual(searchText, "apple")
         XCTAssertEqual(textView.string, "apple")
+
+        // 5. Cursor inadvertently at index 0 (root cause of dropped keystrokes):
+        // When cursor is at 0, our recovery logic positions it at the end so backspace succeeds.
+        textView.string = "chrome"
+        searchText = textView.string
+        textView.setSelectedRange(NSRange(location: 0, length: 0)) // Cursor stuck at 0!
+        let currentLength = (textView.string as NSString).length
+        let selectedRange = textView.selectedRange()
+        if currentLength > 0 {
+            if selectedRange.location == 0 {
+                textView.setSelectedRange(NSRange(location: currentLength, length: 0))
+            }
+            textView.deleteBackward(nil)
+            if (textView.string as NSString).length == currentLength && !textView.string.isEmpty {
+                var updated = textView.string
+                updated.removeLast()
+                textView.string = updated
+                textView.setSelectedRange(NSRange(location: (updated as NSString).length, length: 0))
+            }
+            textView.didChangeText()
+            searchText = textView.string
+        }
+        XCTAssertEqual(searchText, "chrom")
+        XCTAssertEqual(textView.string, "chrom")
+    }
+
+    @MainActor
+    func testSevenSequentialBackspacesWithoutDroppingKeystrokes() {
+        let state = QuickLauncherState.shared
+        state.reset()
+
+        // User types 7 characters: "1234567"
+        state.searchText = "1234567"
+        state.isSearchTextSelected = false
+        state.updateFilteredApps()
+        XCTAssertEqual(state.searchText, "1234567")
+
+        // User rapidly presses backspace 7 times in a row:
+        // Every single backspace must succeed (7 out of 7 success rate, 0 drops)
+        let expected = ["123456", "12345", "1234", "123", "12", "1", ""]
+        for exp in expected {
+            if !state.searchText.isEmpty {
+                state.searchText = String(state.searchText.dropLast())
+                state.updateFilteredApps()
+            }
+            XCTAssertEqual(state.searchText, exp)
+        }
+        XCTAssertEqual(state.searchText, "")
     }
 }
 

@@ -837,38 +837,58 @@ struct MainAppView: View {
                         searchText = ""
                         if let textView = event.window?.firstResponder as? NSTextView {
                             textView.string = ""
+                            textView.setSelectedRange(NSRange(location: 0, length: 0))
+                            textView.didChangeText()
+                        }
+                        return nil
+                    }
+
+                    if event.modifierFlags.contains(.option) {
+                        if let textView = event.window?.firstResponder as? NSTextView {
+                            textView.deleteWordBackward(nil)
+                            let newLen = (textView.string as NSString).length
+                            textView.setSelectedRange(NSRange(location: newLen, length: 0))
+                            textView.didChangeText()
+                            searchText = textView.string
+                        } else if !searchText.isEmpty {
+                            var words = searchText.split(separator: " ")
+                            if !words.isEmpty {
+                                words.removeLast()
+                                searchText = words.isEmpty ? "" : words.joined(separator: " ")
+                            } else {
+                                searchText = ""
+                            }
                         }
                         return nil
                     }
 
                     if let textView = event.window?.firstResponder as? NSTextView {
+                        let currentLength = (textView.string as NSString).length
                         let selectedRange = textView.selectedRange()
+
                         if selectedRange.length > 0 {
-                            // Text is selected (e.g. Cmd+A or mouse selection)
+                            // Text is selected (e.g. Cmd+A or mouse highlight)
                             textView.deleteBackward(nil)
-                            if searchText == textView.string && !searchText.isEmpty {
-                                let nsString = searchText as NSString
-                                if selectedRange.location + selectedRange.length <= nsString.length {
-                                    let newText = nsString.replacingCharacters(in: selectedRange, with: "")
-                                    searchText = newText
-                                    textView.string = newText
-                                } else {
-                                    searchText = ""
-                                    textView.string = ""
-                                }
-                            } else {
-                                searchText = textView.string
-                            }
+                            let newLength = (textView.string as NSString).length
+                            textView.setSelectedRange(NSRange(location: newLength, length: 0))
+                            textView.didChangeText()
+                            searchText = textView.string
                             return nil
-                        } else if !searchText.isEmpty {
-                            // Normal typing with cursor: delete backward
-                            textView.deleteBackward(nil)
-                            if searchText == textView.string && !searchText.isEmpty {
-                                searchText.removeLast()
-                                textView.string = searchText
-                            } else {
-                                searchText = textView.string
+                        } else if currentLength > 0 {
+                            // Ensure cursor is positioned at the end if it was reset to 0
+                            if selectedRange.location == 0 {
+                                textView.setSelectedRange(NSRange(location: currentLength, length: 0))
                             }
+                            textView.deleteBackward(nil)
+                            // If deleteBackward didn't change the string, remove the character manually
+                            if (textView.string as NSString).length == currentLength && !textView.string.isEmpty {
+                                var updated = textView.string
+                                updated.removeLast()
+                                textView.string = updated
+                                textView.setSelectedRange(NSRange(location: (updated as NSString).length, length: 0))
+                            }
+                            textView.didChangeText()
+                            searchText = textView.string
                             return nil
                         }
                         return nil
