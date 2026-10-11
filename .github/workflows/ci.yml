@@ -21,13 +21,11 @@ jobs:
 
       - name: Select Xcode
         run: |
-          for xcode in /Applications/Xcode_16*.app /Applications/Xcode.app; do
-            if [ -d "$xcode" ]; then
-              echo "Selecting $xcode"
-              sudo xcode-select -switch "$xcode"
-              break
-            fi
-          done
+          LATEST_XCODE=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$LATEST_XCODE" ]; then
+            echo "Selecting $LATEST_XCODE"
+            sudo xcode-select -switch "$LATEST_XCODE"
+          fi
           xcodebuild -version
 
       - name: Resolve Swift Packages
