@@ -23,11 +23,12 @@ This document outlines the strategic roadmap and future feature specifications d
 
 ---
 
-### 3. Lightweight Window Snapping
-* **Description**: Built-in, native macOS window management utilities to tile and position windows without requiring third-party tools like Rectangle or Raycast.
+### 3. Comprehensive Window Snapping ✅ *(Completed in v1.1 / Phase 9)*
+* **Description**: Built-in, high-performance native macOS window management and snapping engine with 52 snapping modes, Raycast-style settings UI, and global hotkey recording.
 * **Key Details**:
-  * Keyboard-driven actions to snap the frontmost application window: Left Half, Right Half, Top Half, Bottom Half, Maximize, and Center.
-  * Seamless multi-monitor support using native macOS Accessibility APIs.
+  * 52 snapping modes across 9 categories: Halves, Thirds, Two-Thirds, Fourths, Three-Fourths, Corners/Quarters, Sixths, Maximize/Almost Maximize, Center, Nudge/Resize, Multi-Display Transfer, and 10-level Undo/Restore.
+  * Raycast-style settings modal tab with vector glyph icons, inline alias editing, and interactive global keyboard shortcut recording.
+  * Seamless multi-monitor support and quick launcher search integration.
 
 ---
 
