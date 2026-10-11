@@ -5,6 +5,7 @@ struct QuickLauncherView: View {
     @ObservedObject private var discoveryService = AppDiscoveryService.shared
     @State private var selectedIndex: Int = 0
     @State private var searchText: String = ""
+    @State private var isSearchTextSelected: Bool = false
     @State private var scrollAccumulator: CGFloat = 0.0
     @State private var eventMonitor: Any? = nil
     @State private var toastMessage: String? = nil
@@ -146,7 +147,7 @@ struct QuickLauncherView: View {
         ZStack {
             // Soft feathered backdrop blur
             VisualEffectBackground(material: .underWindowBackground, blendingMode: .behindWindow)
-                .frame(width: 1100, height: 480)
+                .frame(width: 1100, height: backdropHeight)
                 .mask(
                     EllipticalGradient(
                         stops: [
@@ -169,10 +170,10 @@ struct QuickLauncherView: View {
                 ],
                 center: .center
             )
-            .frame(width: 520, height: 320)
+            .frame(width: 520, height: layoutMode == .coverFlow ? 320 : 400)
             .allowsHitTesting(false)
 
-            // Middle Content: Stationary CoverFlow, Wall, or Flat Grid (never shifts when typing or opening sub-deck)
+            // Middle Content: Stationary CoverFlow, Wall, or Flat Grid (never shifts when typing)
             Group {
                 if layoutMode == .coverFlow {
                     CoverFlowCarouselView(
@@ -234,41 +235,28 @@ struct QuickLauncherView: View {
                 }
             }
 
-            // Top Floating Search & Category Status Badge (floats above carousel without moving it)
-            VStack {
-                if !searchText.isEmpty || selectedCategory != "ALL" {
-                    searchStatusBadge
-                        .transition(.scale(scale: 0.9).combined(with: .opacity).combined(with: .move(edge: .top)))
-                }
-                Spacer()
-
-                // Toast Overlay
-                if let toast = toastMessage {
-                    HStack(spacing: 7) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.green)
-                        Text(toast)
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
-                    .background(Color(white: 0.08).opacity(0.92), in: Capsule())
-                    .overlay(
-                        Capsule().strokeBorder(Color.white.opacity(0.24), lineWidth: 1)
-                    )
-                    .shadow(color: Color.black.opacity(0.4), radius: 10, x: 0, y: 5)
-                    .transition(.scale(scale: 0.9).combined(with: .opacity).combined(with: .move(edge: .bottom)))
-                }
+            // Floating Search & Category Status Badge (snugly positioned above carousel without moving it)
+            if !searchText.isEmpty || selectedCategory != "ALL" {
+                searchStatusBadge
+                    .offset(y: searchBadgeOffsetY)
+                    .transition(.scale(scale: 0.92).combined(with: .opacity))
+                    .zIndex(100)
             }
-            .padding(.top, 16)
-            .padding(.bottom, 18)
+
+            // Toast Overlay (positioned cleanly below carousel)
+            if let toast = toastMessage {
+                toastView(message: toast)
+                    .offset(y: toastOffsetY)
+                    .transition(.scale(scale: 0.92).combined(with: .opacity))
+                    .zIndex(101)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: searchText) { _, newText in
             let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                isSearchTextSelected = false
+            }
             if !trimmed.isEmpty {
                 let target = (displayApps.first?.isSeparator == true && displayApps.count > 1) ? 1 : 0
                 selectedIndex = target
@@ -298,6 +286,7 @@ struct QuickLauncherView: View {
         }
         .onAppear {
             searchText = ""
+            isSearchTextSelected = false
             selectedCategory = "ALL"
             scrollAccumulator = 0.0
             let center = displayApps.count / 2
@@ -309,6 +298,7 @@ struct QuickLauncherView: View {
             if let mode = notification.object as? LauncherMode {
                 if mode == .quickLauncher {
                     searchText = ""
+                    isSearchTextSelected = false
                     selectedCategory = "ALL"
                     scrollAccumulator = 0.0
                     let center = displayApps.count / 2
@@ -320,6 +310,7 @@ struct QuickLauncherView: View {
                 }
             } else {
                 searchText = ""
+                isSearchTextSelected = false
                 selectedCategory = "ALL"
                 scrollAccumulator = 0.0
                 let center = displayApps.count / 2
@@ -329,6 +320,7 @@ struct QuickLauncherView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .quickLauncherDidDismiss)) { _ in
             searchText = ""
+            isSearchTextSelected = false
             selectedCategory = "ALL"
             scrollAccumulator = 0.0
             let center = discoveryService.apps.count / 2
@@ -338,10 +330,12 @@ struct QuickLauncherView: View {
         }
         .onDisappear {
             searchText = ""
+            isSearchTextSelected = false
             removeEventMonitor()
             KeyboardModifierManager.shared.reset()
         }
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.28, dampingFraction: 0.8)), value: searchText.isEmpty)
+        .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.28, dampingFraction: 0.8)), value: isSearchTextSelected)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: layoutMode)
     }
 
@@ -377,6 +371,52 @@ struct QuickLauncherView: View {
                     return nil
                 }
 
+                // Command+A: Select all search text
+                if isCmd && (event.charactersIgnoringModifiers == "a" || event.charactersIgnoringModifiers == "A") {
+                    if !searchText.isEmpty {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            isSearchTextSelected = true
+                        }
+                        SoundEffectsManager.shared.playAction()
+                        return nil
+                    }
+                }
+
+                // Command+C: Copy search text to clipboard
+                if isCmd && (event.charactersIgnoringModifiers == "c" || event.charactersIgnoringModifiers == "C") {
+                    if !searchText.isEmpty {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(searchText, forType: .string)
+                        SoundEffectsManager.shared.playAction()
+                        return nil
+                    }
+                }
+
+                // Command+X: Cut search text to clipboard
+                if isCmd && (event.charactersIgnoringModifiers == "x" || event.charactersIgnoringModifiers == "X") {
+                    if !searchText.isEmpty {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(searchText, forType: .string)
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            searchText = ""
+                            isSearchTextSelected = false
+                        }
+                        SoundEffectsManager.shared.playAction()
+                        return nil
+                    }
+                }
+
+                // Command+Delete or Command+Backspace: Clear search text
+                if isCmd && event.keyCode == 51 {
+                    if !searchText.isEmpty {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            searchText = ""
+                            isSearchTextSelected = false
+                        }
+                        return nil
+                    }
+                }
+
                 // Command+Shift+V or Command+V: View Mode Switch vs. Paste
                 if event.modifierFlags.contains(.command) && (event.charactersIgnoringModifiers == "v" || event.charactersIgnoringModifiers == "V") {
                     if event.modifierFlags.contains(.shift) {
@@ -384,7 +424,12 @@ struct QuickLauncherView: View {
                         return nil
                     }
                     if let pasted = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !pasted.isEmpty {
-                        searchText.append(pasted)
+                        if isSearchTextSelected {
+                            searchText = pasted
+                            isSearchTextSelected = false
+                        } else {
+                            searchText.append(pasted)
+                        }
                         return nil
                     }
                     cycleLayoutMode()
@@ -483,6 +528,7 @@ struct QuickLauncherView: View {
 
                 switch event.keyCode {
                 case 126: // Up Arrow
+                    if isSearchTextSelected { isSearchTextSelected = false }
                     if layoutMode == .gridWall || layoutMode == .flatGrid {
                         navigate(by: -1) // Up 1 card in column
                     } else {
@@ -491,6 +537,7 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 125: // Down Arrow
+                    if isSearchTextSelected { isSearchTextSelected = false }
                     if layoutMode == .gridWall || layoutMode == .flatGrid {
                         navigate(by: 1) // Down 1 card in column
                     } else {
@@ -499,6 +546,7 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 123: // Left Arrow
+                    if isSearchTextSelected { isSearchTextSelected = false }
                     if layoutMode == .gridWall {
                         navigate(by: -3) // Left 1 column
                     } else if layoutMode == .flatGrid {
@@ -509,6 +557,7 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 124: // Right Arrow
+                    if isSearchTextSelected { isSearchTextSelected = false }
                     if layoutMode == .gridWall {
                         navigate(by: 3) // Right 1 column
                     } else if layoutMode == .flatGrid {
@@ -519,6 +568,7 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 36, 76: // Return key or Keypad Enter
+                    if isSearchTextSelected { isSearchTextSelected = false }
                     if let app = currentApp {
                         if event.modifierFlags.contains(.command) {
                             revealAppInFinder(app: app)
@@ -532,7 +582,11 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 53: // Escape key
-                    if !searchText.isEmpty {
+                    if isSearchTextSelected {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            isSearchTextSelected = false
+                        }
+                    } else if !searchText.isEmpty {
                         searchText = ""
                         let center = displayApps.count / 2
                         selectedIndex = center
@@ -548,7 +602,12 @@ struct QuickLauncherView: View {
                     return nil
 
                 case 51: // Delete / Backspace key
-                    if !searchText.isEmpty {
+                    if isSearchTextSelected {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            searchText = ""
+                            isSearchTextSelected = false
+                        }
+                    } else if !searchText.isEmpty {
                         searchText.removeLast()
                     }
                     return nil
@@ -562,7 +621,12 @@ struct QuickLauncherView: View {
                        !event.modifierFlags.contains(.option) {
                         let allowed = CharacterSet.alphanumerics.union(.punctuationCharacters).union(.whitespaces)
                         if characters.unicodeScalars.allSatisfy({ allowed.contains($0) }) {
-                            searchText.append(characters)
+                            if isSearchTextSelected {
+                                searchText = characters
+                                isSearchTextSelected = false
+                            } else {
+                                searchText.append(characters)
+                            }
                             return nil
                         }
                     }
@@ -740,32 +804,106 @@ struct QuickLauncherView: View {
             }
 
             if !searchText.isEmpty {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.75))
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(isSearchTextSelected ? .white : .white.opacity(0.75))
 
-                Text(searchText)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    Text(searchText)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, isSearchTextSelected ? 5 : 0)
+                        .padding(.vertical, isSearchTextSelected ? 2 : 0)
+                        .background(
+                            isSearchTextSelected
+                                ? RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .fill(Color.accentColor.opacity(0.9))
+                                : nil
+                        )
 
-                Button(action: {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                        searchText = ""
+                    Button(action: {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            searchText = ""
+                            isSearchTextSelected = false
+                        }
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(isSearchTextSelected ? .white.opacity(0.9) : .white.opacity(0.65))
                     }
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.65))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isSearchTextSelected.toggle()
+                    }
+                }
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 7)
-        .background(Color(white: 0.08).opacity(0.9), in: Capsule())
-        .overlay(
-            Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+        .background(
+            Color(white: 0.08).opacity(isSearchTextSelected ? 0.95 : 0.9),
+            in: Capsule()
         )
-        .shadow(color: Color.black.opacity(0.4), radius: 12, x: 0, y: 6)
+        .overlay(
+            Capsule().strokeBorder(
+                isSearchTextSelected ? Color.accentColor.opacity(0.8) : Color.white.opacity(0.22),
+                lineWidth: isSearchTextSelected ? 1.5 : 1
+            )
+        )
+        .shadow(
+            color: isSearchTextSelected ? Color.accentColor.opacity(0.3) : Color.black.opacity(0.4),
+            radius: isSearchTextSelected ? 14 : 12,
+            x: 0,
+            y: 6
+        )
+    }
+
+    // MARK: - Toast View
+    private func toastView(message: String) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.green)
+            Text(message)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(Color(white: 0.08).opacity(0.92), in: Capsule())
+        .overlay(
+            Capsule().strokeBorder(Color.white.opacity(0.24), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.4), radius: 10, x: 0, y: 5)
+    }
+
+    // MARK: - Layout Helpers
+    private var backdropHeight: CGFloat {
+        switch layoutMode {
+        case .coverFlow: return 480
+        case .gridWall, .flatGrid: return 560
+        }
+    }
+
+    private var searchBadgeOffsetY: CGFloat {
+        switch layoutMode {
+        case .coverFlow:
+            return appDisplayStyle == .iconOnly ? -125 : -155
+        case .gridWall, .flatGrid:
+            return -245
+        }
+    }
+
+    private var toastOffsetY: CGFloat {
+        switch layoutMode {
+        case .coverFlow:
+            return appDisplayStyle == .iconOnly ? 155 : 200
+        case .gridWall, .flatGrid:
+            return 235
+        }
     }
 }
