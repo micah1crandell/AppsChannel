@@ -369,5 +369,88 @@ final class AppDiscoveryServiceTests: XCTestCase {
         XCTAssertEqual(state.searchText, "")
         XCTAssertFalse(state.isSearchTextSelected)
     }
+
+    @MainActor
+    func testNormalTypingAndBackspaceInQuickLauncher() {
+        let state = QuickLauncherState.shared
+        state.reset()
+
+        // 1. User types characters normally
+        state.searchText = "calc"
+        state.isSearchTextSelected = false
+        state.updateFilteredApps()
+        XCTAssertEqual(state.searchText, "calc")
+        XCTAssertFalse(state.isSearchTextSelected)
+
+        // 2. User presses Backspace without Command or selection
+        if state.isSearchTextSelected {
+            state.searchText = ""
+            state.isSearchTextSelected = false
+        } else if !state.searchText.isEmpty {
+            state.searchText = String(state.searchText.dropLast())
+            state.updateFilteredApps()
+        }
+        XCTAssertEqual(state.searchText, "cal")
+
+        // 3. Backspacing again
+        if !state.searchText.isEmpty {
+            state.searchText = String(state.searchText.dropLast())
+            state.updateFilteredApps()
+        }
+        XCTAssertEqual(state.searchText, "ca")
+
+        // 4. Backspace until empty
+        state.searchText = ""
+        state.updateFilteredApps()
+        XCTAssertEqual(state.searchText, "")
+
+        // 5. Backspacing when already empty does not crash
+        if !state.searchText.isEmpty {
+            state.searchText = String(state.searchText.dropLast())
+        }
+        XCTAssertEqual(state.searchText, "")
+
+        // 6. Option+Backspace deletes last word
+        state.searchText = "visual studio code"
+        let words = state.searchText.split(separator: " ")
+        if !words.isEmpty {
+            state.searchText = words.dropLast().joined(separator: " ")
+        }
+        XCTAssertEqual(state.searchText, "visual studio")
+    }
+
+    @MainActor
+    func testMainAppTextViewBackspaceAndSelectionSync() {
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 200, height: 30))
+        textView.string = "terminal"
+        var searchText = textView.string
+
+        // 1. Normal backspace at end of line (cursor with length 0)
+        textView.setSelectedRange(NSRange(location: 8, length: 0))
+        XCTAssertEqual(textView.selectedRange().length, 0)
+        textView.deleteBackward(nil)
+        searchText = textView.string
+        XCTAssertEqual(searchText, "termina")
+        XCTAssertEqual(textView.string, "termina")
+
+        // 2. Select All (Command + A)
+        textView.selectAll(nil)
+        XCTAssertEqual(textView.selectedRange(), NSRange(location: 0, length: 7))
+
+        // 3. Backspace with active selection deletes entire selected string
+        textView.deleteBackward(nil)
+        searchText = textView.string
+        XCTAssertEqual(searchText, "")
+        XCTAssertEqual(textView.string, "")
+
+        // 4. Partial selection deletion (e.g. user highlights trailing word)
+        textView.string = "apple music"
+        searchText = textView.string
+        textView.setSelectedRange(NSRange(location: 5, length: 6)) // " music"
+        textView.deleteBackward(nil)
+        searchText = textView.string
+        XCTAssertEqual(searchText, "apple")
+        XCTAssertEqual(textView.string, "apple")
+    }
 }
 

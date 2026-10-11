@@ -622,7 +622,32 @@ struct MainAppView: View {
                 return nil
             } else if event.type == .keyDown {
                 KeyboardModifierManager.shared.update(from: event.modifierFlags)
-                let isCmd = event.modifierFlags.contains(.command) || KeyboardModifierManager.shared.isCommandPressed
+                let isCmd = event.modifierFlags.contains(.command)
+
+                // Command+A: Select all search text
+                if isCmd && (event.keyCode == 0 || event.charactersIgnoringModifiers?.lowercased() == "a") {
+                    if let textView = event.window?.firstResponder as? NSTextView {
+                        textView.selectAll(nil)
+                        return nil
+                    }
+                }
+
+                // Command+C: Copy selected or full search text
+                if isCmd && (event.keyCode == 8 || event.charactersIgnoringModifiers?.lowercased() == "c") {
+                    if let textView = event.window?.firstResponder as? NSTextView {
+                        textView.copy(nil)
+                        return nil
+                    }
+                }
+
+                // Command+X: Cut selected search text
+                if isCmd && (event.keyCode == 7 || event.charactersIgnoringModifiers?.lowercased() == "x") {
+                    if let textView = event.window?.firstResponder as? NSTextView {
+                        textView.cut(nil)
+                        searchText = textView.string
+                        return nil
+                    }
+                }
 
                 // Command+W to close window
                 if isCmd && event.charactersIgnoringModifiers == "w" {
@@ -808,9 +833,47 @@ struct MainAppView: View {
                     return nil
 
                 case 51, 117: // Backspace / Forward Delete
-                    if let responder = event.window?.firstResponder, responder is NSText || responder is NSTextView {
-                        return event
+                    if isCmd {
+                        searchText = ""
+                        if let textView = event.window?.firstResponder as? NSTextView {
+                            textView.string = ""
+                        }
+                        return nil
                     }
+
+                    if let textView = event.window?.firstResponder as? NSTextView {
+                        let selectedRange = textView.selectedRange()
+                        if selectedRange.length > 0 {
+                            // Text is selected (e.g. Cmd+A or mouse selection)
+                            textView.deleteBackward(nil)
+                            if searchText == textView.string && !searchText.isEmpty {
+                                let nsString = searchText as NSString
+                                if selectedRange.location + selectedRange.length <= nsString.length {
+                                    let newText = nsString.replacingCharacters(in: selectedRange, with: "")
+                                    searchText = newText
+                                    textView.string = newText
+                                } else {
+                                    searchText = ""
+                                    textView.string = ""
+                                }
+                            } else {
+                                searchText = textView.string
+                            }
+                            return nil
+                        } else if !searchText.isEmpty {
+                            // Normal typing with cursor: delete backward
+                            textView.deleteBackward(nil)
+                            if searchText == textView.string && !searchText.isEmpty {
+                                searchText.removeLast()
+                                textView.string = searchText
+                            } else {
+                                searchText = textView.string
+                            }
+                            return nil
+                        }
+                        return nil
+                    }
+
                     if !searchText.isEmpty {
                         searchText.removeLast()
                         return nil

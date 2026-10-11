@@ -356,7 +356,7 @@ struct QuickLauncherView: View {
                 return nil
             } else if event.type == .keyDown {
                 KeyboardModifierManager.shared.update(from: event.modifierFlags)
-                let isCmd = event.modifierFlags.contains(.command) || KeyboardModifierManager.shared.isCommandPressed
+                let isCmd = event.modifierFlags.contains(.command)
 
                 // Command+O to expand to full screen
                 if isCmd && (event.keyCode == 31 || event.charactersIgnoringModifiers?.lowercased() == "o") {
@@ -402,9 +402,9 @@ struct QuickLauncherView: View {
                     }
                 }
 
-                // Check Delete / Backspace keys (ANSI 51, Forward Delete 117, ASCII 127/8)
-                let isDeleteKey = (event.keyCode == 51 || event.keyCode == 117)
-                let isDeleteChar = (event.characters == "\u{7f}" || event.characters == "\u{08}" || event.charactersIgnoringModifiers == "\u{7f}" || event.charactersIgnoringModifiers == "\u{08}")
+                // Check Delete / Backspace keys (ANSI 51, Forward Delete 117, ASCII 127/8, NSDeleteFunctionKey, SpecialKeys)
+                let isDeleteKey = (event.keyCode == 51 || event.keyCode == 117 || event.specialKey == .delete || event.specialKey == .deleteForward)
+                let isDeleteChar = (event.characters == "\u{7f}" || event.characters == "\u{08}" || event.charactersIgnoringModifiers == "\u{7f}" || event.charactersIgnoringModifiers == "\u{08}" || event.characters == "\u{f728}" || event.charactersIgnoringModifiers == "\u{f728}")
 
                 if isDeleteKey || isDeleteChar {
                     if isCmd {
@@ -417,6 +417,26 @@ struct QuickLauncherView: View {
                                 s.selectedIndex = center
                             }
                             SoundEffectsManager.shared.playAction()
+                        }
+                        return nil
+                    }
+
+                    if event.modifierFlags.contains(.option) {
+                        if !s.searchText.isEmpty {
+                            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                var words = s.searchText.split(separator: " ")
+                                if !words.isEmpty {
+                                    words.removeLast()
+                                    s.searchText = words.isEmpty ? "" : words.joined(separator: " ")
+                                } else {
+                                    s.searchText = ""
+                                }
+                                s.isSearchTextSelected = false
+                                s.updateFilteredApps()
+                                let center = s.cachedFilteredApps.count / 2
+                                s.selectedIndex = center
+                            }
+                            SoundEffectsManager.shared.playNavigation()
                         }
                         return nil
                     }
