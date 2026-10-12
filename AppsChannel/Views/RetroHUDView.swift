@@ -408,93 +408,126 @@ struct RetroHUDView: View {
     private var categoryFilterPills: some View {
         HStack(spacing: 5) {
             ForEach(Array(categories.enumerated()), id: \.element) { index, category in
-                categoryPill(index: index, category: category)
+                CategoryPillView(
+                    index: index,
+                    category: category,
+                    isSelected: selectedCategory == category,
+                    isWii: isWii
+                ) {
+                    SoundEffectsManager.shared.playNavigation()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        selectedCategory = category
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 2)
     }
+}
 
-    private func categoryPill(index: Int, category: String) -> some View {
-        let isSelected = selectedCategory == category
-        return Button(action: {
-            SoundEffectsManager.shared.playNavigation()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                selectedCategory = category
+// MARK: - Category Pill Subview
+private struct CategoryPillView: View {
+    let index: Int
+    let category: String
+    let isSelected: Bool
+    let isWii: Bool
+    let onSelect: () -> Void
+
+    private var shortcutTextColor: Color {
+        if isWii {
+            return isSelected ? .white : Color(white: 0.25)
+        } else {
+            return isSelected ? .black : Color.white.opacity(0.85)
+        }
+    }
+
+    private var shortcutBgColor: Color {
+        if isWii {
+            return isSelected ? Color.white.opacity(0.28) : Color(white: 0.82)
+        } else {
+            return isSelected ? Color.white.opacity(0.4) : Color.white.opacity(0.12)
+        }
+    }
+
+    private var categoryTextColor: Color {
+        if isWii {
+            return isSelected ? .white : Color(white: 0.30)
+        } else {
+            return isSelected ? .black : Color.white.opacity(0.75)
+        }
+    }
+
+    @ViewBuilder
+    private var pillBackground: some View {
+        if isWii {
+            if isSelected {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.20, green: 0.78, blue: 1.0),
+                        Color(red: 0.05, green: 0.62, blue: 0.92)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            } else {
+                LinearGradient(
+                    colors: [Color.white, Color(white: 0.91)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             }
-        }) {
+        } else {
+            if isSelected {
+                Color.white
+            } else {
+                Color(white: 0.08).opacity(0.85)
+            }
+        }
+    }
+
+    private var borderColor: Color {
+        if isWii {
+            return isSelected ? Color.white.opacity(0.85) : Color(white: 0.78)
+        } else {
+            return isSelected ? Color.white : Color.white.opacity(0.18)
+        }
+    }
+
+    private var shadowColor: Color {
+        if isWii {
+            return isSelected ? Color(red: 0.05, green: 0.65, blue: 0.95).opacity(0.40) : Color.black.opacity(0.06)
+        } else {
+            return .clear
+        }
+    }
+
+    var body: some View {
+        Button(action: onSelect) {
             HStack(spacing: 3.5) {
                 if index < 8 {
                     Text("⌘\(index + 1)")
                         .font(.system(size: 7.5, weight: .bold, design: .monospaced))
-                        .foregroundStyle(
-                            isWii
-                                ? (isSelected ? Color.white : Color(white: 0.25))
-                                : (isSelected ? Color.black : Color.white.opacity(0.85))
-                        )
+                        .foregroundStyle(shortcutTextColor)
                         .padding(.horizontal, 3)
                         .padding(.vertical, 1)
-                        .background(
-                            isWii
-                                ? (isSelected ? Color.white.opacity(0.28) : Color(white: 0.82))
-                                : (isSelected ? Color.white.opacity(0.4) : Color.white.opacity(0.12)),
-                            in: RoundedRectangle(cornerRadius: 2.5)
-                        )
+                        .background(shortcutBgColor, in: RoundedRectangle(cornerRadius: 2.5))
                 }
 
                 Text(category)
                     .font(.system(size: 9.5, weight: isSelected ? .bold : .semibold))
-                    .foregroundStyle(
-                        isWii
-                            ? (isSelected ? Color.white : Color(white: 0.30))
-                            : (isSelected ? Color.black : Color.white.opacity(0.75))
-                    )
+                    .foregroundStyle(categoryTextColor)
                     .lineLimit(1)
             }
             .padding(.horizontal, 7)
             .padding(.vertical, 3.5)
-            .background(
-                Group {
-                    if isWii {
-                        if isSelected {
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.20, green: 0.78, blue: 1.0),
-                                    Color(red: 0.05, green: 0.62, blue: 0.92)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        } else {
-                            LinearGradient(
-                                colors: [Color.white, Color(white: 0.91)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        }
-                    } else {
-                        if isSelected {
-                            Color.white
-                        } else {
-                            Color(white: 0.08).opacity(0.85)
-                        }
-                    }
-                }
-                .clipShape(Capsule())
-            )
+            .background(pillBackground.clipShape(Capsule()))
             .overlay(
                 Capsule()
-                    .strokeBorder(
-                        isWii
-                            ? (isSelected ? Color.white.opacity(0.85) : Color(white: 0.78))
-                            : (isSelected ? Color.white : Color.white.opacity(0.18)),
-                        lineWidth: (isWii && isSelected) ? 1.2 : 1
-                    )
+                    .strokeBorder(borderColor, lineWidth: (isWii && isSelected) ? 1.2 : 1)
             )
             .shadow(
-                color: isWii
-                    ? (isSelected ? Color(red: 0.05, green: 0.65, blue: 0.95).opacity(0.40) : Color.black.opacity(0.06))
-                    : .clear,
+                color: shadowColor,
                 radius: (isWii && isSelected) ? 4 : 2,
                 x: 0,
                 y: 1
@@ -502,6 +535,9 @@ struct RetroHUDView: View {
         }
         .buttonStyle(.plain)
     }
+}
+
+extension RetroHUDView {
 
     // MARK: - Bottom Modern Liquid Glass Deck
     private var bottomHUD: some View {
