@@ -20,6 +20,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var didHandleInitialOpen = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Terminate any duplicate running instances of AppsChannel (e.g. from previous Xcode runs)
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.micahcrandell.AppsChannel"
+        for app in NSRunningApplication.runningApplications(withBundleIdentifier: bundleID) {
+            if app.processIdentifier != currentPID {
+                app.terminate()
+            }
+        }
+
         PanelController.shared.setup()
         HotKeyManager.shared.registerHotKey()
 

@@ -363,6 +363,7 @@ final class PanelController {
         lastQuickShowTime = Date()
         KeyboardModifierManager.shared.reset()
         panel.makeKeyAndOrderFront(nil)
+        panel.makeKey()
         NSApp.activate(ignoringOtherApps: true)
 
         NotificationCenter.default.post(name: .panelDidShow, object: LauncherMode.quickLauncher)
