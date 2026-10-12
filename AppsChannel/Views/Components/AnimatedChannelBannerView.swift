@@ -173,7 +173,7 @@ struct AnimatedChannelBannerView: View {
                             )
                             .frame(
                                 width: 3.5,
-                                height: max(4, abs(sin(wavePhase + CGFloat(idx) * 0.8)) * (height * 0.28))
+                                height: max(4, CGFloat(abs(sin(Double(wavePhase + CGFloat(idx) * 0.8)))) * (height * 0.28))
                             )
                     }
                 }
@@ -251,11 +251,12 @@ struct AnimatedChannelBannerView: View {
                     .rotationEffect(.degrees(rotationAngle * 0.5))
 
                 // Radar pulse ring
+                let pulse = CGFloat(abs(sin(Double(wavePhase * 0.8))))
                 Circle()
                     .strokeBorder(Color.white.opacity(0.4), lineWidth: 1.2)
                     .frame(width: height * 0.46, height: height * 0.46)
-                    .scaleEffect(1.0 + abs(sin(wavePhase * 0.8)) * 0.12)
-                    .opacity(1.0 - abs(sin(wavePhase * 0.8)) * 0.6)
+                    .scaleEffect(1.0 + pulse * 0.12)
+                    .opacity(Double(1.0 - pulse * 0.6))
             }
 
             Text(app.name)
@@ -326,7 +327,7 @@ struct AnimatedChannelBannerView: View {
                 Image(systemName: "bag.fill")
                     .font(.system(size: height * 0.26, weight: .bold))
                     .foregroundStyle(.white)
-                    .offset(y: sin(wavePhase * 2) * 3)
+                    .offset(y: CGFloat(sin(Double(wavePhase * 2))) * 3)
                     .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
             }
 
@@ -346,7 +347,7 @@ struct AnimatedChannelBannerView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: max(28, height * 0.44), height: max(28, height * 0.44))
-                .offset(y: isEmphasized ? sin(wavePhase * 1.5) * 2.5 : 0)
+                .offset(y: isEmphasized ? CGFloat(sin(Double(wavePhase * 1.5))) * 2.5 : 0)
                 .shadow(color: Color.black.opacity(0.18), radius: 3, x: 0, y: 2)
 
             // Title
