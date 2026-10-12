@@ -118,6 +118,7 @@ struct QuickLauncherView: View {
     @ObservedObject private var modifierManager = KeyboardModifierManager.shared
 
     let onExpandToFullScreen: () -> Void
+    var onSwitchToClassic: (() -> Void)? = nil
     let onDismiss: () -> Void
 
     @AppStorage("mainLayoutMode") private var layoutModeRaw: String = MainLayoutViewMode.gridWall.rawValue
@@ -294,7 +295,7 @@ struct QuickLauncherView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onChange(of: discoveryService.apps.count) {
+        .onChange(of: discoveryService.apps.count) { _, _ in
             state.updateFilteredApps()
             if state.selectedIndex >= displayApps.count || state.selectedIndex == 0 {
                 let center = max(0, displayApps.count / 2)
@@ -360,11 +361,37 @@ struct QuickLauncherView: View {
             } else if event.type == .keyDown {
                 KeyboardModifierManager.shared.update(from: event.modifierFlags)
                 let isCmd = event.modifierFlags.contains(.command)
+                let isShift = event.modifierFlags.contains(.shift)
+
+                // Command + Shift + Q: Explicit full quit
+                if isCmd && isShift && (event.keyCode == 12 || event.charactersIgnoringModifiers?.lowercased() == "q") {
+                    AppDelegate.quitCompletely()
+                    return nil
+                }
+
+                // Command + Q: Dismiss launcher if keepRunningInBackgroundOnQuit is enabled
+                if isCmd && !isShift && (event.keyCode == 12 || event.charactersIgnoringModifiers?.lowercased() == "q") {
+                    let keepAlive = UserDefaults.standard.object(forKey: "keepRunningInBackgroundOnQuit") as? Bool ?? true
+                    if keepAlive {
+                        SoundEffectsManager.shared.playAction()
+                        onDismiss()
+                        return nil
+                    }
+                }
 
                 // Command+O to expand to full screen
                 if isCmd && (event.keyCode == 31 || event.charactersIgnoringModifiers?.lowercased() == "o") {
                     onExpandToFullScreen()
                     return nil
+                }
+
+                // Command+L to switch to Classic Launcher
+                if isCmd && (event.keyCode == 37 || event.charactersIgnoringModifiers?.lowercased() == "l") {
+                    if let onSwitch = onSwitchToClassic {
+                        SoundEffectsManager.shared.playAction()
+                        onSwitch()
+                        return nil
+                    }
                 }
 
                 // Command+A: Select all search text

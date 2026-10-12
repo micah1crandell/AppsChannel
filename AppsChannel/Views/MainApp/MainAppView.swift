@@ -623,6 +623,22 @@ struct MainAppView: View {
             } else if event.type == .keyDown {
                 KeyboardModifierManager.shared.update(from: event.modifierFlags)
                 let isCmd = event.modifierFlags.contains(.command)
+                let isShift = event.modifierFlags.contains(.shift)
+
+                // Command + Shift + Q: Explicit full quit
+                if isCmd && isShift && (event.keyCode == 12 || event.charactersIgnoringModifiers?.lowercased() == "q") {
+                    AppDelegate.quitCompletely()
+                    return nil
+                }
+
+                // Command + Q: Dismiss main app window if keepRunningInBackgroundOnQuit is enabled
+                if isCmd && !isShift && (event.keyCode == 12 || event.charactersIgnoringModifiers?.lowercased() == "q") {
+                    let keepAlive = UserDefaults.standard.object(forKey: "keepRunningInBackgroundOnQuit") as? Bool ?? true
+                    if keepAlive {
+                        PanelController.shared.hide()
+                        return nil
+                    }
+                }
 
                 // Command+A: Select all search text
                 if isCmd && (event.keyCode == 0 || event.charactersIgnoringModifiers?.lowercased() == "a") {

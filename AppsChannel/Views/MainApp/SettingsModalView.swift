@@ -5,7 +5,7 @@ struct SettingsModalView: View {
     @Binding var isPresented: Bool
     @State private var selectedTab: SettingsTab = .general
     @StateObject private var launchAtLoginManager = LaunchAtLoginManager.shared
-    @AppStorage("defaultMode") private var defaultMode: String = LauncherMode.quickLauncher.rawValue
+    @AppStorage("defaultMode") private var defaultMode: String = LauncherMode.classicLauncher.rawValue
     @AppStorage("mainLayoutMode") private var layoutModeRaw: String = MainLayoutViewMode.gridWall.rawValue
     @AppStorage("appDisplayStyle") private var appDisplayStyleRaw: String = AppDisplayStyle.iconOnly.rawValue
     @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
@@ -15,6 +15,7 @@ struct SettingsModalView: View {
     @AppStorage("dimmingIntensity") private var dimmingIntensity: Double = 0.15
     @AppStorage("showInMenuBar") private var showInMenuBar: Bool = true
     @AppStorage("showInDock") private var showInDock: Bool = false
+    @AppStorage("keepRunningInBackgroundOnQuit") private var keepRunningInBackgroundOnQuit: Bool = true
     @AppStorage("enableSystemActions") private var enableSystemActions: Bool = true
     @AppStorage("confirmDestructiveActions") private var confirmDestructiveActions: Bool = true
 
@@ -407,8 +408,13 @@ struct SettingsModalView: View {
                 title: "General",
                 accentColor: Color(red: 0.05, green: 0.52, blue: 1.0)
             ) {
+                let modeTitle: String = {
+                    if defaultMode == LauncherMode.classicLauncher.rawValue { return "Classic Launcher" }
+                    if defaultMode == LauncherMode.quickLauncher.rawValue { return "Quick HUD" }
+                    return "Channel Window"
+                }()
                 pillBadge(
-                    text: defaultMode == LauncherMode.quickLauncher.rawValue ? "Quick Launcher" : "Channel Window",
+                    text: modeTitle,
                     color: Color(red: 0.05, green: 0.52, blue: 1.0)
                 )
             }
@@ -428,9 +434,19 @@ struct SettingsModalView: View {
 
                 HStack(spacing: 10) {
                     visualModeCard(
+                        mode: .classicLauncher,
+                        title: "Classic Launcher",
+                        badge: "Raycast Style",
+                        isSelected: defaultMode == LauncherMode.classicLauncher.rawValue
+                    ) { isSel in
+                        miniClassicLauncherPreview(isSelected: isSel)
+                            .frame(height: 26)
+                    }
+
+                    visualModeCard(
                         mode: .quickLauncher,
                         title: "Quick Launcher",
-                        badge: "Floating HUD",
+                        badge: "3D HUD",
                         isSelected: defaultMode == LauncherMode.quickLauncher.rawValue
                     ) { isSel in
                         HStack(spacing: 5) {
@@ -517,6 +533,20 @@ struct SettingsModalView: View {
                     .labelsHidden()
                     .toggleStyle(.switch)
                     .tint(Color(red: 0.05, green: 0.52, blue: 1.0))
+                }
+
+                settingsDivider
+
+                settingsRow(
+                    icon: "sparkles.rectangle.stack",
+                    iconColor: Color(red: 0.1, green: 0.6, blue: 0.95),
+                    title: "Keep Active on ⌘Q",
+                    subtitle: "⌘Q dismisses launcher while keeping shortcuts ready in background"
+                ) {
+                    Toggle("", isOn: $keepRunningInBackgroundOnQuit)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(Color(red: 0.05, green: 0.52, blue: 1.0))
                 }
             }
 
@@ -697,7 +727,8 @@ struct SettingsModalView: View {
                 text: "Core launcher, daemon, and feedback preferences",
                 actionTitle: "Reset to Defaults"
             ) {
-                defaultMode = LauncherMode.quickLauncher.rawValue
+                defaultMode = LauncherMode.classicLauncher.rawValue
+                UserDefaults.standard.set("classic", forKey: "floatingLauncherStyle")
                 soundEffects = true
                 soundThemeRaw = SoundTheme.subtle.rawValue
                 hapticFeedback = true
@@ -716,6 +747,11 @@ struct SettingsModalView: View {
         Button(action: {
             withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                 defaultMode = mode.rawValue
+                if mode == .classicLauncher {
+                    UserDefaults.standard.set("classic", forKey: "floatingLauncherStyle")
+                } else if mode == .quickLauncher {
+                    UserDefaults.standard.set("quick", forKey: "floatingLauncherStyle")
+                }
             }
             SoundEffectsManager.shared.playAction()
         }) {
@@ -1131,6 +1167,60 @@ struct SettingsModalView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    private func miniClassicLauncherPreview(isSelected: Bool) -> some View {
+        let border: Color = isSelected ? Color.black.opacity(0.35) : Color.white.opacity(0.25)
+        let bg: Color = isSelected ? Color.black.opacity(0.06) : Color.white.opacity(0.06)
+        let searchBarFill: Color = isSelected ? Color.black.opacity(0.12) : Color.white.opacity(0.12)
+        let rowSelFill: Color = isSelected ? Color.black.opacity(0.25) : Color.white.opacity(0.25)
+        let rowUnselFill: Color = isSelected ? Color.black.opacity(0.06) : Color.white.opacity(0.06)
+        let iconFill: Color = isSelected ? Color.black.opacity(0.5) : Color.white.opacity(0.6)
+
+        return VStack(spacing: 2) {
+            // Top Mini Search Bar
+            HStack(spacing: 2) {
+                Circle()
+                    .fill(iconFill)
+                    .frame(width: 3, height: 3)
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(searchBarFill)
+                    .frame(height: 3)
+            }
+            .padding(.horizontal, 3)
+            .padding(.vertical, 2)
+
+            // Top Row (Selected)
+            HStack(spacing: 2) {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(iconFill)
+                    .frame(width: 3.5, height: 3.5)
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(rowSelFill)
+                    .frame(height: 3)
+            }
+            .padding(.horizontal, 2)
+            .padding(.vertical, 1.5)
+            .background(rowSelFill.opacity(0.5), in: RoundedRectangle(cornerRadius: 2))
+
+            // Second Row (Unselected)
+            HStack(spacing: 2) {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(iconFill.opacity(0.5))
+                    .frame(width: 3.5, height: 3.5)
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(rowUnselFill)
+                    .frame(height: 2.5)
+            }
+            .padding(.horizontal, 2)
+        }
+        .padding(3)
+        .frame(width: 58, height: 26)
+        .background(bg, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(border, lineWidth: 1)
+        )
     }
 
     private func miniChannelCardPreview(index: Int, isSelected: Bool) -> some View {

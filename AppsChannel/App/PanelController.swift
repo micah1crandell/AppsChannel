@@ -107,7 +107,7 @@ final class PanelController {
                     self.hideQuickLauncher()
                 }
 
-            QuickLauncherView(
+            FloatingLauncherHostView(
                 onExpandToFullScreen: {
                     self.hideQuickLauncher()
                     self.showMainApp()
@@ -317,11 +317,29 @@ final class PanelController {
             hideQuickLauncher()
             return
         }
-        showQuickLauncher()
+        if isMainAppVisible {
+            hideMainApp()
+            return
+        }
+        show()
     }
 
     func show(mode: LauncherMode? = nil) {
-        showQuickLauncher()
+        let targetMode: LauncherMode
+        if let mode = mode {
+            targetMode = mode
+        } else if let raw = UserDefaults.standard.string(forKey: "defaultMode"), let m = LauncherMode(rawValue: raw) {
+            targetMode = m
+        } else {
+            targetMode = .classicLauncher
+        }
+
+        switch targetMode {
+        case .fullScreen:
+            showMainApp()
+        case .quickLauncher, .classicLauncher:
+            showQuickLauncher(mode: targetMode)
+        }
     }
 
     func showMainApp() {
@@ -344,7 +362,7 @@ final class PanelController {
         AppDiscoveryService.shared.updateRunningApplications()
     }
 
-    func showQuickLauncher() {
+    func showQuickLauncher(mode: LauncherMode? = nil) {
         if let frontApp = NSWorkspace.shared.frontmostApplication,
            frontApp.bundleIdentifier != Bundle.main.bundleIdentifier {
             WindowManagementService.shared.lastExternalApp = frontApp
@@ -352,6 +370,14 @@ final class PanelController {
         }
         hideClipboardHistory()
         guard let panel = quickLauncherPanel else { return }
+
+        if let mode = mode {
+            if mode == .classicLauncher {
+                UserDefaults.standard.set("classic", forKey: "floatingLauncherStyle")
+            } else if mode == .quickLauncher {
+                UserDefaults.standard.set("quick", forKey: "floatingLauncherStyle")
+            }
+        }
 
         // Always center on Rank #1 app (middle-out usage center) before presenting
         let targetCenter = AppDiscoveryService.shared.apps.count / 2
@@ -365,7 +391,8 @@ final class PanelController {
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
-        NotificationCenter.default.post(name: .panelDidShow, object: LauncherMode.quickLauncher)
+        let resolvedMode = mode ?? (UserDefaults.standard.string(forKey: "floatingLauncherStyle") == "quick" ? LauncherMode.quickLauncher : LauncherMode.classicLauncher)
+        NotificationCenter.default.post(name: .panelDidShow, object: resolvedMode)
         AppDiscoveryService.shared.updateRunningApplications()
     }
 
