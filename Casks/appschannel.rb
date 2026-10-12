@@ -1,6 +1,6 @@
 cask "appschannel" do
-  version "1.1.0"
-  sha256 "0cf3b0682b88739d501b743d2d50164d24f2dee4be5b8931cce3def33c69f132"
+  version "1.1.1"
+  sha256 "7b9c1f00391369adb0b28ec86d928c60396a0c0623be3e0242919af7d77af0a6"
 
   url "https://github.com/micah1crandell/AppsChannel/releases/download/v#{version}/AppsChannel.dmg"
   name "AppsChannel"
