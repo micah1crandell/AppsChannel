@@ -58,8 +58,11 @@ fi
 # 5. Sign the main application bundle (without --deep so nested signatures are preserved)
 echo "  -> Signing Main App Bundle: $APP_PATH"
 APP_SIGN_ARGS=("${SIGN_FLAGS[@]}" --sign "$SIGNING_IDENTITY")
-if [ -f "$ENTITLEMENTS" ] && [ "$SIGNING_IDENTITY" != "-" ]; then
+if [ -f "$ENTITLEMENTS" ]; then
     APP_SIGN_ARGS+=(--entitlements "$ENTITLEMENTS")
+fi
+if [ "$SIGNING_IDENTITY" = "-" ]; then
+    APP_SIGN_ARGS+=(-r='designated => identifier "com.micahcrandell.AppsChannel"')
 fi
 codesign "${APP_SIGN_ARGS[@]}" "$APP_PATH"
 

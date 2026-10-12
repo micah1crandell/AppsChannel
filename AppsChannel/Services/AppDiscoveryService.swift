@@ -662,11 +662,45 @@ final class AppDiscoveryService: ObservableObject {
             return
         }
 
+        // If the application is already running, activate it immediately and bring its windows forward
+        let runningApp = (app.bundleIdentifier != nil ? NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleIdentifier!).first : nil)
+            ?? NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL == app.url })
+
+        if let runningApp = runningApp {
+            if runningApp.isHidden {
+                runningApp.unhide()
+            }
+            runningApp.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+
+            if let bundleId = app.bundleIdentifier {
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let reopenScript = "tell application id \"\(bundleId)\" to reopen"
+                    var error: NSDictionary?
+                    NSAppleScript(source: reopenScript)?.executeAndReturnError(&error)
+                }
+            }
+        }
+
         let config = NSWorkspace.OpenConfiguration()
         config.activates = true
-        NSWorkspace.shared.openApplication(at: app.url, configuration: config) { _, error in
-            if let error = error {
-                print("Failed to launch \(app.name): \(error.localizedDescription)")
+        config.addsToRecentItems = true
+
+        NSWorkspace.shared.openApplication(at: app.url, configuration: config) { targetApp, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("NSWorkspace openApplication failed for \(app.name): \(error.localizedDescription). Attempting fallback...")
+                    if !NSWorkspace.shared.open(app.url) {
+                        let task = Process()
+                        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                        task.arguments = [app.url.path]
+                        try? task.run()
+                    }
+                } else if let targetApp = targetApp {
+                    if targetApp.isHidden {
+                        targetApp.unhide()
+                    }
+                    targetApp.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+                }
             }
         }
     }

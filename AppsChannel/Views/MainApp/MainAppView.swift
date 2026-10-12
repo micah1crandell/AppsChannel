@@ -877,9 +877,26 @@ struct MainAppView: View {
                     return nil
 
                 default:
+                    // Check if it's Return / Enter character on keyboards with non-standard keyCodes
+                    if event.characters == "\r" || event.characters == "\n" || event.charactersIgnoringModifiers == "\r" || event.charactersIgnoringModifiers == "\n" {
+                        if let app = currentApp {
+                            if event.modifierFlags.contains(.command) {
+                                revealAppInFinder(app: app)
+                                return nil
+                            } else if event.modifierFlags.contains(.shift) {
+                                copyAppPathOrURL(app: app)
+                                return nil
+                            }
+                        }
+                        launchSelectedApp()
+                        return nil
+                    }
+
                     // Check if it's a printable character key to search when not already focused in text view
                     if let characters = event.characters,
                        !characters.isEmpty,
+                       characters != "\r",
+                       characters != "\n",
                        !event.modifierFlags.contains(.command),
                        !event.modifierFlags.contains(.control),
                        !event.modifierFlags.contains(.option) {
@@ -964,8 +981,8 @@ struct MainAppView: View {
 
         SoundEffectsManager.shared.playLaunch()
         let query = searchText
-        searchText = ""
         discoveryService.launch(app: app, query: query)
+        searchText = ""
         onDismiss()
     }
 

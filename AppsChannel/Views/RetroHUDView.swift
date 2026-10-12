@@ -99,10 +99,6 @@ struct RetroHUDView: View {
                 .onSubmit {
                     onLaunch()
                 }
-                .onKeyPress(.return) {
-                    onLaunch()
-                    return .handled
-                }
                 .onKeyPress(.leftArrow) {
                     if !searchText.isEmpty {
                         return .ignored

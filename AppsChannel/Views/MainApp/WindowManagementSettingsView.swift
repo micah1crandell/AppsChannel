@@ -169,15 +169,15 @@ struct WindowManagementSettingsView: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.white)
 
-                Text("AppsChannel needs Accessibility privileges to resize and position windows.")
+                Text("AppsChannel needs Accessibility privileges to resize and position windows. If already enabled, toggle it off and on again in System Settings to refresh macOS permissions.")
                     .font(.system(size: 11))
                     .foregroundStyle(.white.opacity(0.7))
             }
 
             Spacer()
 
-            Button("Grant Permission") {
-                service.requestAccessibilityPermission()
+            Button("Open System Settings") {
+                service.openAccessibilitySettings()
             }
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.white)

@@ -69,21 +69,39 @@ final class WindowManagementService: ObservableObject {
         loadConfigs()
         checkAccessibility()
         setupAppSwitchObserver()
+        setupAppActivationObserver()
         rebuildHotKeys()
     }
 
     // MARK: - Accessibility
     func checkAccessibility() {
-        isAccessibilityGranted = AXIsProcessTrusted()
+        let trusted = AXIsProcessTrusted()
+        if isAccessibilityGranted != trusted {
+            isAccessibilityGranted = trusted
+        }
+    }
+
+    private func setupAppActivationObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.checkAccessibility()
+            }
+        }
     }
 
     func requestAccessibilityPermission() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         isAccessibilityGranted = AXIsProcessTrustedWithOptions(options)
-        if !isAccessibilityGranted {
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                NSWorkspace.shared.open(url)
-            }
+    }
+
+    func openAccessibilitySettings() {
+        requestAccessibilityPermission()
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -281,12 +299,13 @@ final class WindowManagementService: ObservableObject {
     // MARK: - Window Snapping Execution
     func performAction(_ action: WindowSnappingAction) {
         checkAccessibility()
-        if !isAccessibilityGranted {
+        guard isAccessibilityGranted else {
             let now = Date()
-            if now.timeIntervalSince(lastPermissionPromptTime) > 10.0 {
+            if now.timeIntervalSince(lastPermissionPromptTime) > 60.0 {
                 lastPermissionPromptTime = now
                 requestAccessibilityPermission()
             }
+            return
         }
 
         // Determine target application:

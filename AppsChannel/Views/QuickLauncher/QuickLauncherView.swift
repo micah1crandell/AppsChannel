@@ -296,8 +296,8 @@ struct QuickLauncherView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: discoveryService.apps.count) {
             state.updateFilteredApps()
-            if state.selectedIndex >= displayApps.count {
-                let center = displayApps.count / 2
+            if state.selectedIndex >= displayApps.count || state.selectedIndex == 0 {
+                let center = max(0, displayApps.count / 2)
                 state.selectedIndex = center
             }
         }
@@ -658,9 +658,27 @@ struct QuickLauncherView: View {
                     return nil
 
                 default:
+                    // Check if it's Return / Enter character on keyboards with non-standard keyCodes
+                    if event.characters == "\r" || event.characters == "\n" || event.charactersIgnoringModifiers == "\r" || event.charactersIgnoringModifiers == "\n" {
+                        if s.isSearchTextSelected { s.isSearchTextSelected = false }
+                        if let app = currentApp {
+                            if event.modifierFlags.contains(.command) {
+                                revealAppInFinder(app: app)
+                                return nil
+                            } else if event.modifierFlags.contains(.shift) {
+                                copyAppPathOrURL(app: app)
+                                return nil
+                            }
+                        }
+                        launchSelectedApp()
+                        return nil
+                    }
+
                     // Check if it's a printable character key to search
                     if let characters = event.characters,
                        !characters.isEmpty,
+                       characters != "\r",
+                       characters != "\n",
                        !event.modifierFlags.contains(.command),
                        !event.modifierFlags.contains(.control),
                        !event.modifierFlags.contains(.option) {
@@ -773,9 +791,9 @@ struct QuickLauncherView: View {
         }
 
         let query = state.searchText
-        state.reset()
         SoundEffectsManager.shared.playLaunch()
         discoveryService.launch(app: app, query: query)
+        state.reset()
         onDismiss()
     }
 

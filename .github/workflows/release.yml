@@ -85,7 +85,7 @@ jobs:
               security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed -e s/\"//g) || true
               security default-keychain -s "$KEYCHAIN_PATH" || true
 
-              IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -n 1 | awk -F '"' '{print $2}')
+              IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -m 1 '"' | awk -F '"' '{print $2}')
               if [ -n "$IDENTITY" ]; then
                 SIGNING_IDENTITY="$IDENTITY"
                 echo "✅ Configured signing identity: $IDENTITY"
