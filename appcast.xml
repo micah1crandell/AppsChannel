@@ -6,6 +6,18 @@
         <description>Most recent updates for AppsChannel launcher.</description>
         <language>en</language>
         <item>
+            <title>AppsChannel 1.1.0</title>
+            <sparkle:releaseNotesLink>https://github.com/micah1crandell/AppsChannel/releases/tag/v1.1.0</sparkle:releaseNotesLink>
+            <pubDate>Mon, 12 Oct 2026 04:10:41 +0000</pubDate>
+            <enclosure
+                url="https://github.com/micah1crandell/AppsChannel/releases/download/v1.1.0/AppsChannel.zip"
+                sparkle:version="1.1.0"
+                sparkle:shortVersionString="1.1.0"
+                length="4155137"
+                sparkle:edSignature="MB/lVnA69B/qL38f1QTkb/lQAl86H+BC4vmvI+117S8DW6/RzuEssQRWyWGn91GxuY3FiFii+hcdzC9SpHt+CA=="
+                type="application/octet-stream" />
+        </item>
+        <item>
             <title>AppsChannel 1.0.0</title>
             <sparkle:releaseNotesLink>https://github.com/micah1crandell/AppsChannel/releases/tag/v1.0.0</sparkle:releaseNotesLink>
             <pubDate>Fri, 09 Oct 2026 21:00:00 -0700</pubDate>
