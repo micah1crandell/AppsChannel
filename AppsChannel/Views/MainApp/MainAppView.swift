@@ -29,8 +29,11 @@ struct MainAppView: View {
     @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
     @State private var layoutMode: MainLayoutViewMode = .gridWall
     @State private var isOrganizeMode: Bool = false
-    @State private var showRecentDocs: Bool = false
     @State private var isShowingAddChannelSheet: Bool = false
+    @State private var toastMessage: String? = nil
+    @State private var isQuickLauncherActive: Bool = false
+    @State private var frozenIndex: Int? = nil
+    @ObservedObject private var modifierManager = KeyboardModifierManager.shared
     @ObservedObject private var themeManager = ThemeManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -113,6 +116,9 @@ struct MainAppView: View {
 
     private var activeIndex: Int {
         guard !filteredApps.isEmpty else { return 0 }
+        if isQuickLauncherActive, let frozen = frozenIndex {
+            return min(max(0, frozen), filteredApps.count - 1)
+        }
         return min(max(0, discoveryService.selectedIndex), filteredApps.count - 1)
     }
 
@@ -193,10 +199,33 @@ struct MainAppView: View {
                         }
                     )
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
+                } else if layoutMode == .wiiChannels {
+                    WiiChannelGridView(
+                        apps: filteredApps,
+                        activeIndex: activeIndex,
+                        isOrganizeMode: isOrganizeMode,
+                        onSelect: { index in
+                            withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.30, dampingFraction: 0.85))) {
+                                discoveryService.selectedIndex = index
+                            }
+                        },
+                        onLaunch: launchSelectedApp,
+                        onNavigate: { step in
+                            navigate(by: step)
+                        },
+                        onMoveApp: { from, to in
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                discoveryService.moveApp(from: from, to: to)
+                            }
+                        }
+                    )
+                    .transition(.scale(scale: 0.96).combined(with: .opacity))
                 }
                 Spacer()
             }
-            .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
+            .opacity(isQuickLauncherActive ? 0.0 : 1.0)
+            .animation(.easeInOut(duration: 0.22), value: isQuickLauncherActive)
+            .allowsHitTesting(!isQuickLauncherActive && !appState.isShowingSettings && !appState.isShowingWalkthrough)
 
             // Channel Arranger Deck (Apple Liquid Glass)
             if isOrganizeMode {
@@ -205,25 +234,9 @@ struct MainAppView: View {
                     channelArrangerDeck
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
-            }
-
-            // Recent Documents Floating Sub-Deck Overlay (Apple Liquid Glass)
-            if showRecentDocs, let app = currentApp, !app.isSeparator, app.channelType == nil {
-                VStack {
-                    Spacer()
-                    RecentDocumentsSubDeckView(
-                        app: app,
-                        onClose: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                showRecentDocs = false
-                            }
-                        }
-                    )
-                    .padding(.bottom, 78)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
+                .opacity(isQuickLauncherActive ? 0.0 : 1.0)
+                .animation(.easeInOut(duration: 0.22), value: isQuickLauncherActive)
+                .allowsHitTesting(!isQuickLauncherActive && !appState.isShowingSettings && !appState.isShowingWalkthrough)
             }
 
             // Full Screen Liquid Glass HUD
@@ -241,6 +254,7 @@ struct MainAppView: View {
                     case .coverFlow: navigate(by: -1)
                     case .gridWall: navigate(by: -3)
                     case .flatGrid: navigate(by: -threeDSGridRows)
+                    case .wiiChannels: navigate(by: -1)
                     }
                 },
                 onNext: {
@@ -248,6 +262,7 @@ struct MainAppView: View {
                     case .coverFlow: navigate(by: 1)
                     case .gridWall: navigate(by: 3)
                     case .flatGrid: navigate(by: threeDSGridRows)
+                    case .wiiChannels: navigate(by: 1)
                     }
                 },
                 onNavigateStep: { step in navigate(by: step) },
@@ -263,16 +278,13 @@ struct MainAppView: View {
                     }
                 },
                 isOrganizeMode: isOrganizeMode,
-                onToggleRecentDocuments: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        showRecentDocs.toggle()
-                    }
-                },
                 onAddCustomChannel: {
                     isShowingAddChannelSheet = true
                 }
             )
-            .allowsHitTesting(!appState.isShowingSettings && !appState.isShowingWalkthrough)
+            .opacity(isQuickLauncherActive ? 0.0 : 1.0)
+            .animation(.easeInOut(duration: 0.22), value: isQuickLauncherActive)
+            .allowsHitTesting(!isQuickLauncherActive && !appState.isShowingSettings && !appState.isShowingWalkthrough)
 
             // Settings & Account Modal Sheet
             if appState.isShowingSettings {
@@ -306,6 +318,38 @@ struct MainAppView: View {
                 )
                 .transition(.scale(scale: 0.95).combined(with: .opacity))
             }
+
+            // Real-Time Floating Action Toast
+            if let toast = toastMessage {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.green)
+                        Text(toast)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
+                    .background(Color(white: 0.08).opacity(0.92), in: Capsule())
+                    .overlay(
+                        Capsule().strokeBorder(Color.white.opacity(0.24), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.4), radius: 12, x: 0, y: 6)
+                    .padding(.bottom, 82)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity).combined(with: .move(edge: .bottom)))
+                }
+                .allowsHitTesting(false)
+            }
+
+            // Isolated High-Performance Cursor Tracking Overlay
+            WiiCursorTrackingOverlay(
+                isWiiMode: layoutMode == .wiiChannels && !isQuickLauncherActive,
+                isGrabbing: isOrganizeMode
+            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -357,12 +401,31 @@ struct MainAppView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { notification in
             if let mode = notification.object as? LauncherMode, mode == .fullScreen {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isQuickLauncherActive = false
+                    frozenIndex = nil
+                }
                 searchText = ""
                 selectedCategory = "ALL"
                 discoveryService.selectedIndex = filteredApps.count / 2
                 setupEventMonitor()
+            } else if let mode = notification.object as? LauncherMode, mode == .quickLauncher {
+                frozenIndex = discoveryService.selectedIndex
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isQuickLauncherActive = true
+                }
+                removeEventMonitor()
             } else {
                 removeEventMonitor()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quickLauncherDidDismiss)) { _ in
+            withAnimation(.easeInOut(duration: 0.22)) {
+                isQuickLauncherActive = false
+                frozenIndex = nil
+            }
+            if PanelController.shared.isMainAppVisible {
+                setupEventMonitor()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("AppsChannelOpenPreferences"))) { _ in
@@ -386,22 +449,17 @@ struct MainAppView: View {
                 scrollAccumulator = 0.0
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .toggleRecentDocuments)) { _ in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                showRecentDocs.toggle()
-            }
-        }
         .sheet(isPresented: $isShowingAddChannelSheet) {
             AddCustomChannelSheet()
         }
         .onDisappear {
             removeEventMonitor()
+            KeyboardModifierManager.shared.reset()
         }
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.3, dampingFraction: 0.8)), value: appState.isShowingSettings)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: appState.isShowingWalkthrough)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.3, dampingFraction: 0.8)), value: isOrganizeMode)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: layoutMode)
-        .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.3, dampingFraction: 0.8)), value: showRecentDocs)
     }
 
     // MARK: - Transparent Floating Backdrop with Behind-Window Desktop Blur
@@ -410,24 +468,52 @@ struct MainAppView: View {
             VisualEffectBackground(material: .fullScreenUI, blendingMode: .behindWindow)
                 .ignoresSafeArea()
 
-            // Deep obsidian tinted liquid glass layer
-            Color(red: 0.04, green: 0.04, blue: 0.05).opacity(0.82)
-                .ignoresSafeArea()
+            if layoutMode == .wiiChannels || themeManager.currentTheme == .matteWhite {
+                // Authentic Wii Console Brushed Aluminum & Scanline Backdrop
+                ZStack {
+                    Color(white: 0.94).opacity(0.96)
 
-            // Theme atmospheric backdrop tint
-            Group {
-                switch themeManager.currentTheme {
-                case .liquidGlass:
-                    EmptyView()
-                case .matteWhite:
-                    Color(white: 0.95).opacity(0.12)
-                case .indigoPurple:
-                    Color(red: 0.18, green: 0.14, blue: 0.35).opacity(0.42)
-                case .cyberpunkDark:
-                    Color(red: 0.0, green: 0.06, blue: 0.10).opacity(0.50)
+                    // Fine horizontal scanline texture
+                    WiiScanlineTexture()
+                        .opacity(0.04)
+
+                    // Subtle radial ambient spotlight in the center
+                    RadialGradient(
+                        colors: [Color.white.opacity(0.7), Color.clear],
+                        center: .center,
+                        startRadius: 80,
+                        endRadius: 800
+                    )
+
+                    // Soft cyan ambient corner aura
+                    RadialGradient(
+                        colors: [Color(red: 0.05, green: 0.65, blue: 0.95).opacity(0.08), Color.clear],
+                        center: .bottom,
+                        startRadius: 0,
+                        endRadius: 500
+                    )
                 }
+                .ignoresSafeArea()
+            } else {
+                // Deep obsidian tinted liquid glass layer
+                Color(red: 0.04, green: 0.04, blue: 0.05).opacity(0.82)
+                    .ignoresSafeArea()
+
+                // Theme atmospheric backdrop tint
+                Group {
+                    switch themeManager.currentTheme {
+                    case .liquidGlass:
+                        EmptyView()
+                    case .matteWhite:
+                        Color(white: 0.95).opacity(0.12)
+                    case .indigoPurple:
+                        Color(red: 0.18, green: 0.14, blue: 0.35).opacity(0.42)
+                    case .cyberpunkDark:
+                        Color(red: 0.0, green: 0.06, blue: 0.10).opacity(0.50)
+                    }
+                }
+                .ignoresSafeArea()
             }
-            .ignoresSafeArea()
 
             // Subtle dark specular top sheen
             LinearGradient(
@@ -470,11 +556,16 @@ struct MainAppView: View {
     // MARK: - Fast Event Interception
     private func setupEventMonitor() {
         guard appState.eventMonitor == nil else { return }
-        appState.eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown]) { event in
+        appState.eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown, .flagsChanged]) { event in
             // Only process events when Main App window is visible and key
             guard PanelController.shared.isMainAppVisible,
                   let window = event.window ?? NSApp.keyWindow,
                   !(window is AppsChannelPanel) else {
+                return event
+            }
+
+            if event.type == .flagsChanged {
+                KeyboardModifierManager.shared.update(from: event.modifierFlags)
                 return event
             }
 
@@ -530,36 +621,44 @@ struct MainAppView: View {
                 handleScrollEvent(event)
                 return nil
             } else if event.type == .keyDown {
+                KeyboardModifierManager.shared.update(from: event.modifierFlags)
+                let isCmd = event.modifierFlags.contains(.command)
+
+                // Command+A: Select all search text
+                if isCmd && (event.keyCode == 0 || event.charactersIgnoringModifiers?.lowercased() == "a") {
+                    if let textView = event.window?.firstResponder as? NSTextView {
+                        textView.selectAll(nil)
+                        return nil
+                    }
+                }
+
+                // Command+C: Copy selected or full search text
+                if isCmd && (event.keyCode == 8 || event.charactersIgnoringModifiers?.lowercased() == "c") {
+                    if let textView = event.window?.firstResponder as? NSTextView {
+                        textView.copy(nil)
+                        return nil
+                    }
+                }
+
+                // Command+X: Cut selected search text
+                if isCmd && (event.keyCode == 7 || event.charactersIgnoringModifiers?.lowercased() == "x") {
+                    if let textView = event.window?.firstResponder as? NSTextView {
+                        textView.cut(nil)
+                        searchText = textView.string
+                        return nil
+                    }
+                }
+
                 // Command+W to close window
-                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "w" {
+                if isCmd && event.charactersIgnoringModifiers == "w" {
                     onDismiss()
                     return nil
                 }
 
                 // Command+O to switch to Quick Launcher
-                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "o" {
+                if isCmd && event.charactersIgnoringModifiers == "o" {
                     onSwitchToQuickLauncher()
                     return nil
-                }
-
-                // Command+Down Arrow: Toggle Recent Documents for current app
-                if event.modifierFlags.contains(.command) && event.keyCode == 125 {
-                    if let app = currentApp, !app.isSeparator, app.channelType == nil {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showRecentDocs.toggle()
-                        }
-                    }
-                    return nil
-                }
-
-                // Command+Up Arrow: Dismiss Recent Documents if open
-                if event.modifierFlags.contains(.command) && event.keyCode == 126 {
-                    if showRecentDocs {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showRecentDocs = false
-                        }
-                        return nil
-                    }
                 }
 
                 // Command+Shift+V or Command+V: View Mode Switch vs. Paste
@@ -583,9 +682,17 @@ struct MainAppView: View {
                 if event.modifierFlags.contains(.command) && (event.charactersIgnoringModifiers == "r" || event.charactersIgnoringModifiers == "R") {
                     if discoveryService.selectedIndex < filteredApps.count {
                         let selectedApp = filteredApps[discoveryService.selectedIndex]
-                        SoundEffectsManager.shared.playAction()
-                        NSWorkspace.shared.activateFileViewerSelecting([selectedApp.url])
-                        return nil
+                        if selectedApp.url.isFileURL && !selectedApp.isAppsChannelApp {
+                            SoundEffectsManager.shared.playAction()
+                            let path = selectedApp.url.path
+                            if !NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "") {
+                                let task = Process()
+                                task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                                task.arguments = ["-R", path]
+                                try? task.run()
+                            }
+                            return nil
+                        }
                     }
                 }
 
@@ -593,8 +700,9 @@ struct MainAppView: View {
                 if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "i" {
                     if discoveryService.selectedIndex < filteredApps.count {
                         let selectedApp = filteredApps[discoveryService.selectedIndex]
-                        SoundEffectsManager.shared.playAction()
-                        let escapedPath = selectedApp.url.path
+                        if selectedApp.url.isFileURL && !selectedApp.isAppsChannelApp {
+                            SoundEffectsManager.shared.playAction()
+                            let escapedPath = selectedApp.url.path
                             .replacingOccurrences(of: "\\", with: "\\\\")
                             .replacingOccurrences(of: "\"", with: "\\\"")
                         let script = """
@@ -610,6 +718,7 @@ struct MainAppView: View {
                         return nil
                     }
                 }
+            }
 
                 // Command + 1..8: Instant Category Group Switch (Customizable in Settings)
                 if event.modifierFlags.contains(.command),
@@ -675,11 +784,19 @@ struct MainAppView: View {
 
                 switch event.keyCode {
                 case 126: // Up Arrow
-                    navigate(by: -1)
+                    if layoutMode == .wiiChannels {
+                        navigate(by: -4)
+                    } else {
+                        navigate(by: -1)
+                    }
                     return nil
 
                 case 125: // Down Arrow
-                    navigate(by: 1)
+                    if layoutMode == .wiiChannels {
+                        navigate(by: 4)
+                    } else {
+                        navigate(by: 1)
+                    }
                     return nil
 
                 case 123: // Left Arrow
@@ -703,15 +820,54 @@ struct MainAppView: View {
                     return nil
 
                 case 36, 76: // Return or Keypad Enter
+                    if let app = currentApp {
+                        if event.modifierFlags.contains(.command) {
+                            revealAppInFinder(app: app)
+                            return nil
+                        } else if event.modifierFlags.contains(.shift) {
+                            copyAppPathOrURL(app: app)
+                            return nil
+                        }
+                    }
                     launchSelectedApp()
                     return nil
 
-                case 53: // Escape
-                    if showRecentDocs {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showRecentDocs = false
+                case 51, 117: // Backspace / Forward Delete
+                    // If focused in a text editor (e.g. search TextField), delegate 100% to AppKit's native engine
+                    if let responder = event.window?.firstResponder,
+                       responder is NSText || responder is NSTextView {
+                        return event
+                    }
+
+                    if isCmd {
+                        searchText = ""
+                        return nil
+                    }
+
+                    let isOption = event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.option)
+                    if isOption {
+                        if !searchText.isEmpty {
+                            var text = searchText
+                            while text.hasSuffix(" ") {
+                                text.removeLast()
+                            }
+                            if let lastSpaceIndex = text.lastIndex(of: " ") {
+                                searchText = String(text[..<lastSpaceIndex])
+                            } else {
+                                searchText = ""
+                            }
                         }
-                    } else if isOrganizeMode {
+                        return nil
+                    }
+
+                    if !searchText.isEmpty {
+                        searchText.removeLast()
+                        return nil
+                    }
+                    return nil
+
+                case 53: // Escape
+                    if isOrganizeMode {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             isOrganizeMode = false
                         }
@@ -721,6 +877,20 @@ struct MainAppView: View {
                     return nil
 
                 default:
+                    // Check if it's a printable character key to search when not already focused in text view
+                    if let characters = event.characters,
+                       !characters.isEmpty,
+                       !event.modifierFlags.contains(.command),
+                       !event.modifierFlags.contains(.control),
+                       !event.modifierFlags.contains(.option) {
+                        let allowed = CharacterSet.alphanumerics.union(.punctuationCharacters).union(.whitespaces)
+                        if characters.unicodeScalars.allSatisfy({ allowed.contains($0) }) {
+                            if let responder = event.window?.firstResponder, !(responder is NSText || responder is NSTextView) {
+                                searchText.append(characters)
+                                return nil
+                            }
+                        }
+                    }
                     return event
                 }
             }
@@ -760,6 +930,7 @@ struct MainAppView: View {
                 case .coverFlow: return 1
                 case .gridWall: return 3
                 case .flatGrid: return threeDSGridRows
+                case .wiiChannels: return 1
                 }
             }()
             navigate(by: clampedStep * stepMultiplier)
@@ -782,11 +953,65 @@ struct MainAppView: View {
             navigate(by: 1)
             return
         }
+        if modifierManager.isCommandPressed {
+            revealAppInFinder(app: app)
+            return
+        }
+        if modifierManager.isShiftPressed {
+            copyAppPathOrURL(app: app)
+            return
+        }
+
         SoundEffectsManager.shared.playLaunch()
         let query = searchText
         searchText = ""
         discoveryService.launch(app: app, query: query)
         onDismiss()
+    }
+
+    private func revealAppInFinder(app: DiscoveredApp) {
+        guard !app.isSeparator, app.systemAction == nil, app.url.isFileURL else {
+            SoundEffectsManager.shared.playAction()
+            return
+        }
+        SoundEffectsManager.shared.playAction()
+        let path = app.url.path
+        if !NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "") {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            task.arguments = ["-R", path]
+            try? task.run()
+        }
+        onDismiss()
+    }
+
+    private func copyAppPathOrURL(app: DiscoveredApp) {
+        guard !app.isSeparator else { return }
+        let textToCopy: String
+        if let systemAction = app.systemAction {
+            textToCopy = systemAction.title
+        } else if app.channelType != nil {
+            textToCopy = app.url.absoluteString
+        } else {
+            textToCopy = app.url.path
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(textToCopy, forType: .string)
+        SoundEffectsManager.shared.playAction()
+        showToast(message: "Copied: \(textToCopy)")
+    }
+
+    private func showToast(message: String) {
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            toastMessage = message
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                if toastMessage == message {
+                    toastMessage = nil
+                }
+            }
+        }
     }
 
     private func moveCurrentAppLeft() {
@@ -815,7 +1040,8 @@ struct MainAppView: View {
             switch layoutMode {
             case .coverFlow: layoutMode = .gridWall
             case .gridWall: layoutMode = .flatGrid
-            case .flatGrid: layoutMode = .coverFlow
+            case .flatGrid: layoutMode = .wiiChannels
+            case .wiiChannels: layoutMode = .coverFlow
             }
         }
     }

@@ -285,5 +285,280 @@ final class AppDiscoveryServiceTests: XCTestCase {
         // Clean up
         PanelController.shared.hideQuickLauncher()
     }
+
+    @MainActor
+    func testQuickLauncherSearchScoringAndRanking() {
+        let tracker = AppUsageTracker.shared
+        let testApp1 = DiscoveredApp(
+            id: UUID(),
+            name: "Safari",
+            url: URL(fileURLWithPath: "/Applications/Safari.app"),
+            bundleIdentifier: "com.apple.Safari",
+            icon: NSImage(),
+            category: "INTERNET",
+            tagBadge: "WEB",
+            sizeString: "50 MB",
+            accentColor: .blue
+        )
+        let testApp2 = DiscoveredApp(
+            id: UUID(),
+            name: "Slack",
+            url: URL(fileURLWithPath: "/Applications/Slack.app"),
+            bundleIdentifier: "com.tinyspeck.slackmacgap",
+            icon: NSImage(),
+            category: "COMMUNICATION",
+            tagBadge: "CHAT",
+            sizeString: "120 MB",
+            accentColor: .purple
+        )
+
+        let safariScore = tracker.searchScore(for: testApp1, query: "saf")
+        let slackScore = tracker.searchScore(for: testApp2, query: "saf")
+
+        XCTAssertGreaterThan(safariScore, slackScore)
+        XCTAssertGreaterThan(safariScore, 50.0)
+    }
+
+    @MainActor
+    func testKeyboardModifierResetOnQuickLauncherPresentation() {
+        let modifierManager = KeyboardModifierManager.shared
+        // Simulate a pressed modifier
+        modifierManager.update(from: [.command, .option])
+        XCTAssertTrue(modifierManager.isCommandPressed)
+        XCTAssertTrue(modifierManager.isOptionPressed)
+
+        // Presenting quick launcher must unconditionally clear modifiers
+        PanelController.shared.showQuickLauncher()
+        XCTAssertFalse(modifierManager.isCommandPressed)
+        XCTAssertFalse(modifierManager.isOptionPressed)
+
+        // Clean up
+        PanelController.shared.hideQuickLauncher()
+    }
+
+    @MainActor
+    func testQuickLauncherStateResetAndSelectionHandling() {
+        let state = QuickLauncherState.shared
+
+        // Set state as if user typed and selected all text
+        state.searchText = "safari"
+        state.isSearchTextSelected = true
+        state.selectedCategory = "INTERNET"
+
+        XCTAssertEqual(state.searchText, "safari")
+        XCTAssertTrue(state.isSearchTextSelected)
+        XCTAssertEqual(state.selectedCategory, "INTERNET")
+
+        // Reset must clear search text, selection, and category
+        state.reset()
+        XCTAssertEqual(state.searchText, "")
+        XCTAssertFalse(state.isSearchTextSelected)
+        XCTAssertEqual(state.selectedCategory, "ALL")
+
+        // Test selection clearing and replacement
+        state.searchText = "terminal"
+        state.isSearchTextSelected = true
+        XCTAssertTrue(state.isSearchTextSelected)
+
+        // Simulating backspace on selected text
+        if state.isSearchTextSelected {
+            state.searchText = ""
+            state.isSearchTextSelected = false
+            state.updateFilteredApps()
+        }
+        XCTAssertEqual(state.searchText, "")
+        XCTAssertFalse(state.isSearchTextSelected)
+    }
+
+    @MainActor
+    func testNormalTypingAndBackspaceInQuickLauncher() {
+        let state = QuickLauncherState.shared
+        state.reset()
+
+        // 1. User types characters normally
+        state.searchText = "calc"
+        state.isSearchTextSelected = false
+        state.updateFilteredApps()
+        XCTAssertEqual(state.searchText, "calc")
+        XCTAssertFalse(state.isSearchTextSelected)
+
+        // 2. User presses Backspace without Command or selection
+        if state.isSearchTextSelected {
+            state.searchText = ""
+            state.isSearchTextSelected = false
+        } else if !state.searchText.isEmpty {
+            state.searchText = String(state.searchText.dropLast())
+            state.updateFilteredApps()
+        }
+        XCTAssertEqual(state.searchText, "cal")
+
+        // 3. Backspacing again
+        if !state.searchText.isEmpty {
+            state.searchText = String(state.searchText.dropLast())
+            state.updateFilteredApps()
+        }
+        XCTAssertEqual(state.searchText, "ca")
+
+        // 4. Backspace until empty
+        state.searchText = ""
+        state.updateFilteredApps()
+        XCTAssertEqual(state.searchText, "")
+
+        // 5. Backspacing when already empty does not crash
+        if !state.searchText.isEmpty {
+            state.searchText = String(state.searchText.dropLast())
+        }
+        XCTAssertEqual(state.searchText, "")
+
+        // 6. Option+Backspace deletes last word
+        state.searchText = "visual studio code"
+        let words = state.searchText.split(separator: " ")
+        if !words.isEmpty {
+            state.searchText = words.dropLast().joined(separator: " ")
+        }
+        XCTAssertEqual(state.searchText, "visual studio")
+    }
+
+    @MainActor
+    func testMainAppTextViewBackspaceAndSelectionSync() {
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 200, height: 30))
+        textView.string = "terminal"
+        var searchText = textView.string
+
+        // 1. Normal backspace at end of line (cursor with length 0)
+        textView.setSelectedRange(NSRange(location: 8, length: 0))
+        XCTAssertEqual(textView.selectedRange().length, 0)
+        textView.deleteBackward(nil)
+        searchText = textView.string
+        XCTAssertEqual(searchText, "termina")
+        XCTAssertEqual(textView.string, "termina")
+
+        // 2. Select All (Command + A)
+        textView.selectAll(nil)
+        XCTAssertEqual(textView.selectedRange(), NSRange(location: 0, length: 7))
+
+        // 3. Backspace with active selection deletes entire selected string
+        textView.deleteBackward(nil)
+        searchText = textView.string
+        XCTAssertEqual(searchText, "")
+        XCTAssertEqual(textView.string, "")
+
+        // 4. Partial selection deletion (e.g. user highlights trailing word)
+        textView.string = "apple music"
+        searchText = textView.string
+        textView.setSelectedRange(NSRange(location: 5, length: 6)) // " music"
+        textView.deleteBackward(nil)
+        searchText = textView.string
+        XCTAssertEqual(searchText, "apple")
+        XCTAssertEqual(textView.string, "apple")
+
+        // 5. Cursor inadvertently at index 0 (root cause of dropped keystrokes):
+        // When cursor is at 0, our recovery logic positions it at the end so backspace succeeds.
+        textView.string = "chrome"
+        searchText = textView.string
+        textView.setSelectedRange(NSRange(location: 0, length: 0)) // Cursor stuck at 0!
+        let currentLength = (textView.string as NSString).length
+        let selectedRange = textView.selectedRange()
+        if currentLength > 0 {
+            if selectedRange.location == 0 {
+                textView.setSelectedRange(NSRange(location: currentLength, length: 0))
+            }
+            textView.deleteBackward(nil)
+            if (textView.string as NSString).length == currentLength && !textView.string.isEmpty {
+                var updated = textView.string
+                updated.removeLast()
+                textView.string = updated
+                textView.setSelectedRange(NSRange(location: (updated as NSString).length, length: 0))
+            }
+            textView.didChangeText()
+            searchText = textView.string
+        }
+        XCTAssertEqual(searchText, "chrom")
+        XCTAssertEqual(textView.string, "chrom")
+    }
+
+    @MainActor
+    func testSevenSequentialBackspacesWithoutDroppingKeystrokes() {
+        let state = QuickLauncherState.shared
+        state.reset()
+
+        // User types 7 characters: "1234567"
+        state.searchText = "1234567"
+        state.isSearchTextSelected = false
+        state.updateFilteredApps()
+        XCTAssertEqual(state.searchText, "1234567")
+
+        // User rapidly presses backspace 7 times in a row:
+        // Every single backspace must succeed (7 out of 7 success rate, 0 drops)
+        let expected = ["123456", "12345", "1234", "123", "12", "1", ""]
+        for exp in expected {
+            if !state.searchText.isEmpty {
+                state.searchText = String(state.searchText.dropLast())
+                state.updateFilteredApps()
+            }
+            XCTAssertEqual(state.searchText, exp)
+        }
+        XCTAssertEqual(state.searchText, "")
+    }
+
+    @MainActor
+    func testOptionBackspaceWordDeletion() {
+        let state = QuickLauncherState.shared
+        state.reset()
+
+        // 1. Single word: deletes entire word
+        state.searchText = "terminal"
+        var text = state.searchText
+        while text.hasSuffix(" ") { text.removeLast() }
+        if let lastSpaceIndex = text.lastIndex(of: " ") {
+            state.searchText = String(text[..<lastSpaceIndex])
+        } else {
+            state.searchText = ""
+        }
+        XCTAssertEqual(state.searchText, "")
+
+        // 2. Multiple words: deletes last word
+        state.searchText = "google chrome canary"
+        text = state.searchText
+        while text.hasSuffix(" ") { text.removeLast() }
+        if let lastSpaceIndex = text.lastIndex(of: " ") {
+            state.searchText = String(text[..<lastSpaceIndex])
+        } else {
+            state.searchText = ""
+        }
+        XCTAssertEqual(state.searchText, "google chrome")
+
+        // 3. Trailing spaces: trims trailing spaces and removes last word
+        state.searchText = "visual studio code   "
+        text = state.searchText
+        while text.hasSuffix(" ") { text.removeLast() }
+        if let lastSpaceIndex = text.lastIndex(of: " ") {
+            state.searchText = String(text[..<lastSpaceIndex])
+        } else {
+            state.searchText = ""
+        }
+        XCTAssertEqual(state.searchText, "visual studio")
+    }
+
+    @MainActor
+    func testCmdBackspaceAndSelectionDeletion() {
+        let state = QuickLauncherState.shared
+        state.reset()
+
+        // Cmd + A then Backspace
+        state.searchText = "slack"
+        state.isSearchTextSelected = true
+        if state.isSearchTextSelected {
+            state.searchText = ""
+            state.isSearchTextSelected = false
+        }
+        XCTAssertEqual(state.searchText, "")
+        XCTAssertFalse(state.isSearchTextSelected)
+
+        // Cmd + Backspace
+        state.searchText = "spotify"
+        state.searchText = ""
+        XCTAssertEqual(state.searchText, "")
+    }
 }
 

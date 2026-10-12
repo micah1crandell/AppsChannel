@@ -50,6 +50,20 @@ struct AppCardContextMenu: ViewModifier {
                 } label: {
                     Label("Delete Custom Channel", systemImage: "trash")
                 }
+            } else if let action = app.systemAction {
+                Button {
+                    onLaunch()
+                } label: {
+                    Label("Execute Action", systemImage: action.iconSymbolName)
+                }
+
+                Divider()
+
+                Button {
+                    copyToClipboard(app.name)
+                } label: {
+                    Label("Copy Action Name", systemImage: "doc.on.doc")
+                }
             } else if !app.isAppsChannelApp && !app.isSeparator {
                 Button {
                     onLaunch()
@@ -57,18 +71,16 @@ struct AppCardContextMenu: ViewModifier {
                     Label(discoveryService.isRunning(app: app) ? "Switch to Application" : "Launch Application", systemImage: "arrow.up.right.square")
                 }
 
-                if RecentDocumentsService.hasDocumentTypes(forAppAt: app.url) {
-                    Button {
-                        NotificationCenter.default.post(name: .toggleRecentDocuments, object: app)
-                    } label: {
-                        Label("Show Recent Documents (⌘↓)", systemImage: "clock.arrow.circlepath")
-                    }
-                }
-
                 Divider()
 
                 Button {
-                    NSWorkspace.shared.activateFileViewerSelecting([app.url])
+                    let path = app.url.path
+                    if !NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "") {
+                        let task = Process()
+                        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                        task.arguments = ["-R", path]
+                        try? task.run()
+                    }
                 } label: {
                     Label("Reveal in Finder", systemImage: "folder")
                 }
@@ -192,8 +204,4 @@ extension View {
     func appContextMenu(for app: DiscoveredApp, onLaunch: @escaping () -> Void) -> some View {
         self.modifier(AppCardContextMenu(app: app, onLaunch: onLaunch))
     }
-}
-
-extension Notification.Name {
-    static let toggleRecentDocuments = Notification.Name("toggleRecentDocuments")
 }

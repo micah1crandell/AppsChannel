@@ -116,6 +116,16 @@ final class MenuBarManager: NSObject {
         openQuickItem.image = NSImage(systemSymbolName: "sparkle.magnifyingglass", accessibilityDescription: nil)
         menu.addItem(openQuickItem)
 
+        let clipboardItem = NSMenuItem(
+            title: "Clipboard History",
+            action: #selector(openClipboardHistory),
+            keyEquivalent: "c"
+        )
+        clipboardItem.keyEquivalentModifierMask = [.option]
+        clipboardItem.target = self
+        clipboardItem.image = NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
+        menu.addItem(clipboardItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let prefsItem = NSMenuItem(
@@ -159,6 +169,10 @@ final class MenuBarManager: NSObject {
 
     @objc private func openQuickLauncher() {
         PanelController.shared.showQuickLauncher()
+    }
+
+    @objc private func openClipboardHistory() {
+        PanelController.shared.showClipboardHistory()
     }
 
     @objc private func openPreferences() {

@@ -62,6 +62,15 @@ Welcome to the **AppsChannel** product roadmap. This document outlines our past 
 - [x] CLI Companion management card in Settings with 1-click install into `~/.local/bin` or `/usr/local/bin` and sample command quick-copy.
 - [x] Comprehensive unit tests in `CustomChannelTests.swift` and `AppDiscoveryServiceTests.swift`.
 
+### Phase 9: Quick System Actions & Reactive Keyboard Modifiers
+- [x] Native Quick System Actions (`SystemActionService`): instant execution for *Lock Screen*, *Sleep*, *Restart*, *Shut Down*, *Empty Trash*, *Toggle Dark/Light Mode*, *Toggle Mute*, *Toggle Wi-Fi*, and *Bluetooth Settings*.
+- [x] Fuzzy search relevance and alias scoring for all system actions (e.g. `lock`, `sleep`, `restart`, `trash`, `dark`, `mute`, `wifi`).
+- [x] Safeguard confirmation alerts for destructive actions (*Restart* and *Shut Down*) with user toggle in Settings.
+- [x] Real-time reactive keyboard modifier listener (`KeyboardModifierManager`): tracks `⌘`, `⌥`, `⇧`, `⌃` on `flagsChanged` and updates HUD hints dynamically in real time.
+- [x] Contextual Return key actions: `Return` (Launch), `⌘Return` (Reveal in Finder), `⌥Return` (Recent Documents), `⇧Return` (Copy Path / URL with toast feedback).
+- [x] Full URL scheme support for system actions (`appschannel://system?action=<action>`).
+- [x] Dedicated unit test suites in `SystemActionServiceTests.swift` and `KeyboardModifierManagerTests.swift` (50 total unit tests passing).
+
 ---
 
 ## 🚀 Future Vision & Upcoming Milestones

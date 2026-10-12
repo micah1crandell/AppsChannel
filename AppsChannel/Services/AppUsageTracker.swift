@@ -200,7 +200,20 @@ final class AppUsageTracker: ObservableObject {
         "meet": ["zoom", "teams", "microsoft teams", "facetime", "slack", "discord"],
         "call": ["zoom", "teams", "microsoft teams", "facetime", "slack", "discord"],
         "pref": ["system settings", "system preferences"],
-        "settings": ["system settings", "system preferences"]
+        "settings": ["system settings", "system preferences"],
+        "lock": ["lock screen"],
+        "sleep": ["sleep"],
+        "restart": ["restart"],
+        "reboot": ["restart"],
+        "shutdown": ["shut down"],
+        "trash": ["empty trash"],
+        "empty": ["empty trash"],
+        "dark": ["toggle dark", "dark mode"],
+        "light": ["toggle dark", "light mode"],
+        "mute": ["toggle mute"],
+        "volume": ["toggle mute"],
+        "wifi": ["toggle wi-fi"],
+        "bluetooth": ["bluetooth settings"]
     ]
 
     // MARK: - Scoring: Search Query Smart Relevance
@@ -269,6 +282,41 @@ final class AppUsageTracker: ObservableObject {
             if q == aliasKey || (q.count >= 3 && aliasKey.hasPrefix(q)) {
                 if targets.contains(where: { name.contains($0) }) {
                     score += 120.0
+                }
+            }
+        }
+
+        // 4b. System Action Keywords Match
+        if let action = app.systemAction {
+            for keyword in action.keywords {
+                if keyword == q {
+                    score += 180.0
+                } else if keyword.hasPrefix(q) || q.hasPrefix(keyword) {
+                    score += 120.0
+                } else if keyword.contains(q) {
+                    score += 80.0
+                }
+            }
+        }
+
+        // 4c. Window Snapping Action Keywords & Custom Alias Match
+        if let action = app.windowAction {
+            let conf = WindowManagementService.shared.config(for: action)
+            if !conf.alias.isEmpty {
+                let aliasLower = conf.alias.lowercased()
+                if aliasLower == q {
+                    score += 220.0
+                } else if aliasLower.hasPrefix(q) || q.hasPrefix(aliasLower) {
+                    score += 140.0
+                }
+            }
+            for keyword in action.keywords {
+                if keyword == q {
+                    score += 180.0
+                } else if keyword.hasPrefix(q) || q.hasPrefix(keyword) {
+                    score += 120.0
+                } else if keyword.contains(q) {
+                    score += 80.0
                 }
             }
         }
