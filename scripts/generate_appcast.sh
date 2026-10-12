@@ -31,6 +31,20 @@ PUB_DATE="$(date -R 2>/dev/null || date "+%a, %d %b %Y %H:%M:%S %z")"
 DOWNLOAD_URL="${REPO_URL}/releases/download/v${CLEAN_VERSION}/AppsChannel.zip"
 RELEASE_NOTES_URL="${REPO_URL}/releases/tag/v${CLEAN_VERSION}"
 
+BUILD_VERSION="${5:-}"
+if [ -z "$BUILD_VERSION" ]; then
+    APP_INFO_PLIST="$(dirname "$ZIP_PATH")/AppsChannel.app/Contents/Info.plist"
+    if [ -f "$APP_INFO_PLIST" ]; then
+        BUILD_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_INFO_PLIST" 2>/dev/null || defaults read "$APP_INFO_PLIST" CFBundleVersion 2>/dev/null || echo "")"
+    fi
+fi
+if [ -z "$BUILD_VERSION" ] && [ -f "$REPO_ROOT/AppsChannel.xcodeproj/project.pbxproj" ]; then
+    BUILD_VERSION="$(grep -m1 "CURRENT_PROJECT_VERSION" "$REPO_ROOT/AppsChannel.xcodeproj/project.pbxproj" | tr -d '[:space:];' | cut -d'=' -f2 2>/dev/null || echo "")"
+fi
+if [ -z "$BUILD_VERSION" ]; then
+    BUILD_VERSION="${CLEAN_VERSION}"
+fi
+
 SIG_ATTR=""
 if [ -n "$SIGNATURE" ]; then
     SIG_ATTR="sparkle:edSignature=\"$SIGNATURE\""
@@ -42,7 +56,7 @@ ITEM_XML="        <item>
             <pubDate>${PUB_DATE}</pubDate>
             <enclosure
                 url=\"${DOWNLOAD_URL}\"
-                sparkle:version=\"${CLEAN_VERSION}\"
+                sparkle:version=\"${BUILD_VERSION}\"
                 sparkle:shortVersionString=\"${CLEAN_VERSION}\"
                 length=\"${FILE_SIZE}\"
                 ${SIG_ATTR}
