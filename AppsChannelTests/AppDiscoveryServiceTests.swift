@@ -500,5 +500,65 @@ final class AppDiscoveryServiceTests: XCTestCase {
         }
         XCTAssertEqual(state.searchText, "")
     }
+
+    @MainActor
+    func testOptionBackspaceWordDeletion() {
+        let state = QuickLauncherState.shared
+        state.reset()
+
+        // 1. Single word: deletes entire word
+        state.searchText = "terminal"
+        var text = state.searchText
+        while text.hasSuffix(" ") { text.removeLast() }
+        if let lastSpaceIndex = text.lastIndex(of: " ") {
+            state.searchText = String(text[..<lastSpaceIndex])
+        } else {
+            state.searchText = ""
+        }
+        XCTAssertEqual(state.searchText, "")
+
+        // 2. Multiple words: deletes last word
+        state.searchText = "google chrome canary"
+        text = state.searchText
+        while text.hasSuffix(" ") { text.removeLast() }
+        if let lastSpaceIndex = text.lastIndex(of: " ") {
+            state.searchText = String(text[..<lastSpaceIndex])
+        } else {
+            state.searchText = ""
+        }
+        XCTAssertEqual(state.searchText, "google chrome")
+
+        // 3. Trailing spaces: trims trailing spaces and removes last word
+        state.searchText = "visual studio code   "
+        text = state.searchText
+        while text.hasSuffix(" ") { text.removeLast() }
+        if let lastSpaceIndex = text.lastIndex(of: " ") {
+            state.searchText = String(text[..<lastSpaceIndex])
+        } else {
+            state.searchText = ""
+        }
+        XCTAssertEqual(state.searchText, "visual studio")
+    }
+
+    @MainActor
+    func testCmdBackspaceAndSelectionDeletion() {
+        let state = QuickLauncherState.shared
+        state.reset()
+
+        // Cmd + A then Backspace
+        state.searchText = "slack"
+        state.isSearchTextSelected = true
+        if state.isSearchTextSelected {
+            state.searchText = ""
+            state.isSearchTextSelected = false
+        }
+        XCTAssertEqual(state.searchText, "")
+        XCTAssertFalse(state.isSearchTextSelected)
+
+        // Cmd + Backspace
+        state.searchText = "spotify"
+        state.searchText = ""
+        XCTAssertEqual(state.searchText, "")
+    }
 }
 

@@ -337,7 +337,10 @@ struct QuickLauncherView: View {
 
     // MARK: - Direct Key & Scroll Handling
     private func setupEventMonitor() {
-        guard state.eventMonitor == nil else { return }
+        if let existing = state.eventMonitor {
+            NSEvent.removeMonitor(existing)
+            state.eventMonitor = nil
+        }
         state.eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .keyDown, .flagsChanged]) { event in
             // Only process events when QuickLauncher is visible
             guard PanelController.shared.isQuickLauncherVisible else {
@@ -421,12 +424,15 @@ struct QuickLauncherView: View {
                         return nil
                     }
 
-                    if event.modifierFlags.contains(.option) {
+                    let isOption = event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.option)
+                    if isOption {
                         if !s.searchText.isEmpty {
-                            var words = s.searchText.split(separator: " ")
-                            if !words.isEmpty {
-                                words.removeLast()
-                                s.searchText = words.isEmpty ? "" : words.joined(separator: " ")
+                            var text = s.searchText
+                            while text.hasSuffix(" ") {
+                                text.removeLast()
+                            }
+                            if let lastSpaceIndex = text.lastIndex(of: " ") {
+                                s.searchText = String(text[..<lastSpaceIndex])
                             } else {
                                 s.searchText = ""
                             }

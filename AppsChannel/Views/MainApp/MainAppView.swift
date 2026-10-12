@@ -833,63 +833,29 @@ struct MainAppView: View {
                     return nil
 
                 case 51, 117: // Backspace / Forward Delete
+                    // If focused in a text editor (e.g. search TextField), delegate 100% to AppKit's native engine
+                    if let responder = event.window?.firstResponder,
+                       responder is NSText || responder is NSTextView {
+                        return event
+                    }
+
                     if isCmd {
                         searchText = ""
-                        if let textView = event.window?.firstResponder as? NSTextView {
-                            textView.string = ""
-                            textView.setSelectedRange(NSRange(location: 0, length: 0))
-                            textView.didChangeText()
-                        }
                         return nil
                     }
 
-                    if event.modifierFlags.contains(.option) {
-                        if let textView = event.window?.firstResponder as? NSTextView {
-                            textView.deleteWordBackward(nil)
-                            let newLen = (textView.string as NSString).length
-                            textView.setSelectedRange(NSRange(location: newLen, length: 0))
-                            textView.didChangeText()
-                            searchText = textView.string
-                        } else if !searchText.isEmpty {
-                            var words = searchText.split(separator: " ")
-                            if !words.isEmpty {
-                                words.removeLast()
-                                searchText = words.isEmpty ? "" : words.joined(separator: " ")
+                    let isOption = event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.option)
+                    if isOption {
+                        if !searchText.isEmpty {
+                            var text = searchText
+                            while text.hasSuffix(" ") {
+                                text.removeLast()
+                            }
+                            if let lastSpaceIndex = text.lastIndex(of: " ") {
+                                searchText = String(text[..<lastSpaceIndex])
                             } else {
                                 searchText = ""
                             }
-                        }
-                        return nil
-                    }
-
-                    if let textView = event.window?.firstResponder as? NSTextView {
-                        let currentLength = (textView.string as NSString).length
-                        let selectedRange = textView.selectedRange()
-
-                        if selectedRange.length > 0 {
-                            // Text is selected (e.g. Cmd+A or mouse highlight)
-                            textView.deleteBackward(nil)
-                            let newLength = (textView.string as NSString).length
-                            textView.setSelectedRange(NSRange(location: newLength, length: 0))
-                            textView.didChangeText()
-                            searchText = textView.string
-                            return nil
-                        } else if currentLength > 0 {
-                            // Ensure cursor is positioned at the end if it was reset to 0
-                            if selectedRange.location == 0 {
-                                textView.setSelectedRange(NSRange(location: currentLength, length: 0))
-                            }
-                            textView.deleteBackward(nil)
-                            // If deleteBackward didn't change the string, remove the character manually
-                            if (textView.string as NSString).length == currentLength && !textView.string.isEmpty {
-                                var updated = textView.string
-                                updated.removeLast()
-                                textView.string = updated
-                                textView.setSelectedRange(NSRange(location: (updated as NSString).length, length: 0))
-                            }
-                            textView.didChangeText()
-                            searchText = textView.string
-                            return nil
                         }
                         return nil
                     }
