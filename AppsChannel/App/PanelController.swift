@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 
 final class AppsChannelPanel: NSPanel {
     override var canBecomeKey: Bool { true }
@@ -13,13 +14,15 @@ final class MainAppWindowDelegate: NSObject, NSWindowDelegate {
     }
 }
 
-final class PanelController {
+final class PanelController: ObservableObject {
     static let shared = PanelController()
 
     private var mainAppWindow: NSWindow?
     private var quickLauncherPanel: AppsChannelPanel?
-    private var clipboardPanel: AppsChannelPanel?
+    private(set) var clipboardPanel: AppsChannelPanel?
     private let windowDelegate = MainAppWindowDelegate()
+
+    @Published var isClipboardVisible: Bool = false
 
     var isVisible: Bool {
         (mainAppWindow?.isVisible == true) || (quickLauncherPanel?.isVisible == true) || (clipboardPanel?.isVisible == true)
@@ -156,21 +159,7 @@ final class PanelController {
         panel.hasShadow = false
         panel.ignoresMouseEvents = false
 
-        let hostView = ZStack {
-            Color.clear
-                .contentShape(Rectangle())
-                .ignoresSafeArea()
-                .onTapGesture { [weak self] in
-                    self?.hideClipboardHistory()
-                }
-
-            ClipboardHistoryView(
-                onClose: { [weak self] in
-                    self?.hideClipboardHistory()
-                }
-            )
-        }
-
+        let hostView = ClipboardHostView()
         let hostingView = NSHostingView(rootView: hostView)
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor
@@ -243,10 +232,6 @@ final class PanelController {
         quickLauncherPanel?.isVisible == true
     }
 
-    var isClipboardVisible: Bool {
-        clipboardPanel?.isVisible == true
-    }
-
     func toggleMainApp() {
         if isMainAppVisible {
             hideMainApp()
@@ -280,6 +265,7 @@ final class PanelController {
             WindowManagementService.shared.lastExternalApp = frontApp
             ClipboardMonitorService.shared.lastExternalApp = frontApp
         }
+        hideMainApp()
         hideQuickLauncher()
         guard let panel = clipboardPanel else { return }
 
@@ -287,6 +273,7 @@ final class PanelController {
         panel.setFrame(targetScreen.frame, display: true)
 
         lastQuickShowTime = Date()
+        isClipboardVisible = true
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
@@ -297,6 +284,7 @@ final class PanelController {
     }
 
     func hideClipboardHistory() {
+        isClipboardVisible = false
         clipboardPanel?.orderOut(nil)
     }
 
@@ -415,3 +403,30 @@ extension Notification.Name {
     static let panelDidShow = Notification.Name("AppsChannelPanelDidShow")
     static let quickLauncherDidDismiss = Notification.Name("AppsChannelQuickLauncherDidDismiss")
 }
+
+// MARK: - Clipboard Host View
+struct ClipboardHostView: View {
+    @ObservedObject var panelController = PanelController.shared
+
+    var body: some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .ignoresSafeArea()
+                .onTapGesture {
+                    panelController.hideClipboardHistory()
+                }
+
+            if panelController.isClipboardVisible {
+                ClipboardHistoryView(
+                    onClose: {
+                        panelController.hideClipboardHistory()
+                    }
+                )
+                .transition(.scale(scale: 0.96).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: panelController.isClipboardVisible)
+    }
+}
+

@@ -470,6 +470,24 @@ struct SettingsModalView: View {
                 .padding(10)
             }
 
+            // Default Layout Style (When 3D launcher or Channel Window is active)
+            if defaultMode != LauncherMode.classicLauncher.rawValue {
+                settingsGroupBox {
+                    settingsRow(
+                        icon: "square.grid.2x2.fill",
+                        iconColor: Color(red: 0.2, green: 0.8, blue: 0.4),
+                        title: "Default Layout Style",
+                        subtitle: "Presentation style for channel views (cycle with ⌘⇧V)"
+                    ) {
+                        EmptyView()
+                    }
+
+                    settingsDivider
+
+                    layoutModeChoices
+                }
+            }
+
             // System Integration
             settingsGroupBox {
                 settingsRow(
@@ -905,107 +923,14 @@ struct SettingsModalView: View {
                     icon: "square.grid.2x2.fill",
                     iconColor: Color(red: 0.2, green: 0.8, blue: 0.4),
                     title: "Default Layout Mode",
-                    subtitle: "Primary 3D presentation style (cycle anytime with ⌘V)"
+                    subtitle: "Primary presentation style (cycle anytime with ⌘⇧V)"
                 ) {
                     EmptyView()
                 }
 
                 settingsDivider
 
-                HStack(spacing: 10) {
-                    let currentMode = MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow
-
-                    // 1. Flat Grid
-                    visualChoiceButton(
-                        isSelected: currentMode == .flatGrid,
-                        title: "Flat Grid",
-                        badge: "Paged"
-                    ) { isSel in
-                        LazyVGrid(columns: [GridItem(.fixed(10)), GridItem(.fixed(10)), GridItem(.fixed(10))], spacing: 3) {
-                            ForEach(0..<6) { _ in
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(isSel ? Color.black.opacity(0.6) : Color.white.opacity(0.4))
-                                    .frame(width: 10, height: 10)
-                            }
-                        }
-                        .frame(height: 32)
-                    } onSelect: {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            layoutModeRaw = MainLayoutViewMode.flatGrid.rawValue
-                        }
-                        SoundEffectsManager.shared.playAction()
-                    }
-
-                    // 2. Cover Flow
-                    visualChoiceButton(
-                        isSelected: currentMode == .coverFlow,
-                        title: "Cover Flow",
-                        badge: "3D Stack"
-                    ) { isSel in
-                        HStack(spacing: -3) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
-                                .frame(width: 10, height: 18)
-                                .rotationEffect(.degrees(10))
-
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(isSel ? Color.black : Color.white)
-                                .frame(width: 16, height: 24)
-
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
-                                .frame(width: 10, height: 18)
-                                .rotationEffect(.degrees(-10))
-                        }
-                        .frame(height: 32)
-                    } onSelect: {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            layoutModeRaw = MainLayoutViewMode.coverFlow.rawValue
-                        }
-                        SoundEffectsManager.shared.playAction()
-                    }
-
-                    // 3. Curved Wall
-                    visualChoiceButton(
-                        isSelected: currentMode == .gridWall,
-                        title: "Curved Wall",
-                        badge: "Cylindrical"
-                    ) { isSel in
-                        HStack(spacing: 3) {
-                            ForEach(0..<4) { idx in
-                                miniWallBarPreview(index: idx, isSelected: isSel)
-                            }
-                        }
-                        .frame(height: 32)
-                    } onSelect: {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            layoutModeRaw = MainLayoutViewMode.gridWall.rawValue
-                        }
-                        SoundEffectsManager.shared.playAction()
-                    }
-
-                    // 4. Wii Channels
-                    visualChoiceButton(
-                        isSelected: currentMode == .wiiChannels,
-                        title: "Wii Channels",
-                        badge: "4×3 Paged"
-                    ) { isSel in
-                        LazyVGrid(columns: [GridItem(.fixed(6)), GridItem(.fixed(6)), GridItem(.fixed(6)), GridItem(.fixed(6))], spacing: 2) {
-                            ForEach(0..<8) { _ in
-                                RoundedRectangle(cornerRadius: 1.5)
-                                    .fill(isSel ? Color.black.opacity(0.6) : Color.white.opacity(0.4))
-                                    .frame(width: 6, height: 4.5)
-                            }
-                        }
-                        .frame(height: 32)
-                    } onSelect: {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            layoutModeRaw = MainLayoutViewMode.wiiChannels.rawValue
-                        }
-                        SoundEffectsManager.shared.playAction()
-                    }
-                }
-                .padding(10)
+                layoutModeChoices
 
                 if (MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow) == .flatGrid {
                     settingsDivider
@@ -1129,6 +1054,103 @@ struct SettingsModalView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    private var layoutModeChoices: some View {
+        HStack(spacing: 10) {
+            let currentMode = MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow
+
+            // 1. Flat Grid
+            visualChoiceButton(
+                isSelected: currentMode == .flatGrid,
+                title: "Flat Grid",
+                badge: "Paged"
+            ) { isSel in
+                LazyVGrid(columns: [GridItem(.fixed(10)), GridItem(.fixed(10)), GridItem(.fixed(10))], spacing: 3) {
+                    ForEach(0..<6) { _ in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(isSel ? Color.black.opacity(0.6) : Color.white.opacity(0.4))
+                            .frame(width: 10, height: 10)
+                    }
+                }
+                .frame(height: 32)
+            } onSelect: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    layoutModeRaw = MainLayoutViewMode.flatGrid.rawValue
+                }
+                SoundEffectsManager.shared.playAction()
+            }
+
+            // 2. Cover Flow
+            visualChoiceButton(
+                isSelected: currentMode == .coverFlow,
+                title: "Cover Flow",
+                badge: "3D Stack"
+            ) { isSel in
+                HStack(spacing: -3) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
+                        .frame(width: 10, height: 18)
+                        .rotationEffect(.degrees(10))
+
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(isSel ? Color.black : Color.white)
+                        .frame(width: 16, height: 24)
+
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
+                        .frame(width: 10, height: 18)
+                        .rotationEffect(.degrees(-10))
+                }
+                .frame(height: 32)
+            } onSelect: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    layoutModeRaw = MainLayoutViewMode.coverFlow.rawValue
+                }
+                SoundEffectsManager.shared.playAction()
+            }
+
+            // 3. Curved Wall
+            visualChoiceButton(
+                isSelected: currentMode == .gridWall,
+                title: "Curved Wall",
+                badge: "Cylindrical"
+            ) { isSel in
+                HStack(spacing: 3) {
+                    ForEach(0..<4) { idx in
+                        miniWallBarPreview(index: idx, isSelected: isSel)
+                    }
+                }
+                .frame(height: 32)
+            } onSelect: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    layoutModeRaw = MainLayoutViewMode.gridWall.rawValue
+                }
+                SoundEffectsManager.shared.playAction()
+            }
+
+            // 4. Wii Channels
+            visualChoiceButton(
+                isSelected: currentMode == .wiiChannels,
+                title: "Wii Channels",
+                badge: "4×3 Paged"
+            ) { isSel in
+                LazyVGrid(columns: [GridItem(.fixed(6)), GridItem(.fixed(6)), GridItem(.fixed(6)), GridItem(.fixed(6))], spacing: 2) {
+                    ForEach(0..<8) { _ in
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(isSel ? Color.black.opacity(0.6) : Color.white.opacity(0.4))
+                            .frame(width: 6, height: 4.5)
+                    }
+                }
+                .frame(height: 32)
+            } onSelect: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    layoutModeRaw = MainLayoutViewMode.wiiChannels.rawValue
+                }
+                SoundEffectsManager.shared.playAction()
+            }
+        }
+        .padding(10)
     }
 
     private func visualChoiceButton<Preview: View>(

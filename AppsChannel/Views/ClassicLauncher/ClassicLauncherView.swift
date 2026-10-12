@@ -1286,10 +1286,14 @@ struct ClassicLauncherView: View {
         }
 
         let query = state.searchText
-        SoundEffectsManager.shared.playLaunch()
-        discoveryService.launch(app: app, query: query)
         state.reset()
         onDismiss()
+        SoundEffectsManager.shared.playLaunch()
+        if app.systemAction == .clipboardHistory {
+            PanelController.shared.showClipboardHistory()
+            return
+        }
+        discoveryService.launch(app: app, query: query)
     }
 
     private func revealInFinder(app: DiscoveredApp) {

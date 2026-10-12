@@ -270,7 +270,7 @@ public struct ClipboardHistoryView: View {
                 .help(monitor.isPaused ? "Clipboard recording is paused. Click to resume." : "Clipboard is actively recording. Click to pause.")
 
                 // Dismiss Button (⎋)
-                Button(action: onClose) {
+                Button(action: closeAndDismiss) {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(.white.opacity(0.6))
@@ -972,6 +972,11 @@ public struct ClipboardHistoryView: View {
     private func setupEventMonitor() {
         removeEventMonitor()
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
+            guard PanelController.shared.isClipboardVisible else { return event }
+            if let eventWindow = event.window, let clipboardWindow = PanelController.shared.clipboardPanel, eventWindow != clipboardWindow {
+                return event
+            }
+
             let isCmd = event.modifierFlags.contains(.command)
             let isOpt = event.modifierFlags.contains(.option)
 
@@ -987,7 +992,7 @@ public struct ClipboardHistoryView: View {
                     SoundEffectsManager.shared.playAction()
                     return nil
                 }
-                onClose()
+                closeAndDismiss()
                 return nil
 
             case 126: // Arrow Up
@@ -1100,9 +1105,14 @@ public struct ClipboardHistoryView: View {
         isSearchFieldFocused = true
     }
 
+    private func closeAndDismiss() {
+        removeEventMonitor()
+        onClose()
+    }
+
     private func pasteItem(_ item: ClipboardItem) {
         SoundEffectsManager.shared.playLaunch()
-        onClose()
+        closeAndDismiss()
         monitor.pasteToFrontmostApp(item)
     }
 

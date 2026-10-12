@@ -503,12 +503,14 @@ struct QuickLauncherView: View {
                     return nil
                 }
 
-                // Command+Shift+V or Command+V: View Mode Switch vs. Paste
-                if event.modifierFlags.contains(.command) && (event.keyCode == 9 || event.charactersIgnoringModifiers?.lowercased() == "v") {
-                    if event.modifierFlags.contains(.shift) {
-                        cycleLayoutMode()
-                        return nil
-                    }
+                // Command+Shift+V: View Layout Mode Switch
+                if event.modifierFlags.contains(.command) && event.modifierFlags.contains(.shift) && (event.keyCode == 9 || event.charactersIgnoringModifiers?.lowercased() == "v") {
+                    cycleLayoutMode()
+                    return nil
+                }
+
+                // Command+V: Paste clipboard text into search input (strictly paste, never cycle)
+                if event.modifierFlags.contains(.command) && !event.modifierFlags.contains(.shift) && (event.keyCode == 9 || event.charactersIgnoringModifiers?.lowercased() == "v") {
                     if let pasted = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !pasted.isEmpty {
                         withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
                             if s.isSearchTextSelected {
@@ -521,9 +523,9 @@ struct QuickLauncherView: View {
                             let target = (s.cachedFilteredApps.first?.isSeparator == true && s.cachedFilteredApps.count > 1) ? 1 : 0
                             s.selectedIndex = min(target, max(0, s.cachedFilteredApps.count - 1))
                         }
+                        SoundEffectsManager.shared.playAction()
                         return nil
                     }
-                    cycleLayoutMode()
                     return nil
                 }
 
@@ -818,10 +820,14 @@ struct QuickLauncherView: View {
         }
 
         let query = state.searchText
-        SoundEffectsManager.shared.playLaunch()
-        discoveryService.launch(app: app, query: query)
         state.reset()
         onDismiss()
+        SoundEffectsManager.shared.playLaunch()
+        if app.systemAction == .clipboardHistory {
+            PanelController.shared.showClipboardHistory()
+            return
+        }
+        discoveryService.launch(app: app, query: query)
     }
 
     private func revealAppInFinder(app: DiscoveredApp) {
