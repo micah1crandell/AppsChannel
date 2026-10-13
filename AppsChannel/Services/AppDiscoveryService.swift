@@ -82,7 +82,7 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     }()
 
     var isAppsChannelApp: Bool {
-        if systemAction != nil {
+        if systemAction != nil || windowAction != nil {
             return false
         }
         if isSeparator {
@@ -91,7 +91,7 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
         if name.localizedCaseInsensitiveCompare("AppsChannel") == .orderedSame {
             return true
         }
-        if let bundleId = bundleIdentifier, bundleId.localizedCaseInsensitiveContains("AppsChannel") {
+        if let bundleId = bundleIdentifier, bundleId.caseInsensitiveCompare("com.micahcrandell.AppsChannel") == .orderedSame {
             return true
         }
         let pathLower = url.path.lowercased()
@@ -358,12 +358,16 @@ final class AppDiscoveryService: ObservableObject {
     }
 
     func loadSavedOrder() -> [String] {
-        UserDefaults.standard.stringArray(forKey: customOrderKey) ?? []
+        let saved = UserDefaults.standard.stringArray(forKey: customOrderKey) ?? []
+        return saved.filter { !$0.hasPrefix("window-snap://") }
     }
 
     func saveOrder() {
-        let order = apps.map { app -> String in
-            if app.systemAction != nil || app.windowAction != nil {
+        let order = apps.compactMap { app -> String? in
+            if app.windowAction != nil {
+                return nil
+            }
+            if app.systemAction != nil {
                 return app.url.absoluteString
             }
             if let customId = app.customChannelId {

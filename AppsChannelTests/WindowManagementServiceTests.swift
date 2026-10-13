@@ -358,4 +358,52 @@ final class WindowManagementServiceTests: XCTestCase {
         let keywordScore = AppUsageTracker.shared.searchScore(for: leftHalfApp, query: "split left")
         XCTAssertGreaterThanOrEqual(keywordScore, 100.0, "Keyword search must produce high score")
     }
+
+    func testWindowActionsAreUnrankedAndNeverPrecedeApplications() {
+        let service = WindowManagementService.shared
+        let actionApps = service.allWindowActionApps(requireHotkey: true)
+        XCTAssertFalse(actionApps.isEmpty)
+
+        // 1. isAppsChannelApp must be FALSE so window actions are not mistaken for the launcher app itself
+        for actionApp in actionApps {
+            XCTAssertFalse(actionApp.isAppsChannelApp, "Window action must not be classified as isAppsChannelApp")
+        }
+
+        // 2. Window action usageScore must be -100.0 (unranked baseline)
+        for actionApp in actionApps {
+            let score = AppUsageTracker.shared.usageScore(for: actionApp)
+            XCTAssertEqual(score, -100.0, "Window action score must be -100.0 (unranked)")
+        }
+
+        // 3. A real application must always have a higher usage score than any window action
+        let sampleRealApp = DiscoveredApp(
+            name: "TestBrowser",
+            url: URL(fileURLWithPath: "/Applications/TestBrowser.app"),
+            bundleIdentifier: "com.test.browser",
+            icon: NSImage(),
+            category: "Productivity",
+            tagBadge: "App",
+            sizeString: "100 MB",
+            accentColor: .blue
+        )
+        let realAppScore = AppUsageTracker.shared.usageScore(for: sampleRealApp)
+        XCTAssertGreaterThan(realAppScore, 0.0, "Real application must have positive base score")
+        for actionApp in actionApps {
+            XCTAssertGreaterThan(realAppScore, AppUsageTracker.shared.usageScore(for: actionApp))
+        }
+
+        // 4. Launches must not record for window actions
+        let tracker = AppUsageTracker.shared
+        guard let firstAction = actionApps.first else { return }
+        tracker.recordLaunch(app: firstAction)
+        XCTAssertEqual(tracker.usageScore(for: firstAction), -100.0, "Window action score must remain unranked after launch attempt")
+
+        // 5. Saved order sanitization
+        let dirtySavedOrder = ["/Applications/Arc.app", "window-snap://left_half", "/Applications/Xcode.app"]
+        UserDefaults.standard.set(dirtySavedOrder, forKey: "AppsChannelUserCustomOrder")
+        let cleaned = AppDiscoveryService.shared.loadSavedOrder()
+        XCTAssertFalse(cleaned.contains(where: { $0.hasPrefix("window-snap://") }), "Saved order must filter out window action URLs")
+        UserDefaults.standard.removeObject(forKey: "AppsChannelUserCustomOrder")
+    }
 }
+

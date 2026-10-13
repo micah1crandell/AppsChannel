@@ -35,7 +35,12 @@ final class AppUsageTracker: ObservableObject {
 
     // MARK: - Record App Launch & Query Association
     func recordLaunch(app: DiscoveredApp, query: String? = nil) {
-        guard !app.isAppsChannelApp, app.url.path != "/", !app.url.path.isEmpty, app.url.path.hasSuffix(".app") else { return }
+        guard !app.isAppsChannelApp,
+              app.windowAction == nil,
+              app.systemAction == nil,
+              app.url.path != "/",
+              !app.url.path.isEmpty,
+              app.url.path.hasSuffix(".app") else { return }
         let pathKey = app.url.path
 
         // 1. Update Launch Count & Recency
@@ -56,6 +61,13 @@ final class AppUsageTracker: ObservableObject {
 
     // MARK: - Scoring: General Browsing (Default Mode)
     func usageScore(for app: DiscoveredApp) -> Double {
+        if app.windowAction != nil {
+            // Unranked utility action: usage count never boosts it ahead of actual applications
+            return -100.0
+        }
+        if app.systemAction != nil {
+            return -50.0
+        }
         let baseWeight = intrinsicBaseWeight(for: app)
         let pathKey = app.url.path
         guard let record = stats.appRecords[pathKey] else {
@@ -143,6 +155,12 @@ final class AppUsageTracker: ObservableObject {
     /// Ensures primary apps (Arc, Safari, Slack, Code, Xcode, Notes, etc.) appear first
     /// even before the user has launched them from AppsChannel.
     func intrinsicBaseWeight(for app: DiscoveredApp) -> Double {
+        if app.windowAction != nil {
+            return -100.0
+        }
+        if app.systemAction != nil {
+            return -50.0
+        }
         let p = app.url.path
         let name = app.name
 
