@@ -350,6 +350,13 @@ final class WindowManagementService: ObservableObject {
 
     // MARK: - Window Snapping Execution
     func performAction(_ action: WindowSnappingAction) {
+        // Record local usage for monthly recap
+        AppUsageTracker.shared.recordUsage(
+            id: "window-snap://\(action.rawValue)",
+            name: action.title,
+            kind: .windowAction
+        )
+
         checkAccessibility()
         guard isAccessibilityGranted else {
             let now = Date()

@@ -57,6 +57,7 @@ struct SettingsModalView: View {
         case windowManagement = "Window Management"
         case clipboard = "Clipboard"
         case channels = "Channels"
+        case monthlyOverview = "Monthly Overview"
         case hiddenApps = "Hidden Apps"
         case about = "About"
 
@@ -70,6 +71,7 @@ struct SettingsModalView: View {
             case .windowManagement: return "macwindow.on.rectangle"
             case .clipboard: return "doc.on.clipboard.fill"
             case .channels: return "plus.rectangle.on.rectangle.fill"
+            case .monthlyOverview: return "chart.bar.xaxis"
             case .hiddenApps: return "eye.slash.fill"
             case .about: return "info.circle.fill"
             }
@@ -218,6 +220,8 @@ struct SettingsModalView: View {
                             ClipboardSettingsView()
                         case .channels:
                             customChannelsSettings
+                        case .monthlyOverview:
+                            MonthlyOverviewView()
                         case .hiddenApps:
                             hiddenAppsSettings
                         case .about:
@@ -735,6 +739,46 @@ struct SettingsModalView: View {
                         .buttonStyle(.plain)
                         .help("Reorder cards by current launch frequency")
                     }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+
+                settingsDivider
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Monthly Usage Overview")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
+                        Text("View monthly recaps of your most used apps, window snaps, and actions")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+
+                    Spacer()
+
+                    Button(action: {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            selectedTab = .monthlyOverview
+                        }
+                        SoundEffectsManager.shared.playAction()
+                    }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "chart.bar.xaxis")
+                            Text("View Overview")
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.white.opacity(0.15), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open Monthly Activity & Usage Overview")
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)

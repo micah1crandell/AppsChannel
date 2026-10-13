@@ -242,6 +242,11 @@ public final class ClipboardMonitorService: ObservableObject {
     }
 
     public func pasteToFrontmostApp(_ item: ClipboardItem) {
+        AppUsageTracker.shared.recordUsage(
+            id: "clipboard://paste",
+            name: "Clipboard Paste",
+            kind: .clipboard
+        )
         copyToPasteboard(item)
 
         // Activate previous external app

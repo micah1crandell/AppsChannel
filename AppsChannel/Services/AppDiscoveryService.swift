@@ -603,6 +603,11 @@ final class AppDiscoveryService: ObservableObject {
 
         // Execute System Action if applicable
         if let action = app.systemAction {
+            AppUsageTracker.shared.recordUsage(
+                id: "system://\(action.rawValue)",
+                name: action.title,
+                kind: .systemAction
+            )
             SystemActionService.shared.execute(action)
             return
         }
@@ -613,10 +618,14 @@ final class AppDiscoveryService: ObservableObject {
             return
         }
 
-        // Record launch count, recency timestamp, and search query association
-        AppUsageTracker.shared.recordLaunch(app: app, query: query)
-
+        // Custom Channels (Web, Shortcuts, Scripts)
         if let kind = app.channelType {
+            let channelId = app.customChannelId?.uuidString ?? app.url.absoluteString
+            AppUsageTracker.shared.recordUsage(
+                id: "custom://\(channelId)",
+                name: app.name,
+                kind: .customChannel
+            )
             switch kind {
             case .web:
                 NSWorkspace.shared.open(app.url)
@@ -658,6 +667,9 @@ final class AppDiscoveryService: ObservableObject {
                 return
             }
         }
+
+        // Record launch count, recency timestamp, and search query association for applications
+        AppUsageTracker.shared.recordLaunch(app: app, query: query)
 
         if app.bundleIdentifier == "com.apple.finder" {
             let scriptSource = """
