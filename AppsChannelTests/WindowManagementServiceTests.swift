@@ -308,24 +308,43 @@ final class WindowManagementServiceTests: XCTestCase {
 
     func testAllWindowActionAppsIntegration() {
         let service = WindowManagementService.shared
-        let actionApps = service.allWindowActionApps()
+        // By default, only actions with configured hotkeys are returned as tiles (11 core curated actions)
+        let curatedApps = service.allWindowActionApps(requireHotkey: true)
+        XCTAssertEqual(curatedApps.count, 11)
 
-        XCTAssertEqual(actionApps.count, 52)
+        // All 52 actions can still be retrieved when requireHotkey is false
+        let allApps = service.allWindowActionApps(requireHotkey: false)
+        XCTAssertEqual(allApps.count, 52)
 
-        for app in actionApps {
+        for app in curatedApps {
             XCTAssertEqual(app.category, "Window Management")
             XCTAssertEqual(app.sizeString, "Action")
             XCTAssertEqual(app.url.scheme, "window-snap")
             XCTAssertNotNil(app.windowAction)
             XCTAssertNotNil(app.icon)
+            XCTAssertNotEqual(app.tagBadge, "Snap", "Curated hotkey apps must display their hotkey label as badge")
         }
+
+        // Test unassigned search fallback
+        let searchMatches = service.matchingUnassignedWindowActions(query: "third")
+        XCTAssertFalse(searchMatches.isEmpty, "Search for 'third' should find unassigned third actions")
+        for match in searchMatches {
+            XCTAssertNil(service.config(for: match.windowAction!).keyCode, "Unassigned search match must not have a keyCode")
+        }
+
+        // Test dynamically assigning and clearing a hotkey
+        XCTAssertNil(service.config(for: .firstThird).keyCode)
+        service.setHotkey(keyCode: 99, carbonModifiers: 0, label: "TestKey", for: .firstThird)
+        XCTAssertEqual(service.allWindowActionApps(requireHotkey: true).count, 12)
+        service.clearHotkey(for: .firstThird)
+        XCTAssertEqual(service.allWindowActionApps(requireHotkey: true).count, 11)
     }
 
     func testSearchScoringWithAliasAndKeywords() {
         let service = WindowManagementService.shared
         service.setAlias("splitl", for: .leftHalf)
 
-        let actionApps = service.allWindowActionApps()
+        let actionApps = service.allWindowActionApps(requireHotkey: true)
         guard let leftHalfApp = actionApps.first(where: { $0.windowAction == .leftHalf }) else {
             XCTFail("Missing left half action app")
             return

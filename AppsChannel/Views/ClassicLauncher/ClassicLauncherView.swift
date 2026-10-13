@@ -180,7 +180,16 @@ final class ClassicLauncherState: ObservableObject {
 
         } else {
             // Filtered Search: Match across applications, commands, window actions, and hidden apps
-            let allCandidates = discoveryService.apps.filter { !$0.isSeparator }
+            var allCandidates = discoveryService.apps.filter { !$0.isSeparator }
+            if selectedCategory == "ALL" || selectedCategory == "WINDOW" || selectedCategory == "Window Management" {
+                let unassigned = WindowManagementService.shared.matchingUnassignedWindowActions(query: trimmed)
+                if !unassigned.isEmpty {
+                    let existingIds = Set(allCandidates.map(\.id))
+                    for item in unassigned where !existingIds.contains(item.id) {
+                        allCandidates.append(item)
+                    }
+                }
+            }
 
             let scoredCandidates: [(app: DiscoveredApp, score: Double)] = allCandidates.compactMap { app in
                 let score = usageTracker.searchScore(for: app, query: trimmed)

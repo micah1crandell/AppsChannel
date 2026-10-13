@@ -159,6 +159,17 @@ final class AppDiscoveryService: ObservableObject {
         loadInitialApps()
         setupRunningAppObservers()
         setupSpotlightQuery()
+        setupWindowActionsObserver()
+    }
+
+    private func setupWindowActionsObserver() {
+        NotificationCenter.default.addObserver(
+            forName: .windowActionsDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.reloadAfterCustomChannelChange()
+        }
     }
 
     // MARK: - Running Applications State
@@ -352,7 +363,7 @@ final class AppDiscoveryService: ObservableObject {
 
     func saveOrder() {
         let order = apps.map { app -> String in
-            if app.systemAction != nil {
+            if app.systemAction != nil || app.windowAction != nil {
                 return app.url.absoluteString
             }
             if let customId = app.customChannelId {
@@ -395,7 +406,7 @@ final class AppDiscoveryService: ObservableObject {
         }
 
         if WindowManagementService.shared.isMasterEnabled {
-            let windowActionApps = WindowManagementService.shared.allWindowActionApps()
+            let windowActionApps = WindowManagementService.shared.allWindowActionApps(requireHotkey: true)
             for actionApp in windowActionApps {
                 let key = actionApp.url.absoluteString
                 if !hidden.contains(key) && !combined.contains(where: { $0.id == actionApp.id }) {
@@ -431,7 +442,7 @@ final class AppDiscoveryService: ObservableObject {
 
             for app in combined {
                 let key: String
-                if app.systemAction != nil {
+                if app.systemAction != nil || app.windowAction != nil {
                     key = app.url.absoluteString
                 } else if let customId = app.customChannelId {
                     key = "custom://\(customId.uuidString)"

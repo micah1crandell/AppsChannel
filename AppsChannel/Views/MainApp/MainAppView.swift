@@ -75,7 +75,18 @@ struct MainAppView: View {
         }
 
         // Search Active: Smart search scoring with associative memory and aliases
-        let candidates = baseList.filter { app in
+        var searchSource = baseList
+        if selectedCategory == "ALL" || selectedCategory == "Window Management" {
+            let unassigned = WindowManagementService.shared.matchingUnassignedWindowActions(query: trimmedSearch)
+            if !unassigned.isEmpty {
+                let existingIds = Set(searchSource.map(\.id))
+                for item in unassigned where !existingIds.contains(item.id) {
+                    searchSource.append(item)
+                }
+            }
+        }
+
+        let candidates = searchSource.filter { app in
             app.name.localizedCaseInsensitiveContains(trimmedSearch) ||
             app.category.localizedCaseInsensitiveContains(trimmedSearch) ||
             AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch) >= 40.0

@@ -60,7 +60,18 @@ final class QuickLauncherState: ObservableObject {
         }
 
         // High-performance single-pass precomputed scoring (O(N) scoring instead of O(N log N))
-        let scoredCandidates: [(app: DiscoveredApp, score: Double)] = baseList.compactMap { app in
+        var searchSource = baseList
+        if selectedCategory == "ALL" || selectedCategory == "Window Management" {
+            let unassigned = WindowManagementService.shared.matchingUnassignedWindowActions(query: trimmedSearch)
+            if !unassigned.isEmpty {
+                let existingIds = Set(searchSource.map(\.id))
+                for item in unassigned where !existingIds.contains(item.id) {
+                    searchSource.append(item)
+                }
+            }
+        }
+
+        let scoredCandidates: [(app: DiscoveredApp, score: Double)] = searchSource.compactMap { app in
             let score = AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch)
             let matchesName = app.name.localizedCaseInsensitiveContains(trimmedSearch)
             let matchesCategory = app.category.localizedCaseInsensitiveContains(trimmedSearch)
