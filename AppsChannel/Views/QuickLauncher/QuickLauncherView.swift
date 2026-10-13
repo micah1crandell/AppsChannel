@@ -387,6 +387,9 @@ struct QuickLauncherView: View {
                         SoundEffectsManager.shared.playAction()
                         onDismiss()
                         return nil
+                    } else {
+                        AppDelegate.quitCompletely()
+                        return nil
                     }
                 }
 

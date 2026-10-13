@@ -152,11 +152,11 @@ final class MenuBarManager: NSObject {
         menu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(
-            title: "Quit AppsChannel Completely",
+            title: "Quit AppsChannel",
             action: #selector(quitApp),
             keyEquivalent: "q"
         )
-        quitItem.keyEquivalentModifierMask = [.command, .shift]
+        quitItem.keyEquivalentModifierMask = [.command]
         quitItem.target = self
         menu.addItem(quitItem)
 

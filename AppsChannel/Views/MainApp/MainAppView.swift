@@ -654,13 +654,17 @@ struct MainAppView: View {
                     return nil
                 }
 
-                // Command + Q: Dismiss main app window if keepRunningInBackgroundOnQuit is enabled
+                // Command + Q: Close main app window
                 if isCmd && !isShift && (event.keyCode == 12 || event.charactersIgnoringModifiers?.lowercased() == "q") {
+                    SoundEffectsManager.shared.playAction()
                     let keepAlive = UserDefaults.standard.object(forKey: "keepRunningInBackgroundOnQuit") as? Bool ?? true
                     if keepAlive {
-                        PanelController.shared.hide()
-                        return nil
+                        onDismiss()
+                        PanelController.shared.hideMainApp()
+                    } else {
+                        AppDelegate.quitCompletely()
                     }
+                    return nil
                 }
 
                 // Command+A: Select all search text
