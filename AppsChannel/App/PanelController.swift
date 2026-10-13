@@ -251,6 +251,9 @@ final class PanelController: ObservableObject {
         if isQuickLauncherVisible {
             hideQuickLauncher()
         } else {
+            if isClipboardVisible {
+                hideClipboardHistory()
+            }
             showQuickLauncher()
         }
     }
@@ -265,7 +268,6 @@ final class PanelController: ObservableObject {
             WindowManagementService.shared.lastExternalApp = frontApp
             ClipboardMonitorService.shared.lastExternalApp = frontApp
         }
-        hideMainApp()
         hideQuickLauncher()
         guard let panel = clipboardPanel else { return }
 
@@ -297,26 +299,16 @@ final class PanelController: ObservableObject {
     }
 
     func toggle() {
-        if isClipboardVisible {
-            hideClipboardHistory()
-            return
-        }
-        if isQuickLauncherVisible {
-            hideQuickLauncher()
-            return
-        }
-        if isMainAppVisible {
-            hideMainApp()
-            return
-        }
-        show()
+        toggleQuickLauncher()
     }
 
     func show(mode: LauncherMode? = nil) {
         let targetMode: LauncherMode
         if let mode = mode {
             targetMode = mode
-        } else if let raw = UserDefaults.standard.string(forKey: "defaultMode"), let m = LauncherMode(rawValue: raw) {
+        } else if let raw = UserDefaults.standard.string(forKey: "defaultMode"),
+                  let m = LauncherMode(rawValue: raw),
+                  m != .fullScreen {
             targetMode = m
         } else {
             targetMode = .classicLauncher
@@ -340,9 +332,11 @@ final class PanelController: ObservableObject {
         hideClipboardHistory()
         guard let window = mainAppWindow else { return }
 
-        // Position on target screen where mouse is currently located
-        let targetScreen = Self.targetScreenForPointer()
-        repositionWindowInsideVisibleScreen(window, on: targetScreen)
+        // Position on target screen where mouse is currently located (only if not already visible)
+        if !window.isVisible {
+            let targetScreen = Self.targetScreenForPointer()
+            repositionWindowInsideVisibleScreen(window, on: targetScreen)
+        }
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -395,7 +389,6 @@ final class PanelController: ObservableObject {
     func hide() {
         hideQuickLauncher()
         hideClipboardHistory()
-        mainAppWindow?.orderOut(nil)
     }
 }
 

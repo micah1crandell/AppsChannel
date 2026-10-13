@@ -267,7 +267,12 @@ struct SettingsModalView: View {
                     lineWidth: 1
                 )
         )
-        .shadow(color: Color.black.opacity(0.65), radius: 32, x: 0, y: 16)
+        .onAppear {
+            if defaultMode == LauncherMode.fullScreen.rawValue {
+                defaultMode = LauncherMode.classicLauncher.rawValue
+                UserDefaults.standard.set("classic", forKey: "floatingLauncherStyle")
+            }
+        }
         .onDisappear {
             stopRecordingShortcut()
         }
@@ -413,9 +418,8 @@ struct SettingsModalView: View {
                 accentColor: Color(red: 0.05, green: 0.52, blue: 1.0)
             ) {
                 let modeTitle: String = {
-                    if defaultMode == LauncherMode.classicLauncher.rawValue { return "Classic Launcher" }
                     if defaultMode == LauncherMode.quickLauncher.rawValue { return "Quick HUD" }
-                    return "Channel Window"
+                    return "Classic Launcher"
                 }()
                 pillBadge(
                     text: modeTitle,
@@ -428,8 +432,8 @@ struct SettingsModalView: View {
                 settingsRow(
                     icon: "slider.horizontal.2.square",
                     iconColor: Color(red: 0.05, green: 0.52, blue: 1.0),
-                    title: "Default Mode",
-                    subtitle: "Choose interface summoned on hotkey or app launch"
+                    title: "Quick Launcher Style",
+                    subtitle: "Choose the floating style summoned by the shortcut (use ⌘O to open Channel Window)"
                 ) {
                     EmptyView()
                 }
@@ -441,7 +445,7 @@ struct SettingsModalView: View {
                         mode: .classicLauncher,
                         title: "Classic Launcher",
                         badge: "Raycast Style",
-                        isSelected: defaultMode == LauncherMode.classicLauncher.rawValue
+                        isSelected: defaultMode != LauncherMode.quickLauncher.rawValue
                     ) { isSel in
                         miniClassicLauncherPreview(isSelected: isSel)
                             .frame(height: 26)
@@ -460,22 +464,12 @@ struct SettingsModalView: View {
                         }
                         .frame(height: 26)
                     }
-
-                    visualModeCard(
-                        mode: .fullScreen,
-                        title: "Channel Window",
-                        badge: "Full Menu",
-                        isSelected: defaultMode == LauncherMode.fullScreen.rawValue
-                    ) { isSel in
-                        miniFullWindowPreview(isSelected: isSel)
-                            .frame(height: 26)
-                    }
                 }
                 .padding(10)
             }
 
-            // Default Layout Style (When 3D launcher or Channel Window is active)
-            if defaultMode != LauncherMode.classicLauncher.rawValue {
+            // Default Layout Style (When Quick Launcher 3D HUD is active)
+            if defaultMode == LauncherMode.quickLauncher.rawValue {
                 settingsGroupBox {
                     settingsRow(
                         icon: "square.grid.2x2.fill",
@@ -1396,8 +1390,8 @@ struct SettingsModalView: View {
                 settingsRow(
                     icon: "keyboard.fill",
                     iconColor: Color(red: 1.0, green: 0.55, blue: 0.0),
-                    title: "Global Shortcut",
-                    subtitle: "Summons AppsChannel floating launcher or channel window from anywhere"
+                    title: "Quick Launcher Shortcut",
+                    subtitle: "Summons the floating Quick Launcher from anywhere"
                 ) {
                     if isRecordingShortcut {
                         HStack(spacing: 6) {
@@ -1648,6 +1642,8 @@ struct SettingsModalView: View {
                 settingsDivider
 
                 modifierHintRow(keys: "↵", label: "Launch Focused Application", icon: "arrow.up.forward.app.fill")
+                settingsDivider
+                modifierHintRow(keys: "⌘O", label: "Open Channel Window (from Quick Launcher)", icon: "macwindow.and.cursorarrow")
                 settingsDivider
                 modifierHintRow(keys: "⌘↵", label: "Reveal in macOS Finder", icon: "folder.fill")
                 settingsDivider

@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if keepAlive {
             DispatchQueue.main.async {
                 PanelController.shared.hide()
+                PanelController.shared.hideMainApp()
             }
             return .terminateCancel
         }

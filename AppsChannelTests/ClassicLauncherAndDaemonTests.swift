@@ -200,4 +200,46 @@ final class ClassicLauncherAndDaemonTests: XCTestCase {
         // Reset to classic
         UserDefaults.standard.set("classic", forKey: "floatingLauncherStyle")
     }
+
+    // MARK: - 5. PanelController Window Isolation Tests
+    @MainActor
+    func testQuickLauncherToggleDoesNotCloseOrOpenMainAppWindow() {
+        let controller = PanelController.shared
+        controller.setup()
+
+        // 1. When main app is closed, toggle() should show quick launcher and NOT open main app
+        controller.hideMainApp()
+        controller.hideQuickLauncher()
+        XCTAssertFalse(controller.isMainAppVisible)
+        XCTAssertFalse(controller.isQuickLauncherVisible)
+
+        controller.toggle()
+        XCTAssertTrue(controller.isQuickLauncherVisible, "Quick launcher should open on toggle")
+        XCTAssertFalse(controller.isMainAppVisible, "Main app window must NOT be opened by quick launcher toggle")
+
+        // 2. Toggle again should close quick launcher and main app remains closed
+        controller.toggle()
+        XCTAssertFalse(controller.isQuickLauncherVisible, "Quick launcher should dismiss on second toggle")
+        XCTAssertFalse(controller.isMainAppVisible, "Main app window remains closed")
+
+        // 3. Open main app window explicitly
+        controller.showMainApp()
+        XCTAssertTrue(controller.isMainAppVisible, "Main app window should be visible")
+        XCTAssertFalse(controller.isQuickLauncherVisible, "Quick launcher is hidden when main app opens")
+
+        // 4. Toggle quick launcher while main app window is open:
+        // Main app window MUST NOT be closed!
+        controller.toggle()
+        XCTAssertTrue(controller.isQuickLauncherVisible, "Quick launcher should appear")
+        XCTAssertTrue(controller.isMainAppVisible, "Main app window MUST remain open and not be closed by quick launcher toggle")
+
+        // 5. Toggle again: quick launcher closes, main app window remains open
+        controller.toggle()
+        XCTAssertFalse(controller.isQuickLauncherVisible, "Quick launcher should dismiss")
+        XCTAssertTrue(controller.isMainAppVisible, "Main app window MUST still remain open")
+
+        // Clean up
+        controller.hideMainApp()
+        controller.hideQuickLauncher()
+    }
 }
