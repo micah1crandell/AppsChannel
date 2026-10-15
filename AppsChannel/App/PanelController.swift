@@ -4,7 +4,7 @@ import Combine
 
 final class AppsChannelPanel: NSPanel {
     override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
+    override var canBecomeMain: Bool { false }
 }
 
 final class MainAppWindowDelegate: NSObject, NSWindowDelegate {
@@ -90,7 +90,7 @@ final class PanelController: ObservableObject {
 
         let panel = AppsChannelPanel(
             contentRect: screenRect,
-            styleMask: [.borderless],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -147,7 +147,7 @@ final class PanelController: ObservableObject {
 
         let panel = AppsChannelPanel(
             contentRect: screenRect,
-            styleMask: [.borderless],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -277,12 +277,6 @@ final class PanelController: ObservableObject {
         lastQuickShowTime = Date()
         isClipboardVisible = true
         panel.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-
-        DispatchQueue.main.async {
-            panel.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-        }
     }
 
     func hideClipboardHistory() {
@@ -371,7 +365,6 @@ final class PanelController: ObservableObject {
         lastQuickShowTime = Date()
         KeyboardModifierManager.shared.reset()
         panel.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
 
         let resolvedMode = mode ?? (UserDefaults.standard.string(forKey: "floatingLauncherStyle") == "quick" ? LauncherMode.quickLauncher : LauncherMode.classicLauncher)
         NotificationCenter.default.post(name: .panelDidShow, object: resolvedMode)
