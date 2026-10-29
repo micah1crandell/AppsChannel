@@ -3,16 +3,122 @@ import AppKit
 import SwiftUI
 import Combine
 
-// MARK: - App Launch Analytics Record
+// MARK: - App Launch Analytics Record (Legacy app ranking compatibility)
 nonisolated struct AppLaunchRecord: Codable, Sendable {
     var launchCount: Int
     var lastLaunchedAt: Date
+}
+
+// MARK: - Unified Feature Usage Item Kind
+public enum UsageItemKind: String, Codable, CaseIterable, Sendable {
+    case application = "Applications"
+    case customChannel = "Custom Channels"
+    case windowAction = "Window Management"
+    case systemAction = "System Actions"
+    case clipboard = "Clipboard"
+
+    public var iconName: String {
+        switch self {
+        case .application: return "app.fill"
+        case .customChannel: return "globe"
+        case .windowAction: return "macwindow.on.rectangle"
+        case .systemAction: return "gearshape.2.fill"
+        case .clipboard: return "doc.on.clipboard.fill"
+        }
+    }
+
+    public var accentColor: Color {
+        switch self {
+        case .application: return Color(red: 0.15, green: 0.65, blue: 1.0)
+        case .customChannel: return Color(red: 1.0, green: 0.55, blue: 0.15)
+        case .windowAction: return Color(red: 0.05, green: 0.52, blue: 1.0)
+        case .systemAction: return Color(red: 0.75, green: 0.35, blue: 0.95)
+        case .clipboard: return Color(red: 0.15, green: 0.85, blue: 0.55)
+        }
+    }
+}
+
+// MARK: - Unified Usage Event Record
+public struct UsageEventRecord: Codable, Identifiable, Sendable {
+    public var id: String             // e.g. "/Applications/Arc.app", "window-snap://center", "custom://uuid"
+    public var name: String           // Display title, e.g. "Arc", "Center", "Google"
+    public var kind: UsageItemKind
+    public var count: Int
+    public var lastUsedAt: Date
+
+    public init(id: String, name: String, kind: UsageItemKind, count: Int = 1, lastUsedAt: Date = Date()) {
+        self.id = id
+        self.name = name
+        self.kind = kind
+        self.count = count
+        self.lastUsedAt = lastUsedAt
+    }
+}
+
+// MARK: - Monthly Usage Bucket
+public struct MonthlyUsageBucket: Codable, Sendable {
+    public var monthKey: String       // e.g. "2026-10" (YYYY-MM)
+    public var items: [String: UsageEventRecord] = [:]
+    public var totalActions: Int = 0
+
+    public init(monthKey: String, items: [String: UsageEventRecord] = [:], totalActions: Int = 0) {
+        self.monthKey = monthKey
+        self.items = items
+        self.totalActions = totalActions
+    }
 }
 
 // MARK: - App Usage Stats Persistence Structure
 nonisolated struct AppUsageStats: Codable, Sendable {
     var appRecords: [String: AppLaunchRecord] = [:]
     var searchAssociations: [String: [String: Int]] = [:]
+    var monthlyBuckets: [String: MonthlyUsageBucket] = [:]
+    var allTimeRecords: [String: UsageEventRecord] = [:]
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.appRecords = (try? container.decode([String: AppLaunchRecord].self, forKey: .appRecords)) ?? [:]
+        self.searchAssociations = (try? container.decode([String: [String: Int]].self, forKey: .searchAssociations)) ?? [:]
+        self.monthlyBuckets = (try? container.decode([String: MonthlyUsageBucket].self, forKey: .monthlyBuckets)) ?? [:]
+        self.allTimeRecords = (try? container.decode([String: UsageEventRecord].self, forKey: .allTimeRecords)) ?? [:]
+    }
+}
+
+// MARK: - Month Summary Presentation Model
+public struct MonthSummary: Sendable {
+    public let monthKey: String
+    public let title: String
+    public let totalActions: Int
+    public let items: [UsageEventRecord]
+    public let byKind: [UsageItemKind: Int]
+    public let topItem: UsageEventRecord?
+    public let topApp: UsageEventRecord?
+    public let topWindowAction: UsageEventRecord?
+    public let topChannel: UsageEventRecord?
+
+    public init(
+        monthKey: String,
+        title: String,
+        totalActions: Int,
+        items: [UsageEventRecord],
+        byKind: [UsageItemKind: Int],
+        topItem: UsageEventRecord?,
+        topApp: UsageEventRecord?,
+        topWindowAction: UsageEventRecord?,
+        topChannel: UsageEventRecord?
+    ) {
+        self.monthKey = monthKey
+        self.title = title
+        self.totalActions = totalActions
+        self.items = items
+        self.byKind = byKind
+        self.topItem = topItem
+        self.topApp = topApp
+        self.topWindowAction = topWindowAction
+        self.topChannel = topChannel
+    }
 }
 
 // MARK: - App Usage Tracker Service
@@ -33,29 +139,161 @@ final class AppUsageTracker: ObservableObject {
         loadStats()
     }
 
-    // MARK: - Record App Launch & Query Association
-    func recordLaunch(app: DiscoveredApp, query: String? = nil) {
-        guard !app.isAppsChannelApp, app.url.path != "/", !app.url.path.isEmpty, app.url.path.hasSuffix(".app") else { return }
-        let pathKey = app.url.path
+    // MARK: - Month Key Utilities
+    static func currentMonthKey(date: Date = Date()) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter.string(from: date)
+    }
 
-        // 1. Update Launch Count & Recency
-        var record = stats.appRecords[pathKey] ?? AppLaunchRecord(launchCount: 0, lastLaunchedAt: Date())
-        record.launchCount += 1
-        record.lastLaunchedAt = Date()
-        stats.appRecords[pathKey] = record
+    static func monthDisplayTitle(from monthKey: String) -> String {
+        if monthKey == "all_time" {
+            return "All Time"
+        }
+        let parts = monthKey.split(separator: "-")
+        guard parts.count == 2, let year = Int(parts[0]), let month = Int(parts[1]) else {
+            return monthKey
+        }
+        var comps = DateComponents()
+        comps.year = year
+        comps.month = month
+        comps.day = 1
+        if let date = Calendar.current.date(from: comps) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: date)
+        }
+        return monthKey
+    }
 
-        // 2. Associate Search Query with Selected App
-        if let query = query?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !query.isEmpty {
-            var associations = stats.searchAssociations[query] ?? [:]
-            associations[pathKey, default: 0] += 1
-            stats.searchAssociations[query] = associations
+    // MARK: - Unified Feature Usage Recording (100% Local)
+    func recordUsage(
+        id: String,
+        name: String,
+        kind: UsageItemKind,
+        date: Date = Date()
+    ) {
+        let monthKey = Self.currentMonthKey(date: date)
+
+        // 1. Update Monthly Bucket
+        var bucket = stats.monthlyBuckets[monthKey] ?? MonthlyUsageBucket(monthKey: monthKey)
+        bucket.totalActions += 1
+        if var existing = bucket.items[id] {
+            existing.count += 1
+            existing.lastUsedAt = date
+            existing.name = name
+            existing.kind = kind
+            bucket.items[id] = existing
+        } else {
+            bucket.items[id] = UsageEventRecord(id: id, name: name, kind: kind, count: 1, lastUsedAt: date)
+        }
+        stats.monthlyBuckets[monthKey] = bucket
+
+        // 2. Update All-Time Aggregate Record
+        if var existingAllTime = stats.allTimeRecords[id] {
+            existingAllTime.count += 1
+            existingAllTime.lastUsedAt = date
+            existingAllTime.name = name
+            existingAllTime.kind = kind
+            stats.allTimeRecords[id] = existingAllTime
+        } else {
+            stats.allTimeRecords[id] = UsageEventRecord(id: id, name: name, kind: kind, count: 1, lastUsedAt: date)
+        }
+
+        // 3. For real applications, maintain legacy ranking stats
+        if kind == .application && id.hasSuffix(".app") && !id.lowercased().contains("appschannel") {
+            var rec = stats.appRecords[id] ?? AppLaunchRecord(launchCount: 0, lastLaunchedAt: date)
+            rec.launchCount += 1
+            rec.lastLaunchedAt = date
+            stats.appRecords[id] = rec
         }
 
         saveStats()
     }
 
+    // MARK: - Record App Launch & Query Association (Compatibility)
+    func recordLaunch(app: DiscoveredApp, query: String? = nil) {
+        guard !app.isAppsChannelApp,
+              app.windowAction == nil,
+              app.systemAction == nil,
+              app.url.path != "/",
+              !app.url.path.isEmpty,
+              app.url.path.hasSuffix(".app") else { return }
+        recordUsage(id: app.url.path, name: app.name, kind: .application)
+
+        if let query = query?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !query.isEmpty {
+            recordSearchAssociation(pathKey: app.url.path, query: query)
+        }
+    }
+
+    func recordSearchAssociation(pathKey: String, query: String) {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return }
+        var associations = stats.searchAssociations[q] ?? [:]
+        associations[pathKey, default: 0] += 1
+        stats.searchAssociations[q] = associations
+        saveStats()
+    }
+
+    // MARK: - Querying Monthly Usage & Recaps
+    func availableMonthKeys() -> [String] {
+        var keys = stats.monthlyBuckets.keys.sorted(by: >)
+        if keys.isEmpty {
+            let current = Self.currentMonthKey()
+            keys.append(current)
+        }
+        return keys
+    }
+
+    func summary(for monthKey: String?) -> MonthSummary {
+        let targetKey = monthKey ?? availableMonthKeys().first ?? Self.currentMonthKey()
+        let items: [UsageEventRecord]
+        let totalActions: Int
+
+        if targetKey == "all_time" {
+            items = Array(stats.allTimeRecords.values).sorted { $0.count > $1.count }
+            totalActions = items.reduce(0) { $0 + $1.count }
+        } else if let bucket = stats.monthlyBuckets[targetKey] {
+            items = Array(bucket.items.values).sorted { $0.count > $1.count }
+            totalActions = bucket.totalActions
+        } else {
+            items = []
+            totalActions = 0
+        }
+
+        var byKind: [UsageItemKind: Int] = [:]
+        for item in items {
+            byKind[item.kind, default: 0] += item.count
+        }
+
+        let topItem = items.first
+        let topApp = items.first(where: { $0.kind == .application })
+        let topWindowAction = items.first(where: { $0.kind == .windowAction })
+        let topChannel = items.first(where: { $0.kind == .customChannel })
+
+        return MonthSummary(
+            monthKey: targetKey,
+            title: Self.monthDisplayTitle(from: targetKey),
+            totalActions: totalActions,
+            items: items,
+            byKind: byKind,
+            topItem: topItem,
+            topApp: topApp,
+            topWindowAction: topWindowAction,
+            topChannel: topChannel
+        )
+    }
+
     // MARK: - Scoring: General Browsing (Default Mode)
     func usageScore(for app: DiscoveredApp) -> Double {
+        if app.windowAction != nil {
+            // Unranked utility action: usage count never boosts it ahead of actual applications
+            return -100.0
+        }
+        if app.systemAction != nil {
+            return -50.0
+        }
         let baseWeight = intrinsicBaseWeight(for: app)
         let pathKey = app.url.path
         guard let record = stats.appRecords[pathKey] else {
@@ -143,6 +381,12 @@ final class AppUsageTracker: ObservableObject {
     /// Ensures primary apps (Arc, Safari, Slack, Code, Xcode, Notes, etc.) appear first
     /// even before the user has launched them from AppsChannel.
     func intrinsicBaseWeight(for app: DiscoveredApp) -> Double {
+        if app.windowAction != nil {
+            return -100.0
+        }
+        if app.systemAction != nil {
+            return -50.0
+        }
         let p = app.url.path
         let name = app.name
 
@@ -275,6 +519,27 @@ final class AppUsageTracker: ObservableObject {
         // Fuzzy subsequence match (e.g. "spot" matches "Spotify", "gc" matches "Google Chrome")
         if Self.fuzzyMatch(needle: q, haystack: name) {
             score += 45.0
+        }
+
+        // Bundle Identifier Match (e.g. "bitfocus" matches "test-companion.bitfocus.no")
+        if let bundleId = app.bundleIdentifier?.lowercased() {
+            if bundleId == q {
+                score += 180.0
+            } else if bundleId.contains(q) {
+                score += 85.0
+            }
+        }
+
+        // Multi-word token match (e.g. "bitfocus companion" matches an app whose combined name, bundleId, and category contain all search tokens)
+        let queryTokens = q.components(separatedBy: CharacterSet.whitespacesAndNewlines).filter { !$0.isEmpty }
+        if queryTokens.count > 1 {
+            let bundleId = app.bundleIdentifier?.lowercased() ?? ""
+            let category = app.category.lowercased()
+            let combinedSearchText = "\(name) \(bundleId) \(category)"
+            let allMatch = queryTokens.allSatisfy { combinedSearchText.contains($0) }
+            if allMatch {
+                score += 120.0
+            }
         }
 
         // 4. Aliases Match (e.g. "calc" -> "Calculator", "term" -> "iTerm")
@@ -482,6 +747,25 @@ final class AppUsageTracker: ObservableObject {
                 } else {
                     cleanedStats.searchAssociations[query] = filteredMap
                 }
+            }
+
+            if cleanedStats.allTimeRecords.isEmpty && !cleanedStats.appRecords.isEmpty {
+                let currentMonth = Self.currentMonthKey()
+                var currentBucket = cleanedStats.monthlyBuckets[currentMonth] ?? MonthlyUsageBucket(monthKey: currentMonth)
+                for (path, record) in cleanedStats.appRecords {
+                    let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+                    let event = UsageEventRecord(
+                        id: path,
+                        name: name,
+                        kind: .application,
+                        count: record.launchCount,
+                        lastUsedAt: record.lastLaunchedAt
+                    )
+                    cleanedStats.allTimeRecords[path] = event
+                    currentBucket.items[path] = event
+                    currentBucket.totalActions += record.launchCount
+                }
+                cleanedStats.monthlyBuckets[currentMonth] = currentBucket
             }
             self.stats = cleanedStats
         }

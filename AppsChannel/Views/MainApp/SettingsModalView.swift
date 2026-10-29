@@ -5,7 +5,7 @@ struct SettingsModalView: View {
     @Binding var isPresented: Bool
     @State private var selectedTab: SettingsTab = .general
     @StateObject private var launchAtLoginManager = LaunchAtLoginManager.shared
-    @AppStorage("defaultMode") private var defaultMode: String = LauncherMode.quickLauncher.rawValue
+    @AppStorage("defaultMode") private var defaultMode: String = LauncherMode.classicLauncher.rawValue
     @AppStorage("mainLayoutMode") private var layoutModeRaw: String = MainLayoutViewMode.gridWall.rawValue
     @AppStorage("appDisplayStyle") private var appDisplayStyleRaw: String = AppDisplayStyle.iconOnly.rawValue
     @AppStorage("threeDSGridRows") private var threeDSGridRows: Int = 3
@@ -15,6 +15,7 @@ struct SettingsModalView: View {
     @AppStorage("dimmingIntensity") private var dimmingIntensity: Double = 0.15
     @AppStorage("showInMenuBar") private var showInMenuBar: Bool = true
     @AppStorage("showInDock") private var showInDock: Bool = false
+    @AppStorage("keepRunningInBackgroundOnQuit") private var keepRunningInBackgroundOnQuit: Bool = true
     @AppStorage("enableSystemActions") private var enableSystemActions: Bool = true
     @AppStorage("confirmDestructiveActions") private var confirmDestructiveActions: Bool = true
 
@@ -56,6 +57,7 @@ struct SettingsModalView: View {
         case windowManagement = "Window Management"
         case clipboard = "Clipboard"
         case channels = "Channels"
+        case monthlyOverview = "Monthly Overview"
         case hiddenApps = "Hidden Apps"
         case about = "About"
 
@@ -69,6 +71,7 @@ struct SettingsModalView: View {
             case .windowManagement: return "macwindow.on.rectangle"
             case .clipboard: return "doc.on.clipboard.fill"
             case .channels: return "plus.rectangle.on.rectangle.fill"
+            case .monthlyOverview: return "chart.bar.xaxis"
             case .hiddenApps: return "eye.slash.fill"
             case .about: return "info.circle.fill"
             }
@@ -217,6 +220,8 @@ struct SettingsModalView: View {
                             ClipboardSettingsView()
                         case .channels:
                             customChannelsSettings
+                        case .monthlyOverview:
+                            MonthlyOverviewView()
                         case .hiddenApps:
                             hiddenAppsSettings
                         case .about:
@@ -262,7 +267,12 @@ struct SettingsModalView: View {
                     lineWidth: 1
                 )
         )
-        .shadow(color: Color.black.opacity(0.65), radius: 32, x: 0, y: 16)
+        .onAppear {
+            if defaultMode == LauncherMode.fullScreen.rawValue {
+                defaultMode = LauncherMode.classicLauncher.rawValue
+                UserDefaults.standard.set("classic", forKey: "floatingLauncherStyle")
+            }
+        }
         .onDisappear {
             stopRecordingShortcut()
         }
@@ -407,8 +417,12 @@ struct SettingsModalView: View {
                 title: "General",
                 accentColor: Color(red: 0.05, green: 0.52, blue: 1.0)
             ) {
+                let modeTitle: String = {
+                    if defaultMode == LauncherMode.quickLauncher.rawValue { return "Quick HUD" }
+                    return "Classic Launcher"
+                }()
                 pillBadge(
-                    text: defaultMode == LauncherMode.quickLauncher.rawValue ? "Quick Launcher" : "Channel Window",
+                    text: modeTitle,
                     color: Color(red: 0.05, green: 0.52, blue: 1.0)
                 )
             }
@@ -418,8 +432,8 @@ struct SettingsModalView: View {
                 settingsRow(
                     icon: "slider.horizontal.2.square",
                     iconColor: Color(red: 0.05, green: 0.52, blue: 1.0),
-                    title: "Default Mode",
-                    subtitle: "Choose interface summoned on hotkey or app launch"
+                    title: "Quick Launcher Style",
+                    subtitle: "Choose the floating style summoned by the shortcut (use ⌘O to open Channel Window)"
                 ) {
                     EmptyView()
                 }
@@ -428,9 +442,19 @@ struct SettingsModalView: View {
 
                 HStack(spacing: 10) {
                     visualModeCard(
+                        mode: .classicLauncher,
+                        title: "Classic Launcher",
+                        badge: "Raycast Style",
+                        isSelected: defaultMode != LauncherMode.quickLauncher.rawValue
+                    ) { isSel in
+                        miniClassicLauncherPreview(isSelected: isSel)
+                            .frame(height: 26)
+                    }
+
+                    visualModeCard(
                         mode: .quickLauncher,
                         title: "Quick Launcher",
-                        badge: "Floating HUD",
+                        badge: "3D HUD",
                         isSelected: defaultMode == LauncherMode.quickLauncher.rawValue
                     ) { isSel in
                         HStack(spacing: 5) {
@@ -440,18 +464,26 @@ struct SettingsModalView: View {
                         }
                         .frame(height: 26)
                     }
-
-                    visualModeCard(
-                        mode: .fullScreen,
-                        title: "Channel Window",
-                        badge: "Full Menu",
-                        isSelected: defaultMode == LauncherMode.fullScreen.rawValue
-                    ) { isSel in
-                        miniFullWindowPreview(isSelected: isSel)
-                            .frame(height: 26)
-                    }
                 }
                 .padding(10)
+            }
+
+            // Default Layout Style (When Quick Launcher 3D HUD is active)
+            if defaultMode == LauncherMode.quickLauncher.rawValue {
+                settingsGroupBox {
+                    settingsRow(
+                        icon: "square.grid.2x2.fill",
+                        iconColor: Color(red: 0.2, green: 0.8, blue: 0.4),
+                        title: "Default Layout Style",
+                        subtitle: "Presentation style for channel views (cycle with ⌘⇧V)"
+                    ) {
+                        EmptyView()
+                    }
+
+                    settingsDivider
+
+                    layoutModeChoices
+                }
             }
 
             // System Integration
@@ -517,6 +549,20 @@ struct SettingsModalView: View {
                     .labelsHidden()
                     .toggleStyle(.switch)
                     .tint(Color(red: 0.05, green: 0.52, blue: 1.0))
+                }
+
+                settingsDivider
+
+                settingsRow(
+                    icon: "sparkles.rectangle.stack",
+                    iconColor: Color(red: 0.1, green: 0.6, blue: 0.95),
+                    title: "Keep Active on ⌘Q",
+                    subtitle: "⌘Q dismisses launcher while keeping shortcuts ready in background"
+                ) {
+                    Toggle("", isOn: $keepRunningInBackgroundOnQuit)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(Color(red: 0.05, green: 0.52, blue: 1.0))
                 }
             }
 
@@ -690,6 +736,46 @@ struct SettingsModalView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
+
+                settingsDivider
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Monthly Usage Overview")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
+                        Text("View monthly recaps of your most used apps, window snaps, and actions")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+
+                    Spacer()
+
+                    Button(action: {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            selectedTab = .monthlyOverview
+                        }
+                        SoundEffectsManager.shared.playAction()
+                    }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "chart.bar.xaxis")
+                            Text("View Overview")
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.white.opacity(0.15), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open Monthly Activity & Usage Overview")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
 
             // Footer
@@ -697,7 +783,8 @@ struct SettingsModalView: View {
                 text: "Core launcher, daemon, and feedback preferences",
                 actionTitle: "Reset to Defaults"
             ) {
-                defaultMode = LauncherMode.quickLauncher.rawValue
+                defaultMode = LauncherMode.classicLauncher.rawValue
+                UserDefaults.standard.set("classic", forKey: "floatingLauncherStyle")
                 soundEffects = true
                 soundThemeRaw = SoundTheme.subtle.rawValue
                 hapticFeedback = true
@@ -716,6 +803,11 @@ struct SettingsModalView: View {
         Button(action: {
             withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                 defaultMode = mode.rawValue
+                if mode == .classicLauncher {
+                    UserDefaults.standard.set("classic", forKey: "floatingLauncherStyle")
+                } else if mode == .quickLauncher {
+                    UserDefaults.standard.set("quick", forKey: "floatingLauncherStyle")
+                }
             }
             SoundEffectsManager.shared.playAction()
         }) {
@@ -869,107 +961,14 @@ struct SettingsModalView: View {
                     icon: "square.grid.2x2.fill",
                     iconColor: Color(red: 0.2, green: 0.8, blue: 0.4),
                     title: "Default Layout Mode",
-                    subtitle: "Primary 3D presentation style (cycle anytime with ⌘V)"
+                    subtitle: "Primary presentation style (cycle anytime with ⌘⇧V)"
                 ) {
                     EmptyView()
                 }
 
                 settingsDivider
 
-                HStack(spacing: 10) {
-                    let currentMode = MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow
-
-                    // 1. Flat Grid
-                    visualChoiceButton(
-                        isSelected: currentMode == .flatGrid,
-                        title: "Flat Grid",
-                        badge: "Paged"
-                    ) { isSel in
-                        LazyVGrid(columns: [GridItem(.fixed(10)), GridItem(.fixed(10)), GridItem(.fixed(10))], spacing: 3) {
-                            ForEach(0..<6) { _ in
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(isSel ? Color.black.opacity(0.6) : Color.white.opacity(0.4))
-                                    .frame(width: 10, height: 10)
-                            }
-                        }
-                        .frame(height: 32)
-                    } onSelect: {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            layoutModeRaw = MainLayoutViewMode.flatGrid.rawValue
-                        }
-                        SoundEffectsManager.shared.playAction()
-                    }
-
-                    // 2. Cover Flow
-                    visualChoiceButton(
-                        isSelected: currentMode == .coverFlow,
-                        title: "Cover Flow",
-                        badge: "3D Stack"
-                    ) { isSel in
-                        HStack(spacing: -3) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
-                                .frame(width: 10, height: 18)
-                                .rotationEffect(.degrees(10))
-
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(isSel ? Color.black : Color.white)
-                                .frame(width: 16, height: 24)
-
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
-                                .frame(width: 10, height: 18)
-                                .rotationEffect(.degrees(-10))
-                        }
-                        .frame(height: 32)
-                    } onSelect: {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            layoutModeRaw = MainLayoutViewMode.coverFlow.rawValue
-                        }
-                        SoundEffectsManager.shared.playAction()
-                    }
-
-                    // 3. Curved Wall
-                    visualChoiceButton(
-                        isSelected: currentMode == .gridWall,
-                        title: "Curved Wall",
-                        badge: "Cylindrical"
-                    ) { isSel in
-                        HStack(spacing: 3) {
-                            ForEach(0..<4) { idx in
-                                miniWallBarPreview(index: idx, isSelected: isSel)
-                            }
-                        }
-                        .frame(height: 32)
-                    } onSelect: {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            layoutModeRaw = MainLayoutViewMode.gridWall.rawValue
-                        }
-                        SoundEffectsManager.shared.playAction()
-                    }
-
-                    // 4. Wii Channels
-                    visualChoiceButton(
-                        isSelected: currentMode == .wiiChannels,
-                        title: "Wii Channels",
-                        badge: "4×3 Paged"
-                    ) { isSel in
-                        LazyVGrid(columns: [GridItem(.fixed(6)), GridItem(.fixed(6)), GridItem(.fixed(6)), GridItem(.fixed(6))], spacing: 2) {
-                            ForEach(0..<8) { _ in
-                                RoundedRectangle(cornerRadius: 1.5)
-                                    .fill(isSel ? Color.black.opacity(0.6) : Color.white.opacity(0.4))
-                                    .frame(width: 6, height: 4.5)
-                            }
-                        }
-                        .frame(height: 32)
-                    } onSelect: {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            layoutModeRaw = MainLayoutViewMode.wiiChannels.rawValue
-                        }
-                        SoundEffectsManager.shared.playAction()
-                    }
-                }
-                .padding(10)
+                layoutModeChoices
 
                 if (MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow) == .flatGrid {
                     settingsDivider
@@ -1095,6 +1094,103 @@ struct SettingsModalView: View {
         .buttonStyle(.plain)
     }
 
+    private var layoutModeChoices: some View {
+        HStack(spacing: 10) {
+            let currentMode = MainLayoutViewMode(rawValue: layoutModeRaw) ?? .coverFlow
+
+            // 1. Flat Grid
+            visualChoiceButton(
+                isSelected: currentMode == .flatGrid,
+                title: "Flat Grid",
+                badge: "Paged"
+            ) { isSel in
+                LazyVGrid(columns: [GridItem(.fixed(10)), GridItem(.fixed(10)), GridItem(.fixed(10))], spacing: 3) {
+                    ForEach(0..<6) { _ in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(isSel ? Color.black.opacity(0.6) : Color.white.opacity(0.4))
+                            .frame(width: 10, height: 10)
+                    }
+                }
+                .frame(height: 32)
+            } onSelect: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    layoutModeRaw = MainLayoutViewMode.flatGrid.rawValue
+                }
+                SoundEffectsManager.shared.playAction()
+            }
+
+            // 2. Cover Flow
+            visualChoiceButton(
+                isSelected: currentMode == .coverFlow,
+                title: "Cover Flow",
+                badge: "3D Stack"
+            ) { isSel in
+                HStack(spacing: -3) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
+                        .frame(width: 10, height: 18)
+                        .rotationEffect(.degrees(10))
+
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(isSel ? Color.black : Color.white)
+                        .frame(width: 16, height: 24)
+
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(isSel ? Color.black.opacity(0.3) : Color.white.opacity(0.25))
+                        .frame(width: 10, height: 18)
+                        .rotationEffect(.degrees(-10))
+                }
+                .frame(height: 32)
+            } onSelect: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    layoutModeRaw = MainLayoutViewMode.coverFlow.rawValue
+                }
+                SoundEffectsManager.shared.playAction()
+            }
+
+            // 3. Curved Wall
+            visualChoiceButton(
+                isSelected: currentMode == .gridWall,
+                title: "Curved Wall",
+                badge: "Cylindrical"
+            ) { isSel in
+                HStack(spacing: 3) {
+                    ForEach(0..<4) { idx in
+                        miniWallBarPreview(index: idx, isSelected: isSel)
+                    }
+                }
+                .frame(height: 32)
+            } onSelect: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    layoutModeRaw = MainLayoutViewMode.gridWall.rawValue
+                }
+                SoundEffectsManager.shared.playAction()
+            }
+
+            // 4. Wii Channels
+            visualChoiceButton(
+                isSelected: currentMode == .wiiChannels,
+                title: "Wii Channels",
+                badge: "4×3 Paged"
+            ) { isSel in
+                LazyVGrid(columns: [GridItem(.fixed(6)), GridItem(.fixed(6)), GridItem(.fixed(6)), GridItem(.fixed(6))], spacing: 2) {
+                    ForEach(0..<8) { _ in
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(isSel ? Color.black.opacity(0.6) : Color.white.opacity(0.4))
+                            .frame(width: 6, height: 4.5)
+                    }
+                }
+                .frame(height: 32)
+            } onSelect: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    layoutModeRaw = MainLayoutViewMode.wiiChannels.rawValue
+                }
+                SoundEffectsManager.shared.playAction()
+            }
+        }
+        .padding(10)
+    }
+
     private func visualChoiceButton<Preview: View>(
         isSelected: Bool,
         title: String,
@@ -1131,6 +1227,60 @@ struct SettingsModalView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    private func miniClassicLauncherPreview(isSelected: Bool) -> some View {
+        let border: Color = isSelected ? Color.black.opacity(0.35) : Color.white.opacity(0.25)
+        let bg: Color = isSelected ? Color.black.opacity(0.06) : Color.white.opacity(0.06)
+        let searchBarFill: Color = isSelected ? Color.black.opacity(0.12) : Color.white.opacity(0.12)
+        let rowSelFill: Color = isSelected ? Color.black.opacity(0.25) : Color.white.opacity(0.25)
+        let rowUnselFill: Color = isSelected ? Color.black.opacity(0.06) : Color.white.opacity(0.06)
+        let iconFill: Color = isSelected ? Color.black.opacity(0.5) : Color.white.opacity(0.6)
+
+        return VStack(spacing: 2) {
+            // Top Mini Search Bar
+            HStack(spacing: 2) {
+                Circle()
+                    .fill(iconFill)
+                    .frame(width: 3, height: 3)
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(searchBarFill)
+                    .frame(height: 3)
+            }
+            .padding(.horizontal, 3)
+            .padding(.vertical, 2)
+
+            // Top Row (Selected)
+            HStack(spacing: 2) {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(iconFill)
+                    .frame(width: 3.5, height: 3.5)
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(rowSelFill)
+                    .frame(height: 3)
+            }
+            .padding(.horizontal, 2)
+            .padding(.vertical, 1.5)
+            .background(rowSelFill.opacity(0.5), in: RoundedRectangle(cornerRadius: 2))
+
+            // Second Row (Unselected)
+            HStack(spacing: 2) {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(iconFill.opacity(0.5))
+                    .frame(width: 3.5, height: 3.5)
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(rowUnselFill)
+                    .frame(height: 2.5)
+            }
+            .padding(.horizontal, 2)
+        }
+        .padding(3)
+        .frame(width: 58, height: 26)
+        .background(bg, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(border, lineWidth: 1)
+        )
     }
 
     private func miniChannelCardPreview(index: Int, isSelected: Bool) -> some View {
@@ -1240,8 +1390,8 @@ struct SettingsModalView: View {
                 settingsRow(
                     icon: "keyboard.fill",
                     iconColor: Color(red: 1.0, green: 0.55, blue: 0.0),
-                    title: "Global Shortcut",
-                    subtitle: "Summons AppsChannel floating launcher or channel window from anywhere"
+                    title: "Quick Launcher Shortcut",
+                    subtitle: "Summons the floating Quick Launcher from anywhere"
                 ) {
                     if isRecordingShortcut {
                         HStack(spacing: 6) {
@@ -1492,6 +1642,8 @@ struct SettingsModalView: View {
                 settingsDivider
 
                 modifierHintRow(keys: "↵", label: "Launch Focused Application", icon: "arrow.up.forward.app.fill")
+                settingsDivider
+                modifierHintRow(keys: "⌘O", label: "Open Channel Window (from Quick Launcher)", icon: "macwindow.and.cursorarrow")
                 settingsDivider
                 modifierHintRow(keys: "⌘↵", label: "Reveal in macOS Finder", icon: "folder.fill")
                 settingsDivider

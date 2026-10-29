@@ -252,7 +252,7 @@ struct RetroHUDView: View {
             }
             .buttonStyle(.plain)
             .contentShape(Capsule())
-            .help("Cover Flow (⌘V)")
+            .help("Cover Flow (⌘⇧V)")
 
             Button(action: {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -269,7 +269,7 @@ struct RetroHUDView: View {
             }
             .buttonStyle(.plain)
             .contentShape(Capsule())
-            .help("Curved Wall Grid (⌘V)")
+            .help("Curved Wall Grid (⌘⇧V)")
 
             Button(action: {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -286,7 +286,7 @@ struct RetroHUDView: View {
             }
             .buttonStyle(.plain)
             .contentShape(Capsule())
-            .help("Flat Grid (⌘V)")
+            .help("Flat Grid (⌘⇧V)")
 
             Button(action: {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -303,7 +303,7 @@ struct RetroHUDView: View {
             }
             .buttonStyle(.plain)
             .contentShape(Capsule())
-            .help("Wii Channels (⌘V)")
+            .help("Wii Channels (⌘⇧V)")
         }
         .padding(3)
         .background(
@@ -648,7 +648,7 @@ extension RetroHUDView {
                     } else {
                         keyboardShortcutBadge(key: "⌘1-8", label: "Groups")
                         keyboardShortcutBadge(key: "⌥1-9", label: "Quick Launch")
-                        keyboardShortcutBadge(key: "⌘V", label: "View")
+                        keyboardShortcutBadge(key: "⌘⇧V", label: "View")
                         keyboardShortcutBadge(key: "↵", label: "Open")
                         keyboardShortcutBadge(key: "⎋", label: "Close")
                     }

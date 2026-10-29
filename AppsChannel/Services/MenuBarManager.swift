@@ -185,6 +185,6 @@ final class MenuBarManager: NSObject {
     }
 
     @objc private func quitApp() {
-        NSApp.terminate(nil)
+        AppDelegate.quitCompletely()
     }
 }

@@ -17,7 +17,39 @@ struct AppsChannelApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    static var isExplicitQuit = false
+
+    static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
+        ProcessInfo.processInfo.environment["XCTestBundlePath"] != nil ||
+        NSClassFromString("XCTestCase") != nil
+    }
+
+    static func quitCompletely() {
+        isExplicitQuit = true
+        if !isRunningTests {
+            NSApp.terminate(nil)
+        }
+    }
+
     private var didHandleInitialOpen = false
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if Self.isExplicitQuit {
+            return .terminateNow
+        }
+
+        let keepAlive = UserDefaults.standard.object(forKey: "keepRunningInBackgroundOnQuit") as? Bool ?? true
+        if keepAlive {
+            DispatchQueue.main.async {
+                PanelController.shared.hide()
+                PanelController.shared.hideMainApp()
+            }
+            return .terminateCancel
+        }
+
+        return .terminateNow
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         PanelController.shared.setup()
@@ -160,6 +192,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             PanelController.shared.showMainApp()
         } else if host == "close" || host == "hide" || path == "/close" || path == "/hide" {
             PanelController.shared.hide()
+        } else if host == "quit" || host == "exit" || path == "/quit" || path == "/exit" {
+            Self.quitCompletely()
         } else if host == "toggle" || path == "/toggle" {
             PanelController.shared.toggle()
         } else if host == "preferences" || host == "settings" || path == "/preferences" || path == "/settings" {

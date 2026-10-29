@@ -60,11 +60,23 @@ final class QuickLauncherState: ObservableObject {
         }
 
         // High-performance single-pass precomputed scoring (O(N) scoring instead of O(N log N))
-        let scoredCandidates: [(app: DiscoveredApp, score: Double)] = baseList.compactMap { app in
+        var searchSource = baseList
+        if selectedCategory == "ALL" || selectedCategory == "Window Management" {
+            let unassigned = WindowManagementService.shared.matchingUnassignedWindowActions(query: trimmedSearch)
+            if !unassigned.isEmpty {
+                let existingIds = Set(searchSource.map(\.id))
+                for item in unassigned where !existingIds.contains(item.id) {
+                    searchSource.append(item)
+                }
+            }
+        }
+
+        let scoredCandidates: [(app: DiscoveredApp, score: Double)] = searchSource.compactMap { app in
             let score = AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch)
             let matchesName = app.name.localizedCaseInsensitiveContains(trimmedSearch)
             let matchesCategory = app.category.localizedCaseInsensitiveContains(trimmedSearch)
-            if matchesName || matchesCategory || score >= 40.0 {
+            let matchesBundle = app.bundleIdentifier?.localizedCaseInsensitiveContains(trimmedSearch) ?? false
+            if matchesName || matchesCategory || matchesBundle || score >= 40.0 {
                 return (app, score)
             }
             return nil
@@ -118,6 +130,7 @@ struct QuickLauncherView: View {
     @ObservedObject private var modifierManager = KeyboardModifierManager.shared
 
     let onExpandToFullScreen: () -> Void
+    var onSwitchToClassic: (() -> Void)? = nil
     let onDismiss: () -> Void
 
     @AppStorage("mainLayoutMode") private var layoutModeRaw: String = MainLayoutViewMode.gridWall.rawValue
@@ -294,7 +307,7 @@ struct QuickLauncherView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onChange(of: discoveryService.apps.count) {
+        .onChange(of: discoveryService.apps.count) { _, _ in
             state.updateFilteredApps()
             if state.selectedIndex >= displayApps.count || state.selectedIndex == 0 {
                 let center = max(0, displayApps.count / 2)
@@ -360,11 +373,40 @@ struct QuickLauncherView: View {
             } else if event.type == .keyDown {
                 KeyboardModifierManager.shared.update(from: event.modifierFlags)
                 let isCmd = event.modifierFlags.contains(.command)
+                let isShift = event.modifierFlags.contains(.shift)
+
+                // Command + Shift + Q: Explicit full quit
+                if isCmd && isShift && (event.keyCode == 12 || event.charactersIgnoringModifiers?.lowercased() == "q") {
+                    AppDelegate.quitCompletely()
+                    return nil
+                }
+
+                // Command + Q: Dismiss launcher if keepRunningInBackgroundOnQuit is enabled
+                if isCmd && !isShift && (event.keyCode == 12 || event.charactersIgnoringModifiers?.lowercased() == "q") {
+                    let keepAlive = UserDefaults.standard.object(forKey: "keepRunningInBackgroundOnQuit") as? Bool ?? true
+                    if keepAlive {
+                        SoundEffectsManager.shared.playAction()
+                        onDismiss()
+                        return nil
+                    } else {
+                        AppDelegate.quitCompletely()
+                        return nil
+                    }
+                }
 
                 // Command+O to expand to full screen
                 if isCmd && (event.keyCode == 31 || event.charactersIgnoringModifiers?.lowercased() == "o") {
                     onExpandToFullScreen()
                     return nil
+                }
+
+                // Command+L to switch to Classic Launcher
+                if isCmd && (event.keyCode == 37 || event.charactersIgnoringModifiers?.lowercased() == "l") {
+                    if let onSwitch = onSwitchToClassic {
+                        SoundEffectsManager.shared.playAction()
+                        onSwitch()
+                        return nil
+                    }
                 }
 
                 // Command+A: Select all search text
@@ -476,12 +518,14 @@ struct QuickLauncherView: View {
                     return nil
                 }
 
-                // Command+Shift+V or Command+V: View Mode Switch vs. Paste
-                if event.modifierFlags.contains(.command) && (event.keyCode == 9 || event.charactersIgnoringModifiers?.lowercased() == "v") {
-                    if event.modifierFlags.contains(.shift) {
-                        cycleLayoutMode()
-                        return nil
-                    }
+                // Command+Shift+V: View Layout Mode Switch
+                if event.modifierFlags.contains(.command) && event.modifierFlags.contains(.shift) && (event.keyCode == 9 || event.charactersIgnoringModifiers?.lowercased() == "v") {
+                    cycleLayoutMode()
+                    return nil
+                }
+
+                // Command+V: Paste clipboard text into search input (strictly paste, never cycle)
+                if event.modifierFlags.contains(.command) && !event.modifierFlags.contains(.shift) && (event.keyCode == 9 || event.charactersIgnoringModifiers?.lowercased() == "v") {
                     if let pasted = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !pasted.isEmpty {
                         withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
                             if s.isSearchTextSelected {
@@ -494,9 +538,9 @@ struct QuickLauncherView: View {
                             let target = (s.cachedFilteredApps.first?.isSeparator == true && s.cachedFilteredApps.count > 1) ? 1 : 0
                             s.selectedIndex = min(target, max(0, s.cachedFilteredApps.count - 1))
                         }
+                        SoundEffectsManager.shared.playAction()
                         return nil
                     }
-                    cycleLayoutMode()
                     return nil
                 }
 
@@ -791,10 +835,14 @@ struct QuickLauncherView: View {
         }
 
         let query = state.searchText
-        SoundEffectsManager.shared.playLaunch()
-        discoveryService.launch(app: app, query: query)
         state.reset()
         onDismiss()
+        SoundEffectsManager.shared.playLaunch()
+        if app.systemAction == .clipboardHistory {
+            PanelController.shared.showClipboardHistory()
+            return
+        }
+        discoveryService.launch(app: app, query: query)
     }
 
     private func revealAppInFinder(app: DiscoveredApp) {

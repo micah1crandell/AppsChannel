@@ -1,10 +1,48 @@
 import Foundation
 
 enum LauncherMode: String, CaseIterable, Identifiable {
-    case quickLauncher
-    case fullScreen
+    case classicLauncher = "classicLauncher"
+    case quickLauncher = "quickLauncher"
+    case fullScreen = "fullScreen"
 
     var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .classicLauncher: return "Classic Launcher"
+        case .quickLauncher: return "Quick HUD"
+        case .fullScreen: return "Channel Window"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .classicLauncher: return "Raycast-style vertical command list with smart sections & actions"
+        case .quickLauncher: return "Spotlight-style floating 3D Cover Flow & Wall Grid HUD"
+        case .fullScreen: return "Full macOS console window with interactive channels"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .classicLauncher: return "list.bullet.rectangle.portrait"
+        case .quickLauncher: return "rectangle.inset.filled.and.cursorarrow"
+        case .fullScreen: return "macwindow"
+        }
+    }
+
+    init?(rawValue: String) {
+        switch rawValue {
+        case "classicLauncher", "classic", "raycast", "list":
+            self = .classicLauncher
+        case "quickLauncher", "quick", "hud":
+            self = .quickLauncher
+        case "fullScreen", "fullscreen", "main", "mainApp":
+            self = .fullScreen
+        default:
+            return nil
+        }
+    }
 }
 
 enum MainLayoutViewMode: String, CaseIterable, Identifiable {

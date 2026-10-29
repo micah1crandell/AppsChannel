@@ -308,24 +308,43 @@ final class WindowManagementServiceTests: XCTestCase {
 
     func testAllWindowActionAppsIntegration() {
         let service = WindowManagementService.shared
-        let actionApps = service.allWindowActionApps()
+        // By default, only actions with configured hotkeys are returned as tiles (11 core curated actions)
+        let curatedApps = service.allWindowActionApps(requireHotkey: true)
+        XCTAssertEqual(curatedApps.count, 11)
 
-        XCTAssertEqual(actionApps.count, 52)
+        // All 52 actions can still be retrieved when requireHotkey is false
+        let allApps = service.allWindowActionApps(requireHotkey: false)
+        XCTAssertEqual(allApps.count, 52)
 
-        for app in actionApps {
+        for app in curatedApps {
             XCTAssertEqual(app.category, "Window Management")
             XCTAssertEqual(app.sizeString, "Action")
             XCTAssertEqual(app.url.scheme, "window-snap")
             XCTAssertNotNil(app.windowAction)
             XCTAssertNotNil(app.icon)
+            XCTAssertNotEqual(app.tagBadge, "Snap", "Curated hotkey apps must display their hotkey label as badge")
         }
+
+        // Test unassigned search fallback
+        let searchMatches = service.matchingUnassignedWindowActions(query: "third")
+        XCTAssertFalse(searchMatches.isEmpty, "Search for 'third' should find unassigned third actions")
+        for match in searchMatches {
+            XCTAssertNil(service.config(for: match.windowAction!).keyCode, "Unassigned search match must not have a keyCode")
+        }
+
+        // Test dynamically assigning and clearing a hotkey
+        XCTAssertNil(service.config(for: .firstThird).keyCode)
+        service.setHotkey(keyCode: 99, carbonModifiers: 0, label: "TestKey", for: .firstThird)
+        XCTAssertEqual(service.allWindowActionApps(requireHotkey: true).count, 12)
+        service.clearHotkey(for: .firstThird)
+        XCTAssertEqual(service.allWindowActionApps(requireHotkey: true).count, 11)
     }
 
     func testSearchScoringWithAliasAndKeywords() {
         let service = WindowManagementService.shared
         service.setAlias("splitl", for: .leftHalf)
 
-        let actionApps = service.allWindowActionApps()
+        let actionApps = service.allWindowActionApps(requireHotkey: true)
         guard let leftHalfApp = actionApps.first(where: { $0.windowAction == .leftHalf }) else {
             XCTFail("Missing left half action app")
             return
@@ -339,4 +358,52 @@ final class WindowManagementServiceTests: XCTestCase {
         let keywordScore = AppUsageTracker.shared.searchScore(for: leftHalfApp, query: "split left")
         XCTAssertGreaterThanOrEqual(keywordScore, 100.0, "Keyword search must produce high score")
     }
+
+    func testWindowActionsAreUnrankedAndNeverPrecedeApplications() {
+        let service = WindowManagementService.shared
+        let actionApps = service.allWindowActionApps(requireHotkey: true)
+        XCTAssertFalse(actionApps.isEmpty)
+
+        // 1. isAppsChannelApp must be FALSE so window actions are not mistaken for the launcher app itself
+        for actionApp in actionApps {
+            XCTAssertFalse(actionApp.isAppsChannelApp, "Window action must not be classified as isAppsChannelApp")
+        }
+
+        // 2. Window action usageScore must be -100.0 (unranked baseline)
+        for actionApp in actionApps {
+            let score = AppUsageTracker.shared.usageScore(for: actionApp)
+            XCTAssertEqual(score, -100.0, "Window action score must be -100.0 (unranked)")
+        }
+
+        // 3. A real application must always have a higher usage score than any window action
+        let sampleRealApp = DiscoveredApp(
+            name: "TestBrowser",
+            url: URL(fileURLWithPath: "/Applications/TestBrowser.app"),
+            bundleIdentifier: "com.test.browser",
+            icon: NSImage(),
+            category: "Productivity",
+            tagBadge: "App",
+            sizeString: "100 MB",
+            accentColor: .blue
+        )
+        let realAppScore = AppUsageTracker.shared.usageScore(for: sampleRealApp)
+        XCTAssertGreaterThan(realAppScore, 0.0, "Real application must have positive base score")
+        for actionApp in actionApps {
+            XCTAssertGreaterThan(realAppScore, AppUsageTracker.shared.usageScore(for: actionApp))
+        }
+
+        // 4. Launches must not record for window actions
+        let tracker = AppUsageTracker.shared
+        guard let firstAction = actionApps.first else { return }
+        tracker.recordLaunch(app: firstAction)
+        XCTAssertEqual(tracker.usageScore(for: firstAction), -100.0, "Window action score must remain unranked after launch attempt")
+
+        // 5. Saved order sanitization
+        let dirtySavedOrder = ["/Applications/Arc.app", "window-snap://left_half", "/Applications/Xcode.app"]
+        UserDefaults.standard.set(dirtySavedOrder, forKey: "AppsChannelUserCustomOrder")
+        let cleaned = AppDiscoveryService.shared.loadSavedOrder()
+        XCTAssertFalse(cleaned.contains(where: { $0.hasPrefix("window-snap://") }), "Saved order must filter out window action URLs")
+        UserDefaults.standard.removeObject(forKey: "AppsChannelUserCustomOrder")
+    }
 }
+

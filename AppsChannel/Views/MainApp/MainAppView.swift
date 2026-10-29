@@ -75,9 +75,21 @@ struct MainAppView: View {
         }
 
         // Search Active: Smart search scoring with associative memory and aliases
-        let candidates = baseList.filter { app in
+        var searchSource = baseList
+        if selectedCategory == "ALL" || selectedCategory == "Window Management" {
+            let unassigned = WindowManagementService.shared.matchingUnassignedWindowActions(query: trimmedSearch)
+            if !unassigned.isEmpty {
+                let existingIds = Set(searchSource.map(\.id))
+                for item in unassigned where !existingIds.contains(item.id) {
+                    searchSource.append(item)
+                }
+            }
+        }
+
+        let candidates = searchSource.filter { app in
             app.name.localizedCaseInsensitiveContains(trimmedSearch) ||
             app.category.localizedCaseInsensitiveContains(trimmedSearch) ||
+            (app.bundleIdentifier?.localizedCaseInsensitiveContains(trimmedSearch) ?? false) ||
             AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch) >= 40.0
         }
 
@@ -460,6 +472,18 @@ struct MainAppView: View {
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: appState.isShowingWalkthrough)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.3, dampingFraction: 0.8)), value: isOrganizeMode)
         .animation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8)), value: layoutMode)
+        .onChange(of: layoutModeRaw) { _, newRaw in
+            if let mode = MainLayoutViewMode(rawValue: newRaw), mode != layoutMode {
+                withAnimation(.responsive(reduceMotion: reduceMotion, spring: .spring(response: 0.35, dampingFraction: 0.8))) {
+                    layoutMode = mode
+                }
+            }
+        }
+        .onChange(of: layoutMode) { _, newMode in
+            if layoutModeRaw != newMode.rawValue {
+                layoutModeRaw = newMode.rawValue
+            }
+        }
     }
 
     // MARK: - Transparent Floating Backdrop with Behind-Window Desktop Blur
@@ -623,6 +647,26 @@ struct MainAppView: View {
             } else if event.type == .keyDown {
                 KeyboardModifierManager.shared.update(from: event.modifierFlags)
                 let isCmd = event.modifierFlags.contains(.command)
+                let isShift = event.modifierFlags.contains(.shift)
+
+                // Command + Shift + Q: Explicit full quit
+                if isCmd && isShift && (event.keyCode == 12 || event.charactersIgnoringModifiers?.lowercased() == "q") {
+                    AppDelegate.quitCompletely()
+                    return nil
+                }
+
+                // Command + Q: Close main app window
+                if isCmd && !isShift && (event.keyCode == 12 || event.charactersIgnoringModifiers?.lowercased() == "q") {
+                    SoundEffectsManager.shared.playAction()
+                    let keepAlive = UserDefaults.standard.object(forKey: "keepRunningInBackgroundOnQuit") as? Bool ?? true
+                    if keepAlive {
+                        onDismiss()
+                        PanelController.shared.hideMainApp()
+                    } else {
+                        AppDelegate.quitCompletely()
+                    }
+                    return nil
+                }
 
                 // Command+A: Select all search text
                 if isCmd && (event.keyCode == 0 || event.charactersIgnoringModifiers?.lowercased() == "a") {
@@ -661,20 +705,22 @@ struct MainAppView: View {
                     return nil
                 }
 
-                // Command+Shift+V or Command+V: View Mode Switch vs. Paste
-                if event.modifierFlags.contains(.command) && (event.charactersIgnoringModifiers == "v" || event.charactersIgnoringModifiers == "V") {
-                    if event.modifierFlags.contains(.shift) {
-                        cycleLayoutMode()
-                        return nil
-                    }
+                // Command+Shift+V: Cycle View Layout Mode
+                if isCmd && event.modifierFlags.contains(.shift) && (event.charactersIgnoringModifiers == "v" || event.charactersIgnoringModifiers == "V") {
+                    cycleLayoutMode()
+                    return nil
+                }
+
+                // Command+V: Paste clipboard text into search input (strictly paste, never cycle)
+                if isCmd && !event.modifierFlags.contains(.shift) && (event.charactersIgnoringModifiers == "v" || event.charactersIgnoringModifiers == "V") {
                     if let responder = event.window?.firstResponder, responder is NSText || responder is NSTextView {
                         return event
                     }
                     if let pasted = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !pasted.isEmpty {
                         searchText.append(pasted)
+                        SoundEffectsManager.shared.playAction()
                         return nil
                     }
-                    cycleLayoutMode()
                     return nil
                 }
 
@@ -981,9 +1027,13 @@ struct MainAppView: View {
 
         SoundEffectsManager.shared.playLaunch()
         let query = searchText
-        discoveryService.launch(app: app, query: query)
         searchText = ""
         onDismiss()
+        if app.systemAction == .clipboardHistory {
+            PanelController.shared.showClipboardHistory()
+            return
+        }
+        discoveryService.launch(app: app, query: query)
     }
 
     private func revealAppInFinder(app: DiscoveredApp) {
@@ -1054,12 +1104,15 @@ struct MainAppView: View {
 
     private func cycleLayoutMode() {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            let next: MainLayoutViewMode
             switch layoutMode {
-            case .coverFlow: layoutMode = .gridWall
-            case .gridWall: layoutMode = .flatGrid
-            case .flatGrid: layoutMode = .wiiChannels
-            case .wiiChannels: layoutMode = .coverFlow
+            case .coverFlow: next = .gridWall
+            case .gridWall: next = .flatGrid
+            case .flatGrid: next = .wiiChannels
+            case .wiiChannels: next = .coverFlow
             }
+            layoutMode = next
+            layoutModeRaw = next.rawValue
         }
     }
 

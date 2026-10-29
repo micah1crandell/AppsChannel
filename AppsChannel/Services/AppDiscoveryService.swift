@@ -82,7 +82,7 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
     }()
 
     var isAppsChannelApp: Bool {
-        if systemAction != nil {
+        if systemAction != nil || windowAction != nil {
             return false
         }
         if isSeparator {
@@ -91,7 +91,7 @@ nonisolated struct DiscoveredApp: Identifiable, Hashable, @unchecked Sendable {
         if name.localizedCaseInsensitiveCompare("AppsChannel") == .orderedSame {
             return true
         }
-        if let bundleId = bundleIdentifier, bundleId.localizedCaseInsensitiveContains("AppsChannel") {
+        if let bundleId = bundleIdentifier, bundleId.caseInsensitiveCompare("com.micahcrandell.AppsChannel") == .orderedSame {
             return true
         }
         let pathLower = url.path.lowercased()
@@ -159,6 +159,17 @@ final class AppDiscoveryService: ObservableObject {
         loadInitialApps()
         setupRunningAppObservers()
         setupSpotlightQuery()
+        setupWindowActionsObserver()
+    }
+
+    private func setupWindowActionsObserver() {
+        NotificationCenter.default.addObserver(
+            forName: .windowActionsDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.reloadAfterCustomChannelChange()
+        }
     }
 
     // MARK: - Running Applications State
@@ -347,11 +358,15 @@ final class AppDiscoveryService: ObservableObject {
     }
 
     func loadSavedOrder() -> [String] {
-        UserDefaults.standard.stringArray(forKey: customOrderKey) ?? []
+        let saved = UserDefaults.standard.stringArray(forKey: customOrderKey) ?? []
+        return saved.filter { !$0.hasPrefix("window-snap://") }
     }
 
     func saveOrder() {
-        let order = apps.map { app -> String in
+        let order = apps.compactMap { app -> String? in
+            if app.windowAction != nil {
+                return nil
+            }
             if app.systemAction != nil {
                 return app.url.absoluteString
             }
@@ -395,7 +410,7 @@ final class AppDiscoveryService: ObservableObject {
         }
 
         if WindowManagementService.shared.isMasterEnabled {
-            let windowActionApps = WindowManagementService.shared.allWindowActionApps()
+            let windowActionApps = WindowManagementService.shared.allWindowActionApps(requireHotkey: true)
             for actionApp in windowActionApps {
                 let key = actionApp.url.absoluteString
                 if !hidden.contains(key) && !combined.contains(where: { $0.id == actionApp.id }) {
@@ -431,7 +446,7 @@ final class AppDiscoveryService: ObservableObject {
 
             for app in combined {
                 let key: String
-                if app.systemAction != nil {
+                if app.systemAction != nil || app.windowAction != nil {
                     key = app.url.absoluteString
                 } else if let customId = app.customChannelId {
                     key = "custom://\(customId.uuidString)"
@@ -588,6 +603,11 @@ final class AppDiscoveryService: ObservableObject {
 
         // Execute System Action if applicable
         if let action = app.systemAction {
+            AppUsageTracker.shared.recordUsage(
+                id: "system://\(action.rawValue)",
+                name: action.title,
+                kind: .systemAction
+            )
             SystemActionService.shared.execute(action)
             return
         }
@@ -598,10 +618,14 @@ final class AppDiscoveryService: ObservableObject {
             return
         }
 
-        // Record launch count, recency timestamp, and search query association
-        AppUsageTracker.shared.recordLaunch(app: app, query: query)
-
+        // Custom Channels (Web, Shortcuts, Scripts)
         if let kind = app.channelType {
+            let channelId = app.customChannelId?.uuidString ?? app.url.absoluteString
+            AppUsageTracker.shared.recordUsage(
+                id: "custom://\(channelId)",
+                name: app.name,
+                kind: .customChannel
+            )
             switch kind {
             case .web:
                 NSWorkspace.shared.open(app.url)
@@ -643,6 +667,9 @@ final class AppDiscoveryService: ObservableObject {
                 return
             }
         }
+
+        // Record launch count, recency timestamp, and search query association for applications
+        AppUsageTracker.shared.recordLaunch(app: app, query: query)
 
         if app.bundleIdentifier == "com.apple.finder" {
             let scriptSource = """
@@ -836,6 +863,7 @@ final class AppDiscoveryService: ObservableObject {
             URL(fileURLWithPath: "/Applications/Utilities"),
             URL(fileURLWithPath: "/System/Applications"),
             URL(fileURLWithPath: "/System/Applications/Utilities"),
+            URL(fileURLWithPath: "/System/Library/CoreServices/Applications"),
             fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
         ]
 
@@ -876,6 +904,7 @@ final class AppDiscoveryService: ObservableObject {
             URL(fileURLWithPath: "/Applications/Utilities"),
             URL(fileURLWithPath: "/System/Applications"),
             URL(fileURLWithPath: "/System/Applications/Utilities"),
+            URL(fileURLWithPath: "/System/Library/CoreServices/Applications"),
             fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
         ]
 
@@ -923,16 +952,36 @@ final class AppDiscoveryService: ObservableObject {
 
         let path = url.path
 
-        // Exclude internal system library helpers, input methods, and daemons
+        // Exclude internal frameworks, app helpers, xpc services, and build directories
+        if path.contains(".app/Contents/") || path.contains(".framework/") { return nil }
+        if path.contains("/DerivedData/") || path.contains("/build/") || path.contains("/.Trash/") { return nil }
+
+        // Exclude internal system library helpers, input methods, and background daemons
         if path.contains("/System/Library/Input Methods") || path.contains("/Library/Input Methods") { return nil }
         if path.contains("/System/Library/Image Capture") || path.contains("/Library/Image Capture") { return nil }
         if path.contains("/System/Library/Services") || path.contains("/Library/Services") { return nil }
         if path.contains("/System/Library/PrivateFrameworks") || path.contains("/Library/Apple/") { return nil }
+        if path.contains("/Library/Application Support/") || path.contains("/Library/PrivilegedHelperTools/") { return nil }
         if path.contains("/System/Library/CoreServices") && !path.hasSuffix("/Finder.app") && !path.contains("/CoreServices/Applications/") { return nil }
 
+        let isStandardAppLocation: Bool = {
+            let lower = path.lowercased()
+            if lower.hasPrefix("/applications/") || lower.hasPrefix("/system/applications/") {
+                return true
+            }
+            if lower.hasPrefix("/system/library/coreservices/applications/") {
+                return true
+            }
+            let homeApps = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications").path.lowercased()
+            if lower.hasPrefix(homeApps) {
+                return true
+            }
+            return false
+        }()
+
         let bundle = Bundle(url: url)
-        if let info = bundle?.infoDictionary {
-            // Exclude background agents, daemons, and apps with no GUI
+        if !isStandardAppLocation, let info = bundle?.infoDictionary {
+            // Exclude background agents, daemons, and apps with no GUI when located outside standard application directories
             if let uiElement = info["LSUIElement"] as? Bool, uiElement { return nil }
             if let uiElementStr = info["LSUIElement"] as? String, uiElementStr == "1" { return nil }
             if let bgOnly = info["LSBackgroundOnly"] as? Bool, bgOnly { return nil }

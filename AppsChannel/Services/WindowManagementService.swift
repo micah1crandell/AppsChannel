@@ -34,10 +34,15 @@ struct WindowActionConfig: Codable, Equatable, Sendable {
 final class WindowManagementService: ObservableObject {
     static let shared = WindowManagementService()
 
+    private var isInitialized = false
+
     @Published var isMasterEnabled: Bool = true {
         didSet {
             UserDefaults.standard.set(isMasterEnabled, forKey: masterEnabledStorageKey)
             rebuildHotKeys()
+            if isInitialized {
+                NotificationCenter.default.post(name: .windowActionsDidChange, object: nil)
+            }
         }
     }
 
@@ -71,6 +76,7 @@ final class WindowManagementService: ObservableObject {
         setupAppSwitchObserver()
         setupAppActivationObserver()
         rebuildHotKeys()
+        self.isInitialized = true
     }
 
     // MARK: - Accessibility
@@ -123,62 +129,99 @@ final class WindowManagementService: ObservableObject {
     }
 
     // MARK: - App Discovery & Search Integration
-    func allWindowActionApps() -> [DiscoveredApp] {
+    func makeDiscoveredApp(for action: WindowSnappingAction, config conf: WindowActionConfig) -> DiscoveredApp {
+        let iconSize = NSSize(width: 128, height: 128)
+        let iconImage = NSImage(size: iconSize, flipped: false) { _ in
+            let bgPath = NSBezierPath(roundedRect: NSRect(x: 16, y: 16, width: 96, height: 96), xRadius: 22, yRadius: 22)
+            NSColor(red: 0.05, green: 0.52, blue: 1.0, alpha: 1.0).setFill()
+            bgPath.fill()
+
+            let symbolName: String
+            switch action {
+            case .maximize, .almostMaximize, .toggleFullscreen: symbolName = "arrow.up.left.and.arrow.down.right"
+            case .maximizeHeight: symbolName = "arrow.up.and.down"
+            case .maximizeWidth: symbolName = "arrow.left.and.right"
+            case .makeLarger: symbolName = "plus"
+            case .makeSmaller: symbolName = "minus"
+            case .moveLeft: symbolName = "arrow.left"
+            case .moveRight: symbolName = "arrow.right"
+            case .moveTop: symbolName = "arrow.up"
+            case .moveBottom: symbolName = "arrow.down"
+            case .moveToNextDisplay: symbolName = "arrow.right.to.line"
+            case .moveToPreviousDisplay: symbolName = "arrow.left.to.line"
+            case .restore: symbolName = "arrow.counterclockwise"
+            case .minimize: symbolName = "arrow.down.to.line"
+            default: symbolName = "macwindow.on.rectangle"
+            }
+
+            let config = NSImage.SymbolConfiguration(pointSize: 44, weight: .bold)
+            if let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?.withSymbolConfiguration(config) {
+                let tinted = symbol.copy() as! NSImage
+                tinted.lockFocus()
+                NSColor.white.set()
+                NSRect(origin: .zero, size: tinted.size).fill(using: .sourceIn)
+                tinted.unlockFocus()
+                let drawRect = NSRect(x: 32, y: 32, width: 64, height: 64)
+                tinted.draw(in: drawRect)
+                return true
+            }
+            return true
+        }
+
+        // Deterministic stable UUID based on action rawValue so SwiftUI state doesn't churn
+        let deterministicId = UUID(uuidString: "20000000-0000-0000-0000-\(String(format: "%012x", abs(action.rawValue.hashValue) & 0xFFFFFFFFFFFF))")!
+
+        return DiscoveredApp(
+            id: deterministicId,
+            name: action.title,
+            url: URL(string: "window-snap://\(action.rawValue)")!,
+            bundleIdentifier: "com.micahcrandell.AppsChannel.windowAction.\(action.rawValue)",
+            icon: iconImage,
+            category: "Window Management",
+            tagBadge: conf.hotkeyLabel ?? "Snap",
+            sizeString: "Action",
+            accentColor: Color(red: 0.05, green: 0.52, blue: 1.0),
+            windowAction: action
+        )
+    }
+
+    /// Returns window actions converted to DiscoveredApp.
+    /// When `requireHotkey` is true (default), only window actions with configured shortcuts
+    /// will appear as channels / tiles in the launcher.
+    func allWindowActionApps(requireHotkey: Bool = true) -> [DiscoveredApp] {
         guard isMasterEnabled else { return [] }
         return WindowSnappingAction.allCases.compactMap { (action: WindowSnappingAction) -> DiscoveredApp? in
             let conf = self.config(for: action)
             guard conf.isEnabled else { return nil }
-
-            let iconSize = NSSize(width: 128, height: 128)
-            let iconImage = NSImage(size: iconSize, flipped: false) { _ in
-                let bgPath = NSBezierPath(roundedRect: NSRect(x: 16, y: 16, width: 96, height: 96), xRadius: 22, yRadius: 22)
-                NSColor(red: 0.05, green: 0.52, blue: 1.0, alpha: 1.0).setFill()
-                bgPath.fill()
-
-                let symbolName: String
-                switch action {
-                case .maximize, .almostMaximize, .toggleFullscreen: symbolName = "arrow.up.left.and.arrow.down.right"
-                case .maximizeHeight: symbolName = "arrow.up.and.down"
-                case .maximizeWidth: symbolName = "arrow.left.and.right"
-                case .makeLarger: symbolName = "plus"
-                case .makeSmaller: symbolName = "minus"
-                case .moveLeft: symbolName = "arrow.left"
-                case .moveRight: symbolName = "arrow.right"
-                case .moveTop: symbolName = "arrow.up"
-                case .moveBottom: symbolName = "arrow.down"
-                case .moveToNextDisplay: symbolName = "arrow.right.to.line"
-                case .moveToPreviousDisplay: symbolName = "arrow.left.to.line"
-                case .restore: symbolName = "arrow.counterclockwise"
-                case .minimize: symbolName = "arrow.down.to.line"
-                default: symbolName = "macwindow.on.rectangle"
-                }
-
-                let config = NSImage.SymbolConfiguration(pointSize: 44, weight: .bold)
-                if let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?.withSymbolConfiguration(config) {
-                    let tinted = symbol.copy() as! NSImage
-                    tinted.lockFocus()
-                    NSColor.white.set()
-                    NSRect(origin: .zero, size: tinted.size).fill(using: .sourceIn)
-                    tinted.unlockFocus()
-                    let drawRect = NSRect(x: 32, y: 32, width: 64, height: 64)
-                    tinted.draw(in: drawRect)
-                    return true
-                }
-                return true
+            if requireHotkey && conf.keyCode == nil {
+                return nil
             }
+            return makeDiscoveredApp(for: action, config: conf)
+        }
+    }
 
-            return DiscoveredApp(
-                id: UUID(),
-                name: action.title,
-                url: URL(string: "window-snap://\(action.rawValue)")!,
-                bundleIdentifier: "com.micahcrandell.AppsChannel.windowAction.\(action.rawValue)",
-                icon: iconImage,
-                category: "Window Management",
-                tagBadge: conf.hotkeyLabel ?? "Snap",
-                sizeString: "Action",
-                accentColor: Color(red: 0.05, green: 0.52, blue: 1.0),
-                windowAction: action
-            )
+    /// Dynamic search fallback: Returns unassigned window actions that match the search query.
+    func matchingUnassignedWindowActions(query: String) -> [DiscoveredApp] {
+        guard isMasterEnabled else { return [] }
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return [] }
+
+        return WindowSnappingAction.allCases.compactMap { action in
+            let conf = self.config(for: action)
+            guard conf.isEnabled else { return nil }
+            // Only unassigned actions (actions with assigned hotkeys are already in the main app list)
+            guard conf.keyCode == nil else { return nil }
+
+            let titleLower = action.title.lowercased()
+            let aliasLower = conf.alias.lowercased()
+            let titleMatch = titleLower.contains(q)
+            let aliasMatch = !aliasLower.isEmpty && aliasLower.contains(q)
+            let keywordMatch = (q.count >= 3) && action.keywords.contains { $0.lowercased().contains(q) }
+
+            if titleMatch || aliasMatch || keywordMatch {
+                return makeDiscoveredApp(for: action, config: conf)
+            }
+            return nil
         }
     }
 
@@ -220,11 +263,17 @@ final class WindowManagementService: ObservableObject {
         configs[action.rawValue] ?? WindowActionConfig()
     }
 
+    private func notifyActionsChanged() {
+        guard isInitialized else { return }
+        NotificationCenter.default.post(name: .windowActionsDidChange, object: nil)
+    }
+
     func setEnabled(_ isEnabled: Bool, for action: WindowSnappingAction) {
         var current = config(for: action)
         current.isEnabled = isEnabled
         configs[action.rawValue] = current
         rebuildHotKeys()
+        notifyActionsChanged()
     }
 
     func setAlias(_ alias: String, for action: WindowSnappingAction) {
@@ -240,6 +289,7 @@ final class WindowManagementService: ObservableObject {
         current.hotkeyLabel = label
         configs[action.rawValue] = current
         rebuildHotKeys()
+        notifyActionsChanged()
     }
 
     func clearHotkey(for action: WindowSnappingAction) {
@@ -249,6 +299,7 @@ final class WindowManagementService: ObservableObject {
         current.hotkeyLabel = nil
         configs[action.rawValue] = current
         rebuildHotKeys()
+        notifyActionsChanged()
     }
 
     func resetToDefaults() {
@@ -269,6 +320,7 @@ final class WindowManagementService: ObservableObject {
         self.configs = fresh
         self.isMasterEnabled = true
         rebuildHotKeys()
+        notifyActionsChanged()
     }
 
     // MARK: - Global HotKeys
@@ -298,6 +350,13 @@ final class WindowManagementService: ObservableObject {
 
     // MARK: - Window Snapping Execution
     func performAction(_ action: WindowSnappingAction) {
+        // Record local usage for monthly recap
+        AppUsageTracker.shared.recordUsage(
+            id: "window-snap://\(action.rawValue)",
+            name: action.title,
+            kind: .windowAction
+        )
+
         checkAccessibility()
         guard isAccessibilityGranted else {
             let now = Date()
@@ -716,3 +775,8 @@ final class WindowManagementService: ObservableObject {
         }
     }
 }
+
+extension Notification.Name {
+    static let windowActionsDidChange = Notification.Name("AppsChannelWindowActionsDidChange")
+}
+

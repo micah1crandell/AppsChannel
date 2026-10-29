@@ -2,12 +2,16 @@ import SwiftUI
 import AppKit
 
 struct LauncherView: View {
-    @AppStorage("defaultMode") private var defaultModeSetting: String = LauncherMode.quickLauncher.rawValue
-    @State private var currentMode: LauncherMode = .quickLauncher
+    @AppStorage("defaultMode") private var defaultModeSetting: String = LauncherMode.classicLauncher.rawValue
+    @State private var currentMode: LauncherMode = .classicLauncher
 
     var body: some View {
         ZStack {
             switch currentMode {
+            case .classicLauncher:
+                classicLauncherContainer
+                    .transition(.scale(scale: 0.94).combined(with: .opacity))
+
             case .quickLauncher:
                 quickLauncherContainer
                     .transition(.scale(scale: 0.94).combined(with: .opacity))
@@ -16,7 +20,7 @@ struct LauncherView: View {
                 MainAppView(
                     onSwitchToQuickLauncher: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            currentMode = .quickLauncher
+                            currentMode = .classicLauncher
                         }
                     },
                     onDismiss: {
@@ -43,6 +47,34 @@ struct LauncherView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: currentMode)
     }
 
+    // MARK: - Classic Launcher Mode Container
+    private var classicLauncherContainer: some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .ignoresSafeArea()
+                .onTapGesture {
+                    PanelController.shared.hide()
+                }
+
+            ClassicLauncherView(
+                onExpandToFullScreen: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        currentMode = .fullScreen
+                    }
+                },
+                onSwitchToQuickHUD: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        currentMode = .quickLauncher
+                    }
+                },
+                onDismiss: {
+                    PanelController.shared.hide()
+                }
+            )
+        }
+    }
+
     // MARK: - Quick Launcher Mode Container
     private var quickLauncherContainer: some View {
         ZStack {
@@ -59,6 +91,11 @@ struct LauncherView: View {
                 onExpandToFullScreen: {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                         currentMode = .fullScreen
+                    }
+                },
+                onSwitchToClassic: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        currentMode = .classicLauncher
                     }
                 },
                 onDismiss: {

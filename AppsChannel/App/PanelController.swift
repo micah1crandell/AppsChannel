@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
+import Combine
 
 final class AppsChannelPanel: NSPanel {
     override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
+    override var canBecomeMain: Bool { false }
 }
 
 final class MainAppWindowDelegate: NSObject, NSWindowDelegate {
@@ -13,13 +14,15 @@ final class MainAppWindowDelegate: NSObject, NSWindowDelegate {
     }
 }
 
-final class PanelController {
+final class PanelController: ObservableObject {
     static let shared = PanelController()
 
     private var mainAppWindow: NSWindow?
     private var quickLauncherPanel: AppsChannelPanel?
-    private var clipboardPanel: AppsChannelPanel?
+    private(set) var clipboardPanel: AppsChannelPanel?
     private let windowDelegate = MainAppWindowDelegate()
+
+    @Published var isClipboardVisible: Bool = false
 
     var isVisible: Bool {
         (mainAppWindow?.isVisible == true) || (quickLauncherPanel?.isVisible == true) || (clipboardPanel?.isVisible == true)
@@ -87,7 +90,7 @@ final class PanelController {
 
         let panel = AppsChannelPanel(
             contentRect: screenRect,
-            styleMask: [.borderless],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -107,7 +110,7 @@ final class PanelController {
                     self.hideQuickLauncher()
                 }
 
-            QuickLauncherView(
+            FloatingLauncherHostView(
                 onExpandToFullScreen: {
                     self.hideQuickLauncher()
                     self.showMainApp()
@@ -144,7 +147,7 @@ final class PanelController {
 
         let panel = AppsChannelPanel(
             contentRect: screenRect,
-            styleMask: [.borderless],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -156,21 +159,7 @@ final class PanelController {
         panel.hasShadow = false
         panel.ignoresMouseEvents = false
 
-        let hostView = ZStack {
-            Color.clear
-                .contentShape(Rectangle())
-                .ignoresSafeArea()
-                .onTapGesture { [weak self] in
-                    self?.hideClipboardHistory()
-                }
-
-            ClipboardHistoryView(
-                onClose: { [weak self] in
-                    self?.hideClipboardHistory()
-                }
-            )
-        }
-
+        let hostView = ClipboardHostView()
         let hostingView = NSHostingView(rootView: hostView)
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor
@@ -243,10 +232,6 @@ final class PanelController {
         quickLauncherPanel?.isVisible == true
     }
 
-    var isClipboardVisible: Bool {
-        clipboardPanel?.isVisible == true
-    }
-
     func toggleMainApp() {
         if isMainAppVisible {
             hideMainApp()
@@ -266,6 +251,9 @@ final class PanelController {
         if isQuickLauncherVisible {
             hideQuickLauncher()
         } else {
+            if isClipboardVisible {
+                hideClipboardHistory()
+            }
             showQuickLauncher()
         }
     }
@@ -287,16 +275,12 @@ final class PanelController {
         panel.setFrame(targetScreen.frame, display: true)
 
         lastQuickShowTime = Date()
+        isClipboardVisible = true
         panel.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-
-        DispatchQueue.main.async {
-            panel.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-        }
     }
 
     func hideClipboardHistory() {
+        isClipboardVisible = false
         clipboardPanel?.orderOut(nil)
     }
 
@@ -309,19 +293,27 @@ final class PanelController {
     }
 
     func toggle() {
-        if isClipboardVisible {
-            hideClipboardHistory()
-            return
-        }
-        if isQuickLauncherVisible {
-            hideQuickLauncher()
-            return
-        }
-        showQuickLauncher()
+        toggleQuickLauncher()
     }
 
     func show(mode: LauncherMode? = nil) {
-        showQuickLauncher()
+        let targetMode: LauncherMode
+        if let mode = mode {
+            targetMode = mode
+        } else if let raw = UserDefaults.standard.string(forKey: "defaultMode"),
+                  let m = LauncherMode(rawValue: raw),
+                  m != .fullScreen {
+            targetMode = m
+        } else {
+            targetMode = .classicLauncher
+        }
+
+        switch targetMode {
+        case .fullScreen:
+            showMainApp()
+        case .quickLauncher, .classicLauncher:
+            showQuickLauncher(mode: targetMode)
+        }
     }
 
     func showMainApp() {
@@ -334,9 +326,11 @@ final class PanelController {
         hideClipboardHistory()
         guard let window = mainAppWindow else { return }
 
-        // Position on target screen where mouse is currently located
-        let targetScreen = Self.targetScreenForPointer()
-        repositionWindowInsideVisibleScreen(window, on: targetScreen)
+        // Position on target screen where mouse is currently located (only if not already visible)
+        if !window.isVisible {
+            let targetScreen = Self.targetScreenForPointer()
+            repositionWindowInsideVisibleScreen(window, on: targetScreen)
+        }
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -344,7 +338,7 @@ final class PanelController {
         AppDiscoveryService.shared.updateRunningApplications()
     }
 
-    func showQuickLauncher() {
+    func showQuickLauncher(mode: LauncherMode? = nil) {
         if let frontApp = NSWorkspace.shared.frontmostApplication,
            frontApp.bundleIdentifier != Bundle.main.bundleIdentifier {
             WindowManagementService.shared.lastExternalApp = frontApp
@@ -352,6 +346,14 @@ final class PanelController {
         }
         hideClipboardHistory()
         guard let panel = quickLauncherPanel else { return }
+
+        if let mode = mode {
+            if mode == .classicLauncher {
+                UserDefaults.standard.set("classic", forKey: "floatingLauncherStyle")
+            } else if mode == .quickLauncher {
+                UserDefaults.standard.set("quick", forKey: "floatingLauncherStyle")
+            }
+        }
 
         // Always center on Rank #1 app (middle-out usage center) before presenting
         let targetCenter = AppDiscoveryService.shared.apps.count / 2
@@ -363,9 +365,9 @@ final class PanelController {
         lastQuickShowTime = Date()
         KeyboardModifierManager.shared.reset()
         panel.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
 
-        NotificationCenter.default.post(name: .panelDidShow, object: LauncherMode.quickLauncher)
+        let resolvedMode = mode ?? (UserDefaults.standard.string(forKey: "floatingLauncherStyle") == "quick" ? LauncherMode.quickLauncher : LauncherMode.classicLauncher)
+        NotificationCenter.default.post(name: .panelDidShow, object: resolvedMode)
         AppDiscoveryService.shared.updateRunningApplications()
     }
 
@@ -380,7 +382,6 @@ final class PanelController {
     func hide() {
         hideQuickLauncher()
         hideClipboardHistory()
-        mainAppWindow?.orderOut(nil)
     }
 }
 
@@ -388,3 +389,30 @@ extension Notification.Name {
     static let panelDidShow = Notification.Name("AppsChannelPanelDidShow")
     static let quickLauncherDidDismiss = Notification.Name("AppsChannelQuickLauncherDidDismiss")
 }
+
+// MARK: - Clipboard Host View
+struct ClipboardHostView: View {
+    @ObservedObject var panelController = PanelController.shared
+
+    var body: some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .ignoresSafeArea()
+                .onTapGesture {
+                    panelController.hideClipboardHistory()
+                }
+
+            if panelController.isClipboardVisible {
+                ClipboardHistoryView(
+                    onClose: {
+                        panelController.hideClipboardHistory()
+                    }
+                )
+                .transition(.scale(scale: 0.96).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: panelController.isClipboardVisible)
+    }
+}
+
