@@ -863,6 +863,7 @@ final class AppDiscoveryService: ObservableObject {
             URL(fileURLWithPath: "/Applications/Utilities"),
             URL(fileURLWithPath: "/System/Applications"),
             URL(fileURLWithPath: "/System/Applications/Utilities"),
+            URL(fileURLWithPath: "/System/Library/CoreServices/Applications"),
             fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
         ]
 
@@ -903,6 +904,7 @@ final class AppDiscoveryService: ObservableObject {
             URL(fileURLWithPath: "/Applications/Utilities"),
             URL(fileURLWithPath: "/System/Applications"),
             URL(fileURLWithPath: "/System/Applications/Utilities"),
+            URL(fileURLWithPath: "/System/Library/CoreServices/Applications"),
             fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
         ]
 
@@ -950,16 +952,36 @@ final class AppDiscoveryService: ObservableObject {
 
         let path = url.path
 
-        // Exclude internal system library helpers, input methods, and daemons
+        // Exclude internal frameworks, app helpers, xpc services, and build directories
+        if path.contains(".app/Contents/") || path.contains(".framework/") { return nil }
+        if path.contains("/DerivedData/") || path.contains("/build/") || path.contains("/.Trash/") { return nil }
+
+        // Exclude internal system library helpers, input methods, and background daemons
         if path.contains("/System/Library/Input Methods") || path.contains("/Library/Input Methods") { return nil }
         if path.contains("/System/Library/Image Capture") || path.contains("/Library/Image Capture") { return nil }
         if path.contains("/System/Library/Services") || path.contains("/Library/Services") { return nil }
         if path.contains("/System/Library/PrivateFrameworks") || path.contains("/Library/Apple/") { return nil }
+        if path.contains("/Library/Application Support/") || path.contains("/Library/PrivilegedHelperTools/") { return nil }
         if path.contains("/System/Library/CoreServices") && !path.hasSuffix("/Finder.app") && !path.contains("/CoreServices/Applications/") { return nil }
 
+        let isStandardAppLocation: Bool = {
+            let lower = path.lowercased()
+            if lower.hasPrefix("/applications/") || lower.hasPrefix("/system/applications/") {
+                return true
+            }
+            if lower.hasPrefix("/system/library/coreservices/applications/") {
+                return true
+            }
+            let homeApps = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications").path.lowercased()
+            if lower.hasPrefix(homeApps) {
+                return true
+            }
+            return false
+        }()
+
         let bundle = Bundle(url: url)
-        if let info = bundle?.infoDictionary {
-            // Exclude background agents, daemons, and apps with no GUI
+        if !isStandardAppLocation, let info = bundle?.infoDictionary {
+            // Exclude background agents, daemons, and apps with no GUI when located outside standard application directories
             if let uiElement = info["LSUIElement"] as? Bool, uiElement { return nil }
             if let uiElementStr = info["LSUIElement"] as? String, uiElementStr == "1" { return nil }
             if let bgOnly = info["LSBackgroundOnly"] as? Bool, bgOnly { return nil }

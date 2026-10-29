@@ -75,7 +75,8 @@ final class QuickLauncherState: ObservableObject {
             let score = AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch)
             let matchesName = app.name.localizedCaseInsensitiveContains(trimmedSearch)
             let matchesCategory = app.category.localizedCaseInsensitiveContains(trimmedSearch)
-            if matchesName || matchesCategory || score >= 40.0 {
+            let matchesBundle = app.bundleIdentifier?.localizedCaseInsensitiveContains(trimmedSearch) ?? false
+            if matchesName || matchesCategory || matchesBundle || score >= 40.0 {
                 return (app, score)
             }
             return nil

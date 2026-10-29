@@ -195,10 +195,11 @@ final class ClassicLauncherState: ObservableObject {
                 let score = usageTracker.searchScore(for: app, query: trimmed)
                 let matchesName = app.name.localizedCaseInsensitiveContains(trimmed)
                 let matchesCat = app.category.localizedCaseInsensitiveContains(trimmed)
+                let matchesBundle = app.bundleIdentifier?.localizedCaseInsensitiveContains(trimmed) ?? false
                 let matchesKeywords = app.systemAction?.keywords.contains { $0.localizedCaseInsensitiveContains(trimmed) } ?? false
                 let matchesWindow = app.windowAction?.keywords.contains { $0.localizedCaseInsensitiveContains(trimmed) } ?? false
 
-                if matchesName || matchesCat || matchesKeywords || matchesWindow || score >= 40.0 {
+                if matchesName || matchesCat || matchesBundle || matchesKeywords || matchesWindow || score >= 40.0 {
                     return (app, score)
                 }
                 return nil

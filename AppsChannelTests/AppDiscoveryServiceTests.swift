@@ -229,7 +229,6 @@ final class AppDiscoveryServiceTests: XCTestCase {
             XCTAssertEqual(app?.url, finderURL)
         }
     }
-
     @MainActor
     func testMenuBarManagerVisibilityToggle() {
         let manager = MenuBarManager.shared
@@ -559,6 +558,45 @@ final class AppDiscoveryServiceTests: XCTestCase {
         state.searchText = "spotify"
         state.searchText = ""
         XCTAssertEqual(state.searchText, "")
+    }
+
+    func testMenuBarAndAgentAppDiscoveryInApplications() {
+        let companionURL = URL(fileURLWithPath: "/Applications/Companion.app")
+        if FileManager.default.fileExists(atPath: companionURL.path) {
+            let app = AppDiscoveryService.buildApp(at: companionURL)
+            XCTAssertNotNil(app, "Bitfocus Companion must not be filtered out despite LSUIElement and LSBackgroundOnly")
+            XCTAssertEqual(app?.name, "Companion")
+        }
+
+        let dockerURL = URL(fileURLWithPath: "/Applications/Docker.app")
+        if FileManager.default.fileExists(atPath: dockerURL.path) {
+            let app = AppDiscoveryService.buildApp(at: dockerURL)
+            XCTAssertNotNil(app, "Docker must not be filtered out despite LSUIElement")
+        }
+    }
+
+    @MainActor
+    func testMultiWordBundleIdentifierSearchScoring() {
+        let companionApp = DiscoveredApp(
+            id: UUID(),
+            name: "Companion",
+            url: URL(fileURLWithPath: "/Applications/Companion.app"),
+            bundleIdentifier: "test-companion.bitfocus.no",
+            icon: NSImage(),
+            category: "APPLICATIONS",
+            tagBadge: "Universal",
+            sizeString: "50 MB",
+            accentColor: .white
+        )
+
+        let tracker = AppUsageTracker.shared
+        // Searching "bitfocus"
+        let bitfocusScore = tracker.searchScore(for: companionApp, query: "bitfocus")
+        XCTAssertGreaterThan(bitfocusScore, 40.0, "Searching for 'bitfocus' should match bundle identifier")
+
+        // Searching "bitfocus companion"
+        let multiWordScore = tracker.searchScore(for: companionApp, query: "bitfocus companion")
+        XCTAssertGreaterThan(multiWordScore, 40.0, "Multi-word search 'bitfocus companion' should match app")
     }
 }
 

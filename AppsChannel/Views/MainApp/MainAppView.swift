@@ -89,6 +89,7 @@ struct MainAppView: View {
         let candidates = searchSource.filter { app in
             app.name.localizedCaseInsensitiveContains(trimmedSearch) ||
             app.category.localizedCaseInsensitiveContains(trimmedSearch) ||
+            (app.bundleIdentifier?.localizedCaseInsensitiveContains(trimmedSearch) ?? false) ||
             AppUsageTracker.shared.searchScore(for: app, query: trimmedSearch) >= 40.0
         }
 

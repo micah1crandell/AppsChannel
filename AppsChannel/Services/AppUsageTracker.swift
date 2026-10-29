@@ -521,6 +521,27 @@ final class AppUsageTracker: ObservableObject {
             score += 45.0
         }
 
+        // Bundle Identifier Match (e.g. "bitfocus" matches "test-companion.bitfocus.no")
+        if let bundleId = app.bundleIdentifier?.lowercased() {
+            if bundleId == q {
+                score += 180.0
+            } else if bundleId.contains(q) {
+                score += 85.0
+            }
+        }
+
+        // Multi-word token match (e.g. "bitfocus companion" matches an app whose combined name, bundleId, and category contain all search tokens)
+        let queryTokens = q.components(separatedBy: CharacterSet.whitespacesAndNewlines).filter { !$0.isEmpty }
+        if queryTokens.count > 1 {
+            let bundleId = app.bundleIdentifier?.lowercased() ?? ""
+            let category = app.category.lowercased()
+            let combinedSearchText = "\(name) \(bundleId) \(category)"
+            let allMatch = queryTokens.allSatisfy { combinedSearchText.contains($0) }
+            if allMatch {
+                score += 120.0
+            }
+        }
+
         // 4. Aliases Match (e.g. "calc" -> "Calculator", "term" -> "iTerm")
         for (aliasKey, targets) in Self.commonAliases {
             if q == aliasKey || (q.count >= 3 && aliasKey.hasPrefix(q)) {
